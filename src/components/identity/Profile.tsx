@@ -1,29 +1,156 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { readProfile, updateProfile, PROFILE_CONTRACT_NAME } from '../../store/slices/contractsSlice';
 import { User, Camera, Save, Key, Server } from 'lucide-react';
 import './Profile.scss';
 
 const Profile: React.FC = () => {
   const { user, updateUser } = useAuth();
-  const [firstName, setFirstName] = useState(user?.firstName || '');
-  const [lastName, setLastName] = useState(user?.lastName || '');
+  const dispatch = useAppDispatch();
+  const { contracts, profile, loading, error } = useAppSelector((state) => state.contracts);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [tempImageData, setTempImageData] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = () => {
-    updateUser({ firstName, lastName });
-    setIsEditing(false);
+  // Load profile from contract when component mounts or contracts change
+  useEffect(() => {
+    if (user && contracts.length > 0) {
+      const profileContract = contracts.find(contract => contract.name === PROFILE_CONTRACT_NAME);
+      if (profileContract) {
+        dispatch(readProfile({
+          serverUrl: user.serverUrl,
+          publicKey: user.publicKey,
+          contractId: profileContract.id
+        }));
+      }
+    }
+  }, [user, contracts, dispatch]);
+
+  // Update local state when profile is loaded
+  useEffect(() => {
+    if (profile) {
+      setFirstName(profile.firstName || '');
+      setLastName(profile.lastName || '');
+      setImageUploadError(null); // Clear any previous image upload errors
+      setTempImageData(null); // Clear any temporary image data
+    }
+  }, [profile]);
+
+  // Helper function to resize image
+  const resizeImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // Set maximum dimensions for profile picture
+        const maxSize = 200;
+        let { width, height } = img;
+        
+        // Calculate new dimensions maintaining aspect ratio
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw resized image
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to data URL with reduced quality
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(dataUrl);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSave = async () => {
+    if (user && contracts.length > 0) {
+      const profileContract = contracts.find(contract => contract.name === PROFILE_CONTRACT_NAME);
+      if (profileContract) {
+        try {
+          setSaveError(null);
+          
+          // Prepare profile data including image if uploaded
+          const profileData: any = {
+            firstName,
+            lastName
+          };
+          
+          // Include image data if a new image was uploaded
+          if (tempImageData) {
+            profileData.userPhoto = tempImageData;
+          }
+          
+          await dispatch(updateProfile({
+            serverUrl: user.serverUrl,
+            publicKey: user.publicKey,
+            contractId: profileContract.id,
+            profileData
+          })).unwrap();
+          
+          // Refresh the profile data from the contract
+          await dispatch(readProfile({
+            serverUrl: user.serverUrl,
+            publicKey: user.publicKey,
+            contractId: profileContract.id
+          })).unwrap();
+          
+          setIsEditing(false);
+          setTempImageData(null); // Clear temporary image data after successful save
+        } catch (error) {
+          console.error('Failed to save profile:', error);
+          setSaveError('Failed to save profile. Please check your connection and try again.');
+        }
+      }
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        updateUser({ profilePicture: result });
-      };
-      reader.readAsDataURL(file);
+      try {
+        setImageUploadError(null);
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          setImageUploadError('Please select a valid image file.');
+          return;
+        }
+        
+        // Validate file size (max 5MB before processing)
+        if (file.size > 5 * 1024 * 1024) {
+          setImageUploadError('Image file is too large. Please select a smaller image.');
+          return;
+        }
+        
+        // Resize and compress the image
+        const resizedImageData = await resizeImage(file);
+        
+        // Store the processed image data temporarily (not saved to server yet)
+        setTempImageData(resizedImageData);
+        
+      } catch (error) {
+        console.error('Failed to process image:', error);
+        setImageUploadError('Failed to process image. Please try again.');
+      }
     }
   };
 
@@ -31,31 +158,72 @@ const Profile: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+  if (loading) {
+    return (
+      <div className="profile-container">
+        <div className="loading-message">Loading profile...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="profile-container">
+        <div className="error-message">
+          <div className="error-icon">⚠️</div>
+          <div className="error-content">
+            <div className="error-title">Connection Error</div>
+            <div className="error-description">{error}</div>
+            <div className="error-help">
+              Please make sure the server is running and try refreshing the page.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="profile-container">
       <div className="profile-header">
         <h1>Profile</h1>
         <p>Manage your personal information and identity</p>
+        {profile && (
+          <div className="profile-name">
+            {profile.firstName} {profile.lastName}
+          </div>
+        )}
       </div>
 
       <div className="profile-content">
         <div className="profile-section">
           <div className="profile-picture-section">
             <div className="profile-picture">
-              {user?.profilePicture ? (
-                <img src={user.profilePicture} alt="Profile" />
+              {(tempImageData || profile?.userPhoto) ? (
+                <img src={tempImageData || profile?.userPhoto} alt="Profile" />
               ) : (
                 <div className="profile-picture-placeholder">
                   <User size={48} />
                 </div>
               )}
-              <button
-                onClick={triggerFileInput}
-                className="upload-button"
-                title="Upload profile picture"
-              >
-                <Camera size={20} />
-              </button>
+              {imageUploadError && (
+                <div className="image-upload-error">
+                  <div className="error-icon">⚠️</div>
+                  <div className="error-content">
+                    <div className="error-title">Upload Error</div>
+                    <div className="error-description">{imageUploadError}</div>
+                  </div>
+                </div>
+              )}
+              {isEditing && (
+                <button
+                  onClick={triggerFileInput}
+                  className="upload-button"
+                  title="Upload profile picture"
+                >
+                  <Camera size={20} />
+                </button>
+              )}
             </div>
             <input
               ref={fileInputRef}
@@ -91,6 +259,16 @@ const Profile: React.FC = () => {
               />
             </div>
 
+            {saveError && (
+              <div className="error-message">
+                <div className="error-icon">⚠️</div>
+                <div className="error-content">
+                  <div className="error-title">Save Error</div>
+                  <div className="error-description">{saveError}</div>
+                </div>
+              </div>
+            )}
+            
             <div className="form-actions">
               {isEditing ? (
                 <>
@@ -103,6 +281,8 @@ const Profile: React.FC = () => {
                       setIsEditing(false);
                       setFirstName(user?.firstName || '');
                       setLastName(user?.lastName || '');
+                      setSaveError(null);
+                      setTempImageData(null); // Clear temporary image data
                     }}
                     className="cancel-button"
                   >
@@ -110,7 +290,10 @@ const Profile: React.FC = () => {
                   </button>
                 </>
               ) : (
-                <button onClick={() => setIsEditing(true)} className="edit-button">
+                <button onClick={() => {
+                  setIsEditing(true);
+                  setImageUploadError(null);
+                }} className="edit-button">
                   Edit Profile
                 </button>
               )}

@@ -24,7 +24,7 @@ function AppContent() {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Loading...</p>
+        <p>Validating session...</p>
       </div>
     );
   }

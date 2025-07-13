@@ -4,12 +4,22 @@ import { Key, Server, ArrowRight, RefreshCw } from 'lucide-react';
 import '../components/login/LoginPage.scss';
 
 const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+  const { login, isLoading } = useAuth();
   const [publicKey, setPublicKey] = useState('');
   const [serverUrl, setServerUrl] = useState('');
   const [serverUrlHistory, setServerUrlHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [isValid, setIsValid] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Check for stored error messages on component mount
+  useEffect(() => {
+    const storedError = localStorage.getItem('loginError');
+    if (storedError) {
+      setLoginError(storedError);
+      localStorage.removeItem('loginError'); // Clear the stored error
+    }
+  }, []);
 
   useEffect(() => {
     // Load server URL history from localStorage
@@ -45,14 +55,21 @@ const LoginPage: React.FC = () => {
     setShowHistory(false);
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (isValid) {
-      // Save server URL to history
-      const newHistory = [serverUrl, ...serverUrlHistory.filter(url => url !== serverUrl)].slice(0, 10);
-      setServerUrlHistory(newHistory);
-      localStorage.setItem('serverUrlHistory', JSON.stringify(newHistory));
-      
-      login(publicKey, serverUrl);
+      try {
+        setLoginError(null);
+        
+        // Save server URL to history
+        const newHistory = [serverUrl, ...serverUrlHistory.filter(url => url !== serverUrl)].slice(0, 10);
+        setServerUrlHistory(newHistory);
+        localStorage.setItem('serverUrlHistory', JSON.stringify(newHistory));
+        
+        await login(publicKey, serverUrl);
+      } catch (error) {
+        console.error('Login failed:', error);
+        setLoginError(error instanceof Error ? error.message : 'Login failed. Please try again.');
+      }
     }
   };
 
@@ -121,13 +138,34 @@ const LoginPage: React.FC = () => {
             </div>
           </div>
 
+          {loginError && (
+            <div className={`error-message ${loginError.includes('server') ? 'server-error' : 'general-error'}`}>
+              <div className="error-icon">⚠️</div>
+              <div className="error-content">
+                <div className="error-title">
+                  {loginError.includes('connect to the server') || loginError.includes('unreachable') ? 'Connection Error' : 
+                   loginError.includes('recognize the API') || loginError.includes('incorrect') ? 'Invalid Server' : 'Login Error'}
+                </div>
+                <div className="error-description">{loginError}</div>
+                {(loginError.includes('unreachable') || loginError.includes('connection')) && (
+                  <button 
+                    onClick={() => setLoginError(null)}
+                    className="retry-button"
+                  >
+                    Try Again
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          
           <button
             onClick={handleLogin}
-            disabled={!isValid}
+            disabled={!isValid || isLoading}
             className="login-button"
           >
-            <span>Connect</span>
-            <ArrowRight size={20} />
+            <span>{isLoading ? 'Connecting...' : 'Connect'}</span>
+            {!isLoading && <ArrowRight size={20} />}
           </button>
         </div>
       </div>
