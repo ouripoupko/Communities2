@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3, Share2 } from 'lucide-react';
+import { useAppSelector } from '../store/hooks';
+import { useUrlData } from '../hooks/useUrlData';
 import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
@@ -8,43 +10,13 @@ import Outcome from '../components/issue/Outcome';
 import Share from '../components/issue/Share';
 import '../components/layout/Layout.scss';
 
-interface Issue {
-  id: string;
-  title: string;
-  description: string;
-  creatorId: string;
-  createdAt: string;
-  status: 'open' | 'voting' | 'closed';
-}
-
 const IssueView: React.FC = () => {
   const { issueId } = useParams<{ issueId: string }>();
   const navigate = useNavigate();
-  const [issue, setIssue] = useState<Issue | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Mock API call to fetch issue data
-    const fetchIssue = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      // Mock issue data
-      const mockIssue: Issue = {
-        id: issueId || '1',
-        title: 'Implement new authentication system',
-        description: 'We need to implement a more secure authentication system that supports OAuth2 and JWT tokens.',
-        creatorId: 'user-123',
-        createdAt: '2024-03-15',
-        status: 'open'
-      };
-      
-      setIssue(mockIssue);
-      setIsLoading(false);
-    };
-
-    fetchIssue();
-  }, [issueId]);
+  const { currentIssue, loading } = useAppSelector((state: any) => state.issues);
+  
+  // Use the URL data hook to handle direct links
+  useUrlData();
 
   const navItems = [
     { path: 'discussion', label: 'Discussion', icon: MessageSquare },
@@ -54,7 +26,7 @@ const IssueView: React.FC = () => {
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="issue-view-container">
         <div className="loading-state">
@@ -65,7 +37,7 @@ const IssueView: React.FC = () => {
     );
   }
 
-  if (!issue) {
+  if (!currentIssue) {
     return (
       <div className="issue-view-container">
         <div className="error-state">
@@ -87,14 +59,14 @@ const IssueView: React.FC = () => {
           Back to Community
         </button>
         <div className="issue-info">
-          <h1>{issue.title}</h1>
-          <p>{issue.description}</p>
+          <h1>{currentIssue.title}</h1>
+          <p>{currentIssue.description}</p>
           <div className="issue-stats">
             <span className="stat">
-              Created: {issue.createdAt}
+              Created: {currentIssue.createdAt}
             </span>
-            <span className={`status-badge ${issue.status}`}>
-              {issue.status.charAt(0).toUpperCase() + issue.status.slice(1)}
+            <span className={`status-badge ${currentIssue.status}`}>
+              {currentIssue.status.charAt(0).toUpperCase() + currentIssue.status.slice(1)}
             </span>
           </div>
         </div>

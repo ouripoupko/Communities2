@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Plus, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchIssues, createIssue } from '../../store/slices/issuesSlice';
+import type { Issue } from '../../services/api';
 import './Issues.scss';
-
-interface Issue {
-  id: string;
-  title: string;
-  description: string;
-  status: 'open' | 'voting' | 'closed';
-  createdAt: string;
-  creatorName: string;
-  proposalCount: number;
-}
 
 interface IssuesProps {
   communityId: string;
@@ -19,70 +12,27 @@ interface IssuesProps {
 
 const Issues: React.FC<IssuesProps> = ({ communityId }) => {
   const navigate = useNavigate();
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const { issues, loading } = useAppSelector((state: any) => state.issues);
+  const { currentUser } = useAppSelector((state: any) => state.user);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newIssueTitle, setNewIssueTitle] = useState('');
   const [newIssueDescription, setNewIssueDescription] = useState('');
 
   useEffect(() => {
-    // Mock API call to fetch issues
-    const fetchIssues = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Mock data
-      const mockIssues: Issue[] = [
-        {
-          id: '1',
-          title: 'Implement new authentication system',
-          description: 'We need to implement a more secure authentication system that supports OAuth2 and JWT tokens.',
-          status: 'open',
-          createdAt: '2024-03-15',
-          creatorName: 'John Doe',
-          proposalCount: 3
-        },
-        {
-          id: '2',
-          title: 'Redesign user interface',
-          description: 'The current UI needs a complete redesign to improve user experience and accessibility.',
-          status: 'voting',
-          createdAt: '2024-03-10',
-          creatorName: 'Jane Smith',
-          proposalCount: 5
-        },
-        {
-          id: '3',
-          title: 'Add dark mode support',
-          description: 'Users have requested dark mode support for better accessibility and user preference.',
-          status: 'closed',
-          createdAt: '2024-03-05',
-          creatorName: 'Mike Johnson',
-          proposalCount: 2
-        }
-      ];
-      
-      setIssues(mockIssues);
-      setIsLoading(false);
-    };
-
-    fetchIssues();
-  }, [communityId]);
+    dispatch(fetchIssues(communityId));
+  }, [dispatch, communityId]);
 
   const handleCreateIssue = async () => {
-    if (!newIssueTitle.trim()) return;
+    if (!newIssueTitle.trim() || !currentUser) return;
 
-    const newIssue: Issue = {
-      id: Date.now().toString(),
+    await dispatch(createIssue({
+      communityId,
       title: newIssueTitle,
       description: newIssueDescription,
-      status: 'open',
-      createdAt: new Date().toISOString().split('T')[0],
-      creatorName: 'You',
-      proposalCount: 0
-    };
+      createdBy: currentUser.id
+    }));
 
-    setIssues([newIssue, ...issues]);
     setNewIssueTitle('');
     setNewIssueDescription('');
     setShowCreateForm(false);
@@ -105,7 +55,7 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="issues-container">
         <div className="loading-state">
@@ -174,7 +124,7 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
       )}
 
       <div className="issues-list">
-        {issues.map((issue) => (
+        {issues.map((issue: Issue) => (
           <div
             key={issue.id}
             className="issue-card"
@@ -218,7 +168,7 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
         ))}
       </div>
 
-      {issues.length === 0 && !isLoading && (
+      {issues.length === 0 && !loading && (
         <div className="empty-state">
           <MessageSquare size={48} />
           <h3>No Issues Yet</h3>

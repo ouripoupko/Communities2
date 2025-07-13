@@ -1,80 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Plus, ArrowRight, Settings } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchCommunities, createCommunity } from '../../store/slices/communitiesSlice';
 import './Communities.scss';
-
-interface Community {
-  id: string;
-  name: string;
-  description: string;
-  memberCount: number;
-  isOwner: boolean;
-  createdAt: string;
-}
 
 const Communities: React.FC = () => {
   const navigate = useNavigate();
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const { communities, loading } = useAppSelector(state => state.communities);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [newCommunityDescription, setNewCommunityDescription] = useState('');
 
   useEffect(() => {
-    // Mock API call to fetch communities
-    const fetchCommunities = async () => {
-      setIsLoading(true);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock data
-      const mockCommunities: Community[] = [
-        {
-          id: '1',
-          name: 'Open Source Contributors',
-          description: 'A community for open source developers and contributors',
-          memberCount: 156,
-          isOwner: true,
-          createdAt: '2024-01-15'
-        },
-        {
-          id: '2',
-          name: 'Design System Team',
-          description: 'Collaborative design system development and maintenance',
-          memberCount: 23,
-          isOwner: false,
-          createdAt: '2024-02-20'
-        },
-        {
-          id: '3',
-          name: 'Product Strategy',
-          description: 'Product strategy discussions and decision making',
-          memberCount: 8,
-          isOwner: true,
-          createdAt: '2024-03-10'
-        }
-      ];
-      
-      setCommunities(mockCommunities);
-      setIsLoading(false);
-    };
-
-    fetchCommunities();
-  }, []);
+    dispatch(fetchCommunities());
+  }, [dispatch]);
 
   const handleCreateCommunity = async () => {
     if (!newCommunityName.trim()) return;
 
-    const newCommunity: Community = {
-      id: Date.now().toString(),
+    await dispatch(createCommunity({
       name: newCommunityName,
-      description: newCommunityDescription,
-      memberCount: 1,
-      isOwner: true,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
+      description: newCommunityDescription
+    }));
 
-    setCommunities([newCommunity, ...communities]);
     setNewCommunityName('');
     setNewCommunityDescription('');
     setShowCreateForm(false);
@@ -84,7 +34,7 @@ const Communities: React.FC = () => {
     navigate(`/community/${communityId}`);
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="communities-container">
         <div className="loading-state">
@@ -196,7 +146,7 @@ const Communities: React.FC = () => {
         ))}
       </div>
 
-      {communities.length === 0 && !isLoading && (
+      {communities.length === 0 && !loading && (
         <div className="empty-state">
           <Users size={48} />
           <h3>No Communities Yet</h3>

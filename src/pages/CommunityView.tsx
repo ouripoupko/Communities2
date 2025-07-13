@@ -1,47 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Users, Coins, Share2 } from 'lucide-react';
+import { useAppSelector } from '../store/hooks';
+import { useUrlData } from '../hooks/useUrlData';
 import Issues from '../components/community/Issues';
 import Members from '../components/community/Members';
 import Currency from '../components/community/Currency';
 import Share from '../components/community/Share';
 import '../components/layout/Layout.scss';
 
-interface Community {
-  id: string;
-  name: string;
-  description: string;
-  memberCount: number;
-  isOwner: boolean;
-}
-
 const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
-  const [community, setCommunity] = useState<Community | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Mock API call to fetch community data
-    const fetchCommunity = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Mock community data
-      const mockCommunity: Community = {
-        id: communityId || '1',
-        name: 'Open Source Contributors',
-        description: 'A community for open source developers and contributors',
-        memberCount: 156,
-        isOwner: true
-      };
-      
-      setCommunity(mockCommunity);
-      setIsLoading(false);
-    };
-
-    fetchCommunity();
-  }, [communityId]);
+  const { currentCommunity, loading } = useAppSelector(state => state.communities);
+  
+  // Use the URL data hook to handle direct links
+  useUrlData();
 
   const navItems = [
     { path: 'issues', label: 'Issues', icon: MessageSquare },
@@ -50,7 +24,7 @@ const CommunityView: React.FC = () => {
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="community-view-container">
         <div className="loading-state">
@@ -61,7 +35,7 @@ const CommunityView: React.FC = () => {
     );
   }
 
-  if (!community) {
+  if (!currentCommunity) {
     return (
       <div className="community-view-container">
         <div className="error-state">
@@ -84,16 +58,16 @@ const CommunityView: React.FC = () => {
             Back
           </button>
           <div className="community-info">
-            <h1>{community.name}</h1>
-            <p>{community.description}</p>
+            <h1>{currentCommunity.name}</h1>
+            <p>{currentCommunity.description}</p>
           </div>
         </div>
         <div className="header-right">
           <span className="stat">
             <Users size={16} />
-            {community.memberCount} members
+            {currentCommunity.memberCount} members
           </span>
-          {community.isOwner && (
+          {currentCommunity.isOwner && (
             <span className="owner-badge">Owner</span>
           )}
         </div>
