@@ -117,10 +117,15 @@ const LoginPage: React.FC = () => {
                 id="serverUrl"
                 type="url"
                 value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
+                onChange={(e) => {
+                  setServerUrl(e.target.value);
+                  setShowHistory(false); // Hide dropdown when editing after selection
+                }}
                 onFocus={() => setShowHistory(true)}
+                onBlur={() => setShowHistory(false)}
                 placeholder="https://your-server.com"
                 className="input-field"
+                autoComplete="off"
               />
               {showHistory && serverUrlHistory.length > 0 && (
                 <div className="history-dropdown">
@@ -128,7 +133,7 @@ const LoginPage: React.FC = () => {
                     <div
                       key={index}
                       className="history-item"
-                      onClick={() => handleServerUrlSelect(url)}
+                      onMouseDown={() => handleServerUrlSelect(url)} // Use onMouseDown so it fires before blur
                     >
                       {url}
                     </div>

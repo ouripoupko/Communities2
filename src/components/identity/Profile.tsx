@@ -16,20 +16,33 @@ const Profile: React.FC = () => {
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [tempImageData, setTempImageData] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track last loaded contractId to prevent redundant loads
+  const lastLoadedProfileRef = useRef<{user: string, contractId: string} | null>(null);
 
   // Load profile from contract when component mounts or contracts change
   useEffect(() => {
-    if (user && contracts.length > 0) {
+    if (
+      user &&
+      contracts.length > 0 &&
+      contracts.find(contract => contract.name === PROFILE_CONTRACT_NAME)
+    ) {
       const profileContract = contracts.find(contract => contract.name === PROFILE_CONTRACT_NAME);
-      if (profileContract) {
+      if (
+        profileContract &&
+        (!lastLoadedProfileRef.current ||
+          lastLoadedProfileRef.current.user !== user.publicKey ||
+          lastLoadedProfileRef.current.contractId !== profileContract.id)
+      ) {
         dispatch(readProfile({
           serverUrl: user.serverUrl,
           publicKey: user.publicKey,
           contractId: profileContract.id
         }));
+        lastLoadedProfileRef.current = { user: user.publicKey, contractId: profileContract.id };
       }
     }
-  }, [user, contracts, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, contracts]);
 
   // Update local state when profile is loaded
   useEffect(() => {

@@ -62,40 +62,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const validateStoredCredentials = async (publicKey: string, serverUrl: string) => {
     try {
       // First check if agent exists
-      await dispatch(checkAgentExists({ serverUrl, publicKey })).unwrap();
-      
-      // If agent exists, fetch contracts
-      const contracts = await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-      
-      // Check if profile contract exists, if not deploy it
-      const hasProfileContract = contracts.some(contract => contract.name === PROFILE_CONTRACT_NAME);
-      console.log('validateStoredCredentials - Existing contracts:', contracts.map(c => c.name));
-      console.log('validateStoredCredentials - Has profile contract:', hasProfileContract);
-      
-      if (!hasProfileContract) {
-        console.log('validateStoredCredentials - Deploying profile contract...');
-        await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
-        console.log('validateStoredCredentials - Profile contract deployed successfully');
-        
-        // Fetch contracts again to update the store with the newly deployed contract
-        await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-        console.log('validateStoredCredentials - Contracts refreshed after deployment');
+      let agentExists = false;
+      try {
+        agentExists = await dispatch(checkAgentExists({ serverUrl, publicKey })).unwrap();
+      } catch (error) {
+        throw error;
       }
-      
-      // Clear any previous errors since validation succeeded
-      dispatch(clearError());
-      setIsLoading(false);
+      if (agentExists) {
+        let contracts;
+        try {
+          contracts = await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
+        } catch (error) {
+          throw error;
+        }
+        // Check if profile contract exists, if not deploy it
+        const hasProfileContract = contracts.some(contract => contract.name === PROFILE_CONTRACT_NAME);
+        if (!hasProfileContract) {
+          try {
+            await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
+            await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
+          } catch (error) {
+            throw error;
+          }
+        }
+        dispatch(clearError());
+        setIsLoading(false);
+      } else {
+        // Agent does not exist, register it
+        try {
+          await dispatch(registerAgent({ serverUrl, publicKey })).unwrap();
+          await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
+          await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
+          dispatch(clearError());
+          setIsLoading(false);
+        } catch (error) {
+          throw error;
+        }
+      }
     } catch (error) {
-      console.error('Stored credentials validation failed:', error);
-      
-      // Clear invalid stored data
+      // Fail fast: show error, clear state, and exit
       setUser(null);
       localStorage.removeItem('user');
       dispatch(clearContracts());
-      
       setIsLoading(false);
-      
-      // Store error for display on login page
       if (error instanceof APIError) {
         if (error.isNetworkError) {
           localStorage.setItem('loginError', 'Your previous session could not be restored because the server is unreachable. Please check your connection and try again.');
@@ -107,53 +116,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         localStorage.setItem('loginError', 'Your previous session could not be restored. Please log in again.');
       }
+      return; // Do not proceed further
     }
   };
 
   const handleLoadContracts = async (publicKey: string, serverUrl: string) => {
+    // First check if agent exists
+    let agentExists = false;
     try {
-      // First check if agent exists
-      await dispatch(checkAgentExists({ serverUrl, publicKey })).unwrap();
-      
-      // If agent exists, fetch contracts
-      const contracts = await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-      
-      // Check if profile contract exists, if not deploy it
-      const hasProfileContract = contracts.some(contract => contract.name === PROFILE_CONTRACT_NAME);
-      console.log('handleLoadContracts - Existing contracts:', contracts.map(c => c.name));
-      console.log('handleLoadContracts - Has profile contract:', hasProfileContract);
-      
-      if (!hasProfileContract) {
-        console.log('handleLoadContracts - Deploying profile contract...');
-        await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
-        console.log('handleLoadContracts - Profile contract deployed successfully');
-        
-        // Fetch contracts again to update the store with the newly deployed contract
-        await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-        console.log('handleLoadContracts - Contracts refreshed after deployment');
-      }
-      
-      // Clear any previous errors since login succeeded
-      dispatch(clearError());
+      agentExists = await dispatch(checkAgentExists({ serverUrl, publicKey })).unwrap();
     } catch (error) {
-      // If agent doesn't exist, register it
+      // Fail fast: show error and exit
+      throw error;
+    }
+    if (agentExists) {
+      let contracts;
       try {
-        console.log('handleLoadContracts - Registering new agent...');
+        contracts = await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
+      } catch (error) {
+        // Fail fast: show error and exit
+        throw error;
+      }
+      const hasProfileContract = contracts.some(contract => contract.name === PROFILE_CONTRACT_NAME);
+      if (!hasProfileContract) {
+        try {
+          await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
+          await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
+        } catch (error) {
+          // Fail fast: show error and exit
+          throw error;
+        }
+      }
+      dispatch(clearError());
+    } else {
+      // Agent does not exist, register it
+      try {
         await dispatch(registerAgent({ serverUrl, publicKey })).unwrap();
-        // After registration, deploy profile contract (new agents won't have it)
-        console.log('handleLoadContracts - Deploying profile contract for new agent...');
         await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
-        console.log('handleLoadContracts - New agent setup complete');
-        
-        // Fetch contracts to update the store with the newly deployed contract
         await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-        console.log('handleLoadContracts - Contracts loaded for new agent');
-        
-        // Clear any previous errors since login succeeded
         dispatch(clearError());
-      } catch (registerError) {
-        console.error('Failed to register agent:', registerError);
-        throw registerError;
+      } catch (error) {
+        // Fail fast: show error and exit
+        throw error;
       }
     }
   };

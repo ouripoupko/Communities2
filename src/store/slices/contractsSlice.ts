@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import profileContractCode from "@/assets/contracts/gloki_contract.py?raw";
 
 export interface IContract {
   id: string;
@@ -208,50 +209,11 @@ export const deployProfileContract = createAsyncThunk(
   'contracts/deployProfileContract',
   async ({ serverUrl, publicKey }: { serverUrl: string; publicKey: string }) => {
     try {
-      // Read the contract code from the file
-      const contractCode = `class Profile:
-
-    def __init__(self):
-        self.profile = Storage('profile')['profile']
-        self.network = Storage('network')
-        self.issues = Storage('issues')
-
-    # profile
-    def get_profile(self):
-        return self.profile.get_dict()
-
-    def set_value(self, key, value):
-        self.profile[key] = value
-
-    def set_values(self, items):
-        for key, value in items.items():
-            self.profile[key] = value
-
-    def get_value(self, key):
-        return self.profile[key]
-
-    # network
-    def add_contacts(self, contacts):
-        me = master()
-        for contact in contacts:
-            if contact['agent'] not in self.network and contact['agent'] != me:
-                self.network[contact['agent']] = {'server': contact['server'], 'agent': contact['agent'], 'contract': contact['contract']}
-
-    def get_contacts(self):
-        return [self.network[agent].get_dict() for agent in self.network]
-    
-    # issues
-    def add_issue(self, contract):
-        self.issues[contract] = {}
-
-    def get_issues(self):
-        return [key for key in self.issues]`;
-
       const profileContract: IContract = {
-        id: PROFILE_CONTRACT_NAME,
+        id: "",
         name: PROFILE_CONTRACT_NAME,
         contract: "gloki_contract.py",
-        code: contractCode,
+        code: profileContractCode,
         protocol: "BFT",
         default_app: "",
         pid: publicKey,
@@ -294,10 +256,8 @@ export const readProfile = createAsyncThunk(
     try {
       const method: IMethod = {
         name: "get_profile",
-        arguments: [],
         values: {},
-        parameters: {}
-      };
+      } as IMethod;
 
       const response = await fetchWithTimeout(`${serverUrl}/ibc/app/${publicKey}/${contractId}/get_profile?action=contract_read`, {
         method: 'POST',
@@ -336,12 +296,10 @@ export const updateProfile = createAsyncThunk(
     try {
       const method: IMethod = {
         name: "set_values",
-        arguments: [],
-        values: profileData,
-        parameters: {}
-      };
+        values: {items: profileData},
+      } as IMethod;
 
-      const response = await fetchWithTimeout(`${serverUrl}/ibc/app/${publicKey}/${contractId}/set_values?action=contract_read`, {
+      const response = await fetchWithTimeout(`${serverUrl}/ibc/app/${publicKey}/${contractId}/set_values?action=contract_write`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
