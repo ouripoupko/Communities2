@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
 import { checkAgentExists, registerAgent, fetchContracts, clearContracts, clearError, APIError, deployProfileContract, PROFILE_CONTRACT_NAME } from '../store/slices/contractsSlice';
 import type { AppDispatch } from '../store';
+import { eventStreamService } from '../services/eventStream';
 
 interface User {
   publicKey: string;
@@ -99,6 +100,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           throw error;
         }
       }
+      
+      // Connect to the SSE stream after successful validation
+      eventStreamService.connect(serverUrl, publicKey);
     } catch (error) {
       // Fail fast: show error, clear state, and exit
       setUser(null);
@@ -175,6 +179,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const newUser: User = { publicKey, serverUrl };
       setUser(newUser);
       localStorage.setItem('user', JSON.stringify(newUser));
+      
+      // Connect to the SSE stream
+      eventStreamService.connect(serverUrl, publicKey);
     } catch (error) {
       console.error('Login failed:', error);
       
@@ -199,6 +206,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     localStorage.removeItem('user');
     dispatch(clearContracts());
+    
+    // Disconnect from the SSE stream
+    eventStreamService.disconnect();
   };
 
   const updateUser = (updates: Partial<User>) => {

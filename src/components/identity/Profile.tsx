@@ -2,13 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { readProfile, updateProfile, PROFILE_CONTRACT_NAME } from '../../store/slices/contractsSlice';
+import { useEventStream, useEventStreamConnection } from '../../hooks/useEventStream';
 import { User, Camera, Save, Key, Server } from 'lucide-react';
 import './Profile.scss';
+import EventTest from './EventTest';
 
 const Profile: React.FC = () => {
   const { user, updateUser } = useAuth();
   const dispatch = useAppDispatch();
   const { contracts, profile, loading, error } = useAppSelector((state) => state.contracts);
+  const { isConnected } = useEventStreamConnection();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -33,6 +36,13 @@ const Profile: React.FC = () => {
           lastLoadedProfileRef.current.user !== user.publicKey ||
           lastLoadedProfileRef.current.contractId !== profileContract.id)
       ) {
+        console.log('🔍 Profile Contract Found:', {
+          contractId: profileContract.id,
+          contractName: profileContract.name,
+          publicKey: user.publicKey,
+          serverUrl: user.serverUrl
+        });
+        
         dispatch(readProfile({
           serverUrl: user.serverUrl,
           publicKey: user.publicKey,
@@ -53,6 +63,38 @@ const Profile: React.FC = () => {
       setTempImageData(null); // Clear any temporary image data
     }
   }, [profile]);
+
+  // Log all contracts when they change
+  useEffect(() => {
+    if (contracts.length > 0) {
+      console.log('📋 All Available Contracts:', contracts.map(contract => ({
+        id: contract.id,
+        name: contract.name,
+        isProfileContract: contract.name === PROFILE_CONTRACT_NAME
+      })));
+    }
+  }, [contracts]);
+
+  // Listen for profile contract write events
+  useEventStream('contract_write', (event) => {
+    if (user && contracts.length > 0) {
+      const profileContract = contracts.find(contract => contract.name === PROFILE_CONTRACT_NAME);
+      if (profileContract && event.contract === profileContract.id) {
+        console.log('🔄 Profile Contract Write Detected:', {
+          eventAction: event.action,
+          contractId: event.contract,
+          profileContractId: profileContract.id,
+          publicKey: user.publicKey
+        });
+        // Refresh profile data from the contract
+        dispatch(readProfile({
+          serverUrl: user.serverUrl,
+          publicKey: user.publicKey,
+          contractId: profileContract.id
+        }));
+      }
+    }
+  });
 
   // Helper function to resize image
   const resizeImage = (file: File): Promise<string> => {
@@ -119,13 +161,7 @@ const Profile: React.FC = () => {
             profileData
           })).unwrap();
           
-          // Refresh the profile data from the contract
-          await dispatch(readProfile({
-            serverUrl: user.serverUrl,
-            publicKey: user.publicKey,
-            contractId: profileContract.id
-          })).unwrap();
-          
+          // Profile data will be refreshed automatically via SSE event
           setIsEditing(false);
           setTempImageData(null); // Clear temporary image data after successful save
         } catch (error) {
@@ -206,6 +242,11 @@ const Profile: React.FC = () => {
             {profile.firstName} {profile.lastName}
           </div>
         )}
+        <div className="event-stream-status">
+          <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+            {isConnected ? '🟢 SSE Connected' : '🔴 SSE Disconnected'}
+          </span>
+        </div>
       </div>
 
       <div className="profile-content">
@@ -353,6 +394,9 @@ const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Temporary EventTest component for debugging */}
+      <EventTest />
     </div>
   );
 };
