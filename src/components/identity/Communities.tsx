@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, ArrowRight, Settings } from 'lucide-react';
+import { Users, Plus, ArrowRight } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { useAuth } from '../../contexts/AuthContext';
-import { useEventStream } from '../../hooks/useEventStream';
 import { fetchContracts } from '../../store/slices/contractsSlice';
-import { deployCommunityContract, setCommunityProperty, readCommunityProperties, COMMUNITY_CONTRACT_NAME } from '../../store/slices/contractsSlice';
+import { deployCommunityContract, setCommunityProperty, readCommunityProperties } from '../../store/slices/contractsSlice';
 import './Communities.scss';
-import Modal from 'react-modal';
 import { eventStreamService } from '../../services/eventStream';
 
 const Communities: React.FC = () => {
@@ -15,11 +13,11 @@ const Communities: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const { contracts, loading } = useAppSelector(state => state.contracts);
+  const { communityProperties } = useAppSelector(state => state.contracts as any);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [newCommunityDescription, setNewCommunityDescription] = useState('');
   const [communityLoading, setCommunityLoading] = useState(false);
-  const [communityProperties, setCommunityProperties] = useState<Record<string, any>>({});
   const [editCommunityId, setEditCommunityId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -40,14 +38,14 @@ const Communities: React.FC = () => {
     };
     const handleContractWrite = (event: any) => {
       // If the contract id matches a community contract, re-fetch its properties
-      const communityIds = communityContracts.map(c => c.id);
+      const communityIds = contracts.filter((c) => c.contract === 'community_contract.py').map(c => c.id);
       if (event.contract && communityIds.includes(event.contract)) {
         dispatch(readCommunityProperties({
           serverUrl: user.serverUrl,
           publicKey: user.publicKey,
           contractId: event.contract,
-        })).unwrap().then(props => {
-          setCommunityProperties(prev => ({ ...prev, [event.contract]: props }));
+        })).unwrap().then(() => {
+          // setCommunityProperties(prev => ({ ...prev, [event.contract]: props })); // This line is removed
         }).catch(() => {});
       }
     };
@@ -62,7 +60,7 @@ const Communities: React.FC = () => {
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
       eventListenerRegistered.current = false;
     };
-  }, [dispatch, user, communityContracts]);
+  }, [dispatch, user]);
 
   // Fetch properties for each community contract
   useEffect(() => {
@@ -70,12 +68,12 @@ const Communities: React.FC = () => {
     communityContracts.forEach(async (contract) => {
       if (!communityProperties[contract.id]) {
         try {
-          const props = await dispatch(readCommunityProperties({
+          await dispatch(readCommunityProperties({
             serverUrl: user.serverUrl,
             publicKey: user.publicKey,
             contractId: contract.id,
           })).unwrap();
-          setCommunityProperties((prev) => ({ ...prev, [contract.id]: props }));
+          // setCommunityProperties((prev) => ({ ...prev, [contract.id]: props })); // This line is removed
         } catch (error) {
           // Ignore errors for now
         }

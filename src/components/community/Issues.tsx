@@ -71,7 +71,7 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
       <div className="issues-header">
         <div>
           <h2>Issues</h2>
-          <p>Discuss and vote on community decisions</p>
+          <p>Raise any issue you want to discuss with the community</p>
         </div>
         <button
           onClick={() => setShowCreateForm(true)}

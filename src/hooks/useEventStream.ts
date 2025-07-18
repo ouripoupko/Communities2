@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState } from 'react';
-import { eventStreamService, type EventType, type EventListener, type BlockchainEvent } from '../services/eventStream';
+import { eventStreamService, type EventType, type EventListener } from '../services/eventStream';
 
 export const useEventStream = (eventType: EventType, listener: EventListener) => {
   const memoizedListener = useCallback(listener, [listener]);

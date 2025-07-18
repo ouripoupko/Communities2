@@ -8,7 +8,7 @@ import './Profile.scss';
 import EventTest from './EventTest';
 
 const Profile: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user } = useAuth();
   const dispatch = useAppDispatch();
   const { contracts, profile, loading, error } = useAppSelector((state) => state.contracts);
   const { isConnected } = useEventStreamConnection();

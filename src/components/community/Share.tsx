@@ -2,24 +2,44 @@ import React from 'react';
 import { Copy, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import './Share.scss';
+import { useAppSelector } from '../../store/hooks';
+import { useAuth } from '../../contexts/AuthContext';
+import { stringToUint8Array, hexToUint8Array, concatUint8Arrays, uint8ArrayToString } from '../../services/encodeDecode';
 
 interface ShareProps {
   communityId: string;
 }
 
 const Share: React.FC<ShareProps> = ({ communityId }) => {
-  const communityData = {
-    communityId,
-    communityName: 'Open Source Contributors',
-    serverUrl: 'https://example-server.com',
-    description: 'A community for open source developers and contributors',
-    memberCount: 156
+  // Get community contract info from Redux (or props/context as needed)
+  const { contracts } = useAppSelector(state => state.contracts);
+  const { user } = useAuth();
+  const communityContract = contracts.find(c => c.id === communityId);
+  const server = communityContract?.address || '';
+  const agent = user?.publicKey || '';
+  const contract = communityContract?.id || '';
+
+  // Only include the three fields needed for sharing
+  const credentials = {
+    server,
+    agent,
+    contract,
   };
 
-  const qrData = JSON.stringify(communityData);
+  // Encode invitation as specified
+  const encodeInvitation = () => {
+    const s = stringToUint8Array(server || "");
+    const a = stringToUint8Array(agent || "");
+    const c = hexToUint8Array(contract || "");
+    const lengths = new Uint8Array([s.length, a.length, c.length]);
+    const all = concatUint8Arrays([lengths, s, a, c]);
+    return uint8ArrayToString(all, "latin1");
+  };
+
+  const qrData = encodeInvitation();
 
   const handleCopyCredentials = () => {
-    navigator.clipboard.writeText(qrData);
+    navigator.clipboard.writeText(JSON.stringify(credentials, null, 2));
   };
 
   const handleDownloadQR = () => {
@@ -56,24 +76,11 @@ const Share: React.FC<ShareProps> = ({ communityId }) => {
         </div>
 
         <div className="community-info-section">
-          <h3>Community Details</h3>
+          <h3>Community Credentials</h3>
           <div className="community-details">
-            <div className="detail-item">
-              <span className="label">Name:</span>
-              <span className="value">{communityData.communityName}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Description:</span>
-              <span className="value">{communityData.description}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Members:</span>
-              <span className="value">{communityData.memberCount}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Server:</span>
-              <span className="value">{communityData.serverUrl}</span>
-            </div>
+            <pre className="scroll-x-no-wrap">
+              {JSON.stringify(credentials, null, 2)}
+            </pre>
           </div>
         </div>
 

@@ -1,21 +1,87 @@
-import React from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Users, Coins, Share2 } from 'lucide-react';
-import { useAppSelector } from '../store/hooks';
-import { useUrlData } from '../hooks/useUrlData';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
 import Issues from '../components/community/Issues';
 import Members from '../components/community/Members';
 import Currency from '../components/community/Currency';
 import Share from '../components/community/Share';
 import '../components/layout/Layout.scss';
+import { readCommunityProperties } from '../store/slices/contractsSlice';
 
 const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
-  const { currentCommunity, loading } = useAppSelector(state => state.communities);
-  
-  // Use the URL data hook to handle direct links
-  useUrlData();
+  // Get contracts and properties from Redux
+  const { contracts, loading: contractsLoading, communityProperties = {} } = useAppSelector(state => state.contracts as any);
+  const [fetching, setFetching] = useState(false);
+  const dispatch = useAppDispatch();
+
+  // Find the contract for this community
+  const contract = useMemo(() => contracts.find((c: any) => c.id === communityId), [contracts, communityId]);
+  const props = contract ? communityProperties[contract.id] || {} : null;
+
+  useEffect(() => {
+    // If contract is missing, fetch contracts and then properties (existing logic)
+    if (!contract && !contractsLoading && communityId) {
+      // Try to fetch contracts if credentials are in localStorage
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
+            setFetching(true);
+            console.log('[CommunityView] Fetching contracts for communityId:', communityId);
+            dispatch(readCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+              .then(() => {
+                // After contracts are fetched, fetch properties for this community
+                console.log('[CommunityView] Dispatching readCommunityProperties for', communityId);
+                dispatch(readCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+                  .then((result: any) => {
+                    console.log('[CommunityView] readCommunityProperties result:', result);
+                  })
+                  .catch((err: any) => {
+                    console.error('[CommunityView] readCommunityProperties error:', err);
+                  })
+                  .finally(() => setFetching(false));
+              })
+              .catch(() => setFetching(false));
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    // If contract exists but properties are missing, fetch properties
+    else if (contract && (!props || Object.keys(props).length === 0) && !contractsLoading && !fetching) {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
+            setFetching(true);
+            console.log('[CommunityView] Fetching missing properties for contract:', contract.id);
+            dispatch(readCommunityProperties({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+              .then((result: any) => {
+                console.log('[CommunityView] readCommunityProperties result (props-missing):', result);
+              })
+              .catch((err: any) => {
+                console.error('[CommunityView] readCommunityProperties error (props-missing):', err);
+              })
+              .finally(() => setFetching(false));
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    // Debug log after every render
+    console.log('[CommunityView] communityId:', communityId);
+    console.log('[CommunityView] contracts:', contracts);
+    console.log('[CommunityView] contract:', contract);
+    console.log('[CommunityView] props:', props);
+    console.log('[CommunityView] communityProperties:', communityProperties);
+  }, [contract, contractsLoading, communityId, dispatch, contracts, props, communityProperties, fetching]);
 
   const navItems = [
     { path: 'issues', label: 'Issues', icon: MessageSquare },
@@ -24,7 +90,7 @@ const CommunityView: React.FC = () => {
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
-  if (loading) {
+  if (contractsLoading || fetching) {
     return (
       <div className="community-view-container">
         <div className="loading-state">
@@ -35,7 +101,9 @@ const CommunityView: React.FC = () => {
     );
   }
 
-  if (!currentCommunity) {
+  if (!contract || !props || !props.name) {
+    // Debug log before showing Not Found
+    console.log('[CommunityView] Not Found condition:', { contract, props });
     return (
       <div className="community-view-container">
         <div className="error-state">
@@ -58,18 +126,16 @@ const CommunityView: React.FC = () => {
             Back
           </button>
           <div className="community-info">
-            <h1>{currentCommunity.name}</h1>
-            <p>{currentCommunity.description}</p>
+            <h1>{props.name}</h1>
+            <p>{props.description}</p>
           </div>
         </div>
         <div className="header-right">
           <span className="stat">
             <Users size={16} />
-            {currentCommunity.memberCount} members
+            {Array.isArray(props.members) ? props.members.length : '-'} members
           </span>
-          {currentCommunity.isOwner && (
-            <span className="owner-badge">Owner</span>
-          )}
+          {/* Optionally, show owner badge if available */}
         </div>
       </div>
 

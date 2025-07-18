@@ -207,6 +207,17 @@
   cursor: not-allowed;
 }
 
+.scroll-x-no-wrap {
+  white-space: pre;
+  word-break: break-all;
+  width: 100%;
+  max-width: 400px;
+  resize: vertical;
+  overflow-x: auto;
+  box-sizing: border-box;
+  font-family: monospace;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .join-content {
@@ -221,4 +232,5 @@
   .preview-details {
     grid-template-columns: 1fr;
   }
-} 
+}
+

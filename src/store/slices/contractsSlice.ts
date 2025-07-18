@@ -42,6 +42,7 @@ interface ContractsState {
   profile: IProfile | null;
   loading: boolean;
   error: string | null;
+  communityProperties: Record<string, any>; // Add this line
 }
 
 const initialState: ContractsState = {
@@ -49,6 +50,7 @@ const initialState: ContractsState = {
   profile: null,
   loading: false,
   error: null,
+  communityProperties: {}, // Add this line
 };
 
 // Custom error class for API errors
@@ -571,6 +573,9 @@ const contractsSlice = createSlice({
       })
       .addCase(readCommunityProperties.fulfilled, (state, action) => {
         state.loading = false;
+        // Store properties by contractId
+        const contractId = action.meta.arg.contractId;
+        state.communityProperties[contractId] = action.payload;
       })
       .addCase(readCommunityProperties.rejected, (state, action) => {
         state.loading = false;
