@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3, Share2 } from 'lucide-react';
-import { useAppSelector } from '../store/hooks';
-import { useUrlData } from '../hooks/useUrlData';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { useAuth } from '../contexts/AuthContext';
+import { getIssueDetails, getProposals } from '../store/slices/contractsSlice';
+import { eventStreamService } from '../services/eventStream';
 import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
@@ -11,12 +13,103 @@ import Share from '../components/issue/Share';
 import '../components/layout/Layout.scss';
 
 const IssueView: React.FC = () => {
-  const { issueId } = useParams<{ issueId: string }>();
+  const { server: encodedServer, agent, communityId, issueId } = useParams<{ server: string; agent: string; communityId: string; issueId: string }>();
   const navigate = useNavigate();
-  const { currentIssue, loading } = useAppSelector((state: any) => state.issues);
+  const { issueDetails } = useAppSelector((state: any) => state.contracts);
+  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const [fetching, setFetching] = useState(false);
+  const [isValidated, setIsValidated] = useState(false);
   
-  // Use the URL data hook to handle direct links
-  useUrlData();
+  // Decode the server URL from the URL parameter
+  const server = useMemo(() => {
+    return encodedServer ? decodeURIComponent(encodedServer) : '';
+  }, [encodedServer]);
+
+  // Get the current issue details
+  const currentIssue = issueDetails[issueId!];
+
+  // Handle contract_write events to reload issue details and proposals
+  useEffect(() => {
+    const handleContractWrite = (event: any) => {
+      if (event.contract === issueId && issueId) {
+        console.log('Contract write event detected for issue:', issueId);
+        // Reload issue details
+        dispatch(getIssueDetails({
+          serverUrl: server,
+          publicKey: agent || '',
+          contractId: issueId,
+        }));
+        // Reload proposals
+        dispatch(getProposals({
+          serverUrl: server,
+          publicKey: agent || '',
+          contractId: issueId,
+        }));
+      }
+    };
+
+    // Add event listener for contract_write events
+    eventStreamService.addEventListener('contract_write', handleContractWrite);
+
+    // Cleanup event listener on unmount
+    return () => {
+      eventStreamService.removeEventListener('contract_write', handleContractWrite);
+    };
+  }, [issueId, server, agent, dispatch]);
+
+  // Validate credentials and load issue data
+  useEffect(() => {
+    const validateAndLoadIssue = async () => {
+      // Check if user credentials are in localStorage for authentication
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        navigate('/');
+        return;
+      }
+
+      try {
+        const storedUser = JSON.parse(userStr);
+        if (!storedUser.serverUrl || !storedUser.publicKey) {
+          navigate('/');
+          return;
+        }
+
+        // For issue access, we use the URL credentials (issue owner's credentials)
+        // but we validate that the user has their own credentials in localStorage
+        if (issueId && !fetching) {
+          setFetching(true);
+          try {
+            // Fetch the issue using the URL credentials (issue owner's server and agent)
+            await dispatch(getIssueDetails({
+              serverUrl: server,
+              publicKey: agent || '',
+              contractId: issueId,
+            })).unwrap();
+            
+            // Also load proposals for the issue
+            await dispatch(getProposals({
+              serverUrl: server,
+              publicKey: agent || '',
+              contractId: issueId,
+            }));
+            
+            setIsValidated(true);
+          } catch (error) {
+            console.error('Failed to load issue:', error);
+            navigate('/');
+          } finally {
+            setFetching(false);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to validate credentials:', error);
+        navigate('/');
+      }
+    };
+
+    validateAndLoadIssue();
+  }, [server, agent, issueId, navigate, dispatch]);
 
   const navItems = [
     { path: 'discussion', label: 'Discussion', icon: MessageSquare },
@@ -26,7 +119,7 @@ const IssueView: React.FC = () => {
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
-  if (loading) {
+  if (fetching || !isValidated) {
     return (
       <div className="issue-view-container">
         <div className="loading-state">
@@ -43,7 +136,7 @@ const IssueView: React.FC = () => {
         <div className="error-state">
           <h2>Issue Not Found</h2>
           <p>The issue you're looking for doesn't exist.</p>
-          <button onClick={() => navigate('/community/1')} className="back-button">
+          <button onClick={() => navigate(`/community/${communityId}`)} className="back-button">
             Back to Community
           </button>
         </div>
@@ -51,34 +144,32 @@ const IssueView: React.FC = () => {
     );
   }
 
+  // Handle different possible response structures for issue data
+  const issueName = typeof currentIssue.name === 'string' ? currentIssue.name : 
+                   typeof currentIssue.name === 'object' ? JSON.stringify(currentIssue.name) : 
+                   'Unknown Issue';
+
   return (
     <div className="issue-view-container">
-      <div className="issue-header">
-        <button onClick={() => navigate('/community/1')} className="back-button">
-          <ArrowLeft size={20} />
-          Back to Community
-        </button>
-        <div className="issue-info">
-          <h1>{currentIssue.title}</h1>
-          <p>{currentIssue.description}</p>
-          <div className="issue-stats">
-            <span className="stat">
-              Created: {currentIssue.createdAt}
-            </span>
-            <span className={`status-badge ${currentIssue.status}`}>
-              {currentIssue.status.charAt(0).toUpperCase() + currentIssue.status.slice(1)}
-            </span>
+      <div className="issue-page-header">
+        <div className="header-left">
+          <button onClick={() => navigate(`/community/${communityId}`)} className="back-button">
+            <ArrowLeft size={16} />
+            Back
+          </button>
+          <div className="issue-info">
+            <h1>{issueName}</h1>
           </div>
         </div>
       </div>
 
-      <div className="issue-content">
-        <nav className="issue-nav">
+      <div className="issue-page-content">
+        <nav className="issue-page-nav">
           {navItems.map((item) => (
             <button
               key={item.path}
-              onClick={() => navigate(`/issue/${issueId}/${item.path}`)}
-              className={`nav-item ${window.location.pathname.includes(`/issue/${issueId}/${item.path}`) ? 'active' : ''}`}
+              onClick={() => navigate(`/issue/${encodeURIComponent(server)}/${agent}/${communityId}/${issueId}/${item.path}`)}
+              className={`issue-nav-item ${window.location.pathname.includes(`/issue/${encodeURIComponent(server)}/${agent}/${communityId}/${issueId}/${item.path}`) ? 'active' : ''}`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
@@ -86,13 +177,13 @@ const IssueView: React.FC = () => {
           ))}
         </nav>
 
-        <div className="issue-main">
+        <div className="issue-page-main">
           <Routes>
             <Route path="discussion" element={<Discussion issueId={issueId!} />} />
             <Route path="proposals" element={<Proposals issueId={issueId!} />} />
             <Route path="vote" element={<Vote issueId={issueId!} />} />
             <Route path="outcome" element={<Outcome issueId={issueId!} />} />
-            <Route path="share" element={<Share issueId={issueId!} />} />
+            <Route path="share" element={<Share issueId={issueId!} server={server} agent={agent} communityId={communityId} />} />
             <Route path="*" element={<Discussion issueId={issueId!} />} />
           </Routes>
         </div>

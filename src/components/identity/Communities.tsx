@@ -4,7 +4,7 @@ import { Users, Plus, ArrowRight } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchContracts } from '../../store/slices/contractsSlice';
-import { deployCommunityContract, setCommunityProperty, readCommunityProperties } from '../../store/slices/contractsSlice';
+import { deployCommunityContract, setCommunityProperty, readCommunityProperties, getCommunityMembers } from '../../store/slices/contractsSlice';
 import './Communities.scss';
 import { eventStreamService } from '../../services/eventStream';
 
@@ -12,7 +12,7 @@ const Communities: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { contracts, loading } = useAppSelector(state => state.contracts);
+  const { contracts, loading, communityMembers } = useAppSelector(state => state.contracts);
   const { communityProperties } = useAppSelector(state => state.contracts as any);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCommunityName, setNewCommunityName] = useState('');
@@ -82,6 +82,25 @@ const Communities: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityContracts, user]);
 
+  // Fetch members for each community contract
+  useEffect(() => {
+    if (!user) return;
+    communityContracts.forEach(async (contract) => {
+      if (!communityMembers[contract.id]) {
+        try {
+          await dispatch(getCommunityMembers({
+            serverUrl: user.serverUrl,
+            publicKey: user.publicKey,
+            contractId: contract.id,
+          })).unwrap();
+        } catch (error) {
+          // Ignore errors for now
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityContracts, user]);
+
   const handleCreateCommunity = async () => {
     if (!newCommunityName.trim() || !user) return;
     setCommunityLoading(true);
@@ -120,7 +139,7 @@ const Communities: React.FC = () => {
       setNewCommunityDescription('');
     } catch (error) {
       // Handle error (show notification, etc.)
-      console.error('Failed to create community:', error);
+      // console.error('Failed to create community:', error);
     } finally {
       setCommunityLoading(false);
     }
@@ -245,6 +264,7 @@ const Communities: React.FC = () => {
       <div className="communities-grid">
         {communityContracts.map((contract) => {
           const props = communityProperties[contract.id] || {};
+          const memberCount = Array.isArray(communityMembers[contract.id]) ? communityMembers[contract.id].length : '-';
           return (
             <div
               key={contract.id}
@@ -270,7 +290,7 @@ const Communities: React.FC = () => {
               <div className="community-stats">
                 <div className="stat">
                   <span className="stat-label">Members:</span>
-                  <span className="stat-value">{Array.isArray(props.members) ? props.members.length : '-'}</span>
+                  <span className="stat-value">{memberCount}</span>
                 </div>
                 <div className="stat">
                   <span className="stat-label">Created:</span>

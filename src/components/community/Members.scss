@@ -60,6 +60,9 @@
 
 .member-info {
   flex: 1;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 0.25rem 0;
 }
 
 .member-info h3 {
@@ -124,4 +127,16 @@
     width: 100%;
     justify-content: space-between;
   }
+} 
+
+.public-key {
+  display: block;
+  font-family: monospace;
+  background: #f3f4f6;
+  color: #1e293b;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+  overflow-x: auto;
+  max-width: 100%;
 } 

@@ -1,12 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppDispatch } from '../store/hooks';
 import { fetchCommunity } from '../store/slices/communitiesSlice';
-import { fetchIssue } from '../store/slices/issuesSlice';
 
 export const useUrlData = () => {
   const dispatch = useAppDispatch();
-  const { communityId, issueId } = useParams<{ communityId?: string; issueId?: string }>();
+  const { communityId, server: encodedServer, agent, issueId } = useParams<{ 
+    communityId?: string; 
+    server?: string; 
+    agent?: string; 
+    issueId?: string 
+  }>();
+
+  // Decode the server URL from the URL parameter
+  const server = useMemo(() => {
+    return encodedServer ? decodeURIComponent(encodedServer) : '';
+  }, [encodedServer]);
 
   useEffect(() => {
     // If we have a communityId in the URL, fetch that community
@@ -15,12 +24,5 @@ export const useUrlData = () => {
     }
   }, [communityId, dispatch]);
 
-  useEffect(() => {
-    // If we have an issueId in the URL, fetch that issue
-    if (issueId) {
-      dispatch(fetchIssue(issueId));
-    }
-  }, [issueId, dispatch]);
-
-  return { communityId, issueId };
+  return { communityId, server, agent, issueId };
 }; 

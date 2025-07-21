@@ -28,7 +28,6 @@ const LoginPage: React.FC = () => {
       try {
         setServerUrlHistory(JSON.parse(history));
       } catch (error) {
-        console.error('Failed to parse server URL history:', error);
       }
     }
   }, []);
@@ -67,7 +66,6 @@ const LoginPage: React.FC = () => {
         
         await login(publicKey, serverUrl);
       } catch (error) {
-        console.error('Login failed:', error);
         setLoginError(error instanceof Error ? error.message : 'Login failed. Please try again.');
       }
     }

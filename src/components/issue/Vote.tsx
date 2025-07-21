@@ -1,188 +1,291 @@
-import React, { useState, useEffect } from 'react';
-import { Vote as VoteIcon, ArrowUpDown, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { ArrowUpDown, CheckCircle } from 'lucide-react';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { MultiBackend, PointerTransition, TouchTransition, type MultiBackendOptions } from 'react-dnd-multi-backend';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
+import { usePreview } from 'react-dnd-preview';
+import { getEmptyImage } from 'react-dnd-html5-backend';
 import './Vote.scss';
 
-interface Proposal {
-  id: string;
-  title: string;
-  description: string;
-  author: string;
-}
+// Backend configuration - same as TestDND
+export const HTML5toTouch: MultiBackendOptions = {
+  backends: [
+    {
+      id: 'html5',
+      backend: HTML5Backend,
+      transition: PointerTransition,
+    },
+    {
+      id: 'touch',
+      backend: TouchBackend,
+      options: { enableMouseEvents: true },
+      preview: true,
+      transition: TouchTransition,
+    },
+  ],
+};
+
+// Item type constant
+const ItemType = 'PROPOSAL_CARD';
 
 interface VoteProps {
   issueId: string;
 }
 
+interface ProposalCardProps {
+  proposal: any;
+  index: number;
+  moveCard: (fromIndex: number, toIndex: number) => void;
+  cardRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+// Custom preview component that looks identical to the dragged item
+const CustomPreview = ({ width }: { width?: number }) => {
+  const preview = usePreview<any>();
+  if (!preview.display) {
+    return null;
+  }
+
+  const { item, style } = preview;
+  if (!item) {
+    return null;
+  }
+
+  return (
+    <div style={{
+      ...style,
+      pointerEvents: 'none',
+      position: 'fixed',
+      zIndex: 1000,
+      opacity: 0.8,
+      width: width ? `${width}px` : undefined,
+      maxWidth: width ? `${width}px` : undefined,
+      display: 'flex',
+      alignItems: 'center',
+    }}>
+      <div
+        className="proposal-card one-line preview"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          background: 'white',
+          border: '1.5px solid #667eea',
+          fontWeight: 500,
+          fontSize: '1.05rem',
+          minHeight: '40px',
+          boxShadow: '0 4px 12px rgba(102,126,234,0.15)',
+          width: '100%',
+        }}
+      >
+        {item.title}
+      </div>
+    </div>
+  );
+};
+
+// Individual draggable proposal card component
+const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, cardRef }) => {
+  const localRef = React.useRef<HTMLDivElement>(null);
+  const [{ isDragging }, drag, dragPreview] = useDrag<{ isDragging: boolean }, void, { isDragging: boolean }>(
+    {
+      type: ItemType,
+      item: { ...proposal, index }, // Pass full proposal object with index
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    }
+  );
+
+  // Suppress the native drag preview
+  React.useEffect(() => {
+    dragPreview(getEmptyImage(), { captureDraggingState: true });
+  }, [dragPreview]);
+
+  const [{ isOver }, drop] = useDrop({
+    accept: ItemType,
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+    hover: (draggedItem: any) => {
+      if (draggedItem.index !== index) {
+        moveCard(draggedItem.index, index);
+        draggedItem.index = index; // This is still needed to keep the dragged item's index in sync
+      }
+    },
+  });
+
+  // Use the passed ref for the first card, otherwise use a local ref
+  const ref = (node: HTMLDivElement) => {
+    drag(drop(node));
+    if (cardRef && typeof cardRef !== 'function') {
+      cardRef.current = node;
+    } else {
+      localRef.current = node;
+    }
+  };
+
+  return (
+    <div
+      ref={ref}
+      className={`proposal-card one-line ${isDragging ? 'dragging' : ''} ${isOver ? 'over' : ''}`}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        touchAction: 'none', // Important for mobile drag
+        display: 'flex',
+        alignItems: 'center',
+        padding: '12px 20px',
+        marginBottom: '10px',
+        borderRadius: '8px',
+        background: 'white',
+        border: '1.5px solid #e1e5e9',
+        fontWeight: 500,
+        fontSize: '1.05rem',
+        cursor: 'grab',
+        minHeight: '40px',
+        boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.10)' : '0 1px 3px rgba(0,0,0,0.04)',
+        transition: 'box-shadow 0.2s, border-color 0.2s',
+      }}
+    >
+      {proposal.title}
+    </div>
+  );
+};
+
 const Vote: React.FC<VoteProps> = ({ issueId }) => {
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [originalOrder, setOriginalOrder] = useState<string[]>([]);
+  const proposals = useSelector((state: any) => state.contracts.issueProposals[issueId] || []);
   const [currentOrder, setCurrentOrder] = useState<string[]>([]);
-  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [originalOrder, setOriginalOrder] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  // No need for cardWidth state; use ref directly
+  const firstCardRef = React.useRef<HTMLDivElement>(null);
 
+  // Update order when proposals change
   useEffect(() => {
-    const fetchProposals = async () => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const mockProposals: Proposal[] = [
-        {
-          id: '1',
-          title: 'Use Auth0 for authentication',
-          description: 'Implement Auth0 as the primary authentication provider with OAuth2 and JWT support.',
-          author: 'John Doe'
-        },
-        {
-          id: '2',
-          title: 'Build custom auth solution',
-          description: 'Create a custom authentication system using Node.js and Passport.js.',
-          author: 'Jane Smith'
-        },
-        {
-          id: '3',
-          title: 'Use Firebase Authentication',
-          description: 'Leverage Firebase Authentication for easy integration and management.',
-          author: 'Mike Johnson'
-        }
-      ];
-      
-      setProposals(mockProposals);
-      const order = mockProposals.map(p => p.id);
+    if (proposals.length > 0) {
+      const order = proposals.map((p: any) => p.id);
       setOriginalOrder(order);
       setCurrentOrder(order);
-    };
+      setIsLoading(false);
+    } else if (proposals.length === 0 && !isLoading) {
+      setIsLoading(false);
+    }
+  }, [proposals, isLoading]);
 
-    fetchProposals();
-  }, [issueId]);
-
-  const handleDragStart = (e: React.DragEvent, proposalId: string) => {
-    setDraggedItem(proposalId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem === targetId) return;
-
-    const newOrder = [...currentOrder];
-    const draggedIndex = newOrder.indexOf(draggedItem);
-    const targetIndex = newOrder.indexOf(targetId);
-
-    newOrder.splice(draggedIndex, 1);
-    newOrder.splice(targetIndex, 0, draggedItem);
-
-    setCurrentOrder(newOrder);
-    setDraggedItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-  };
-
-  const hasOrderChanged = () => {
-    return JSON.stringify(originalOrder) !== JSON.stringify(currentOrder);
-  };
+  const moveCard = useCallback((fromIndex: number, toIndex: number) => {
+    setCurrentOrder(prevOrder => {
+      const newOrder = [...prevOrder];
+      const [movedItem] = newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, movedItem);
+      return newOrder;
+    });
+  }, []);
 
   const handleSubmitVote = async () => {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setHasVoted(true);
-    setIsSubmitting(false);
+    try {
+      // TODO: Implement vote submission logic
+      console.log('Submitting vote with order:', currentOrder);
+      setHasVoted(true);
+    } catch (error) {
+      console.error('Error submitting vote:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const getProposalById = (id: string) => {
-    return proposals.find(p => p.id === id);
+  const handleResetVote = () => {
+    setCurrentOrder([...originalOrder]);
+    setHasVoted(false);
   };
 
-  if (hasVoted) {
+  if (isLoading) {
     return (
       <div className="vote-container">
-        <div className="vote-success">
-          <CheckCircle size={48} />
-          <h2>Vote Submitted!</h2>
-          <p>Your vote has been recorded. Thank you for participating.</p>
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>Loading proposals...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (proposals.length === 0) {
+    return (
+      <div className="vote-container">
+        <div className="no-proposals">
+          <p>No proposals available for voting.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="vote-container">
-      <div className="vote-header">
-        <h2>Vote on Proposals</h2>
-        <p>Drag and drop proposals to rank them in order of preference</p>
-      </div>
+    <DndProvider backend={MultiBackend} options={HTML5toTouch}>
+      <div className="vote-container">
+        <div className="vote-header">
+          <h2>Vote on Proposals</h2>
+        </div>
 
-      <div className="vote-instructions">
-        <div className="instruction-card">
-          <ArrowUpDown size={20} />
-          <div>
-            <h3>How to Vote</h3>
-            <p>Drag proposals to reorder them. The top proposal is your first choice.</p>
+        <div className="vote-instructions">
+          <div className="instruction-card">
+            <ArrowUpDown size={20} />
+            <div>
+              <h3>How to Vote</h3>
+              <p>Drag proposals to reorder them. The top proposal is your first choice.</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="proposals-ranking">
-        {currentOrder.map((proposalId, index) => {
-          const proposal = getProposalById(proposalId);
-          if (!proposal) return null;
+        <div className="proposals-list">
+          {currentOrder.map((proposalId, index) => {
+            const proposal = proposals.find((p: any) => p.id === proposalId);
+            if (!proposal) return null;
 
-          return (
-            <div
-              key={proposalId}
-              className={`proposal-rank-item ${draggedItem === proposalId ? 'dragging' : ''}`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, proposalId)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, proposalId)}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="rank-number">{index + 1}</div>
-              <div className="proposal-content">
-                <h3>{proposal.title}</h3>
-                <p>{proposal.description}</p>
-                <span className="author">by {proposal.author}</span>
-              </div>
-              <div className="drag-handle">
-                <ArrowUpDown size={16} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            // Attach ref to the first card only
+            // When passing refProp, ensure it is React.RefObject<HTMLDivElement> or undefined
+            const refProp = index === 0 ? firstCardRef : undefined;
 
-      <div className="vote-actions">
-        <button
-          onClick={handleSubmitVote}
-          disabled={!hasOrderChanged() || isSubmitting}
-          className="submit-vote-button"
-        >
-          {isSubmitting ? (
-            <>
-              <div className="loading-spinner-small"></div>
-              Submitting...
-            </>
-          ) : (
-            <>
-              <VoteIcon size={20} />
-              Submit Vote
-            </>
-          )}
-        </button>
-      </div>
-
-      {!hasOrderChanged() && currentOrder.length > 0 && (
-        <div className="vote-note">
-          <p>Drag proposals to change their order before submitting your vote.</p>
+            return (
+              <ProposalCard
+                key={proposalId}
+                proposal={proposal}
+                index={index}
+                moveCard={moveCard}
+                cardRef={refProp}
+              />
+            );
+          })}
         </div>
-      )}
-    </div>
+
+        <div className="vote-actions">
+          {!hasVoted ? (
+            <button
+              className="submit-vote-btn"
+              onClick={handleSubmitVote}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Vote'}
+            </button>
+          ) : (
+            <div className="vote-submitted">
+              <CheckCircle size={20} />
+              <span>Vote submitted successfully!</span>
+              <button className="reset-vote-btn" onClick={handleResetVote}>
+                Change Vote
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <CustomPreview width={firstCardRef.current?.offsetWidth} />
+    </DndProvider>
   );
 };
 

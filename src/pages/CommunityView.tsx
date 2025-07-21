@@ -7,13 +7,13 @@ import Members from '../components/community/Members';
 import Currency from '../components/community/Currency';
 import Share from '../components/community/Share';
 import '../components/layout/Layout.scss';
-import { readCommunityProperties } from '../store/slices/contractsSlice';
+import { readCommunityProperties, getCommunityMembers } from '../store/slices/contractsSlice';
 
 const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   // Get contracts and properties from Redux
-  const { contracts, loading: contractsLoading, communityProperties = {} } = useAppSelector(state => state.contracts as any);
+  const { contracts, communityProperties = {} } = useAppSelector(state => state.contracts as any);
   const [fetching, setFetching] = useState(false);
   const dispatch = useAppDispatch();
 
@@ -23,7 +23,7 @@ const CommunityView: React.FC = () => {
 
   useEffect(() => {
     // If contract is missing, fetch contracts and then properties (existing logic)
-    if (!contract && !contractsLoading && communityId) {
+    if (!contract && communityId) {
       // Try to fetch contracts if credentials are in localStorage
       const userStr = localStorage.getItem('user');
       if (userStr) {
@@ -31,17 +31,20 @@ const CommunityView: React.FC = () => {
           const user = JSON.parse(userStr);
           if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
             setFetching(true);
-            console.log('[CommunityView] Fetching contracts for communityId:', communityId);
             dispatch(readCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
               .then(() => {
                 // After contracts are fetched, fetch properties for this community
-                console.log('[CommunityView] Dispatching readCommunityProperties for', communityId);
                 dispatch(readCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
                   .then((result: any) => {
-                    console.log('[CommunityView] readCommunityProperties result:', result);
                   })
                   .catch((err: any) => {
-                    console.error('[CommunityView] readCommunityProperties error:', err);
+                  });
+                
+                // Also fetch community members
+                dispatch(getCommunityMembers({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+                  .then((result: any) => {
+                  })
+                  .catch((err: any) => {
                   })
                   .finally(() => setFetching(false));
               })
@@ -53,20 +56,24 @@ const CommunityView: React.FC = () => {
       }
     }
     // If contract exists but properties are missing, fetch properties
-    else if (contract && (!props || Object.keys(props).length === 0) && !contractsLoading && !fetching) {
+    else if (contract && (!props || Object.keys(props).length === 0) && !fetching) {
       const userStr = localStorage.getItem('user');
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
           if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
             setFetching(true);
-            console.log('[CommunityView] Fetching missing properties for contract:', contract.id);
             dispatch(readCommunityProperties({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
               .then((result: any) => {
-                console.log('[CommunityView] readCommunityProperties result (props-missing):', result);
               })
               .catch((err: any) => {
-                console.error('[CommunityView] readCommunityProperties error (props-missing):', err);
+              });
+            
+            // Also fetch community members
+            dispatch(getCommunityMembers({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+              .then((result: any) => {
+              })
+              .catch((err: any) => {
               })
               .finally(() => setFetching(false));
           }
@@ -75,13 +82,7 @@ const CommunityView: React.FC = () => {
         }
       }
     }
-    // Debug log after every render
-    console.log('[CommunityView] communityId:', communityId);
-    console.log('[CommunityView] contracts:', contracts);
-    console.log('[CommunityView] contract:', contract);
-    console.log('[CommunityView] props:', props);
-    console.log('[CommunityView] communityProperties:', communityProperties);
-  }, [contract, contractsLoading, communityId, dispatch, contracts, props, communityProperties, fetching]);
+  }, [contract, communityId, dispatch]);
 
   const navItems = [
     { path: 'issues', label: 'Issues', icon: MessageSquare },
@@ -90,7 +91,7 @@ const CommunityView: React.FC = () => {
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
-  if (contractsLoading || fetching) {
+  if (fetching) {
     return (
       <div className="community-view-container">
         <div className="loading-state">
@@ -103,7 +104,7 @@ const CommunityView: React.FC = () => {
 
   if (!contract || !props || !props.name) {
     // Debug log before showing Not Found
-    console.log('[CommunityView] Not Found condition:', { contract, props });
+    // console.log('[CommunityView] Not Found condition:', { contract, props });
     return (
       <div className="community-view-container">
         <div className="error-state">

@@ -51,7 +51,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Validate stored credentials and load contracts
         validateStoredCredentials(userData.publicKey, userData.serverUrl);
       } catch (error) {
-        console.error('Failed to parse stored user data:', error);
         localStorage.removeItem('user');
         setIsLoading(false);
       }
@@ -183,9 +182,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Connect to the SSE stream
       eventStreamService.connect(serverUrl, publicKey);
     } catch (error) {
-      console.error('Login failed:', error);
-      
-      // Provide specific error messages based on error type
       if (error instanceof APIError) {
         if (error.isNetworkError) {
           throw new Error('Unable to connect to the server. Please check if the server is running and the URL is correct.');

@@ -1,18 +1,29 @@
 import React from 'react';
-import { Copy, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { Copy, Download } from 'lucide-react';
 import './Share.scss';
 
 interface ShareProps {
   issueId: string;
+  server?: string;
+  agent?: string;
+  communityId?: string;
 }
 
-const Share: React.FC<ShareProps> = ({ issueId }) => {
+const Share: React.FC<ShareProps> = ({ issueId, server, agent, communityId }) => {
+  // Generate the full issue URL for sharing (with encoding for URL structure)
+  const generateIssueUrl = () => {
+    if (!server || !agent || !communityId) return '';
+    const encodedServer = encodeURIComponent(server);
+    return `${window.location.origin}/issue/${encodedServer}/${agent}/${communityId}/${issueId}`;
+  };
+
   const issueData = {
     issueId,
     issueTitle: 'Implement new authentication system',
     communityId: 'community-123',
-    serverUrl: 'https://example-server.com',
+    serverUrl: server || 'https://example-server.com', // Keep original server URL for QR code
+    agent: agent || 'example-agent',
     description: 'We need to implement a more secure authentication system that supports OAuth2 and JWT tokens.'
   };
 
@@ -20,6 +31,13 @@ const Share: React.FC<ShareProps> = ({ issueId }) => {
 
   const handleCopyCredentials = () => {
     navigator.clipboard.writeText(qrData);
+  };
+
+  const handleCopyUrl = () => {
+    const issueUrl = generateIssueUrl();
+    if (issueUrl) {
+      navigator.clipboard.writeText(issueUrl);
+    }
   };
 
   const handleDownloadQR = () => {
@@ -78,6 +96,10 @@ const Share: React.FC<ShareProps> = ({ issueId }) => {
               <span className="label">Server:</span>
               <span className="value">{issueData.serverUrl}</span>
             </div>
+            <div className="detail-item">
+              <span className="label">Agent:</span>
+              <span className="value">{issueData.agent}</span>
+            </div>
           </div>
         </div>
 
@@ -86,6 +108,10 @@ const Share: React.FC<ShareProps> = ({ issueId }) => {
             <button onClick={handleCopyCredentials} className="action-button">
               <Copy size={20} />
               Copy Credentials
+            </button>
+            <button onClick={handleCopyUrl} className="action-button">
+              <Copy size={20} />
+              Copy URL
             </button>
             <button onClick={handleDownloadQR} className="action-button">
               <Download size={20} />

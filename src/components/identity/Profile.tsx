@@ -36,12 +36,12 @@ const Profile: React.FC = () => {
           lastLoadedProfileRef.current.user !== user.publicKey ||
           lastLoadedProfileRef.current.contractId !== profileContract.id)
       ) {
-        console.log('🔍 Profile Contract Found:', {
-          contractId: profileContract.id,
-          contractName: profileContract.name,
-          publicKey: user.publicKey,
-          serverUrl: user.serverUrl
-        });
+        // console.log('🔍 Profile Contract Found:', {
+        //   contractId: profileContract.id,
+        //   contractName: profileContract.name,
+        //   publicKey: user.publicKey,
+        //   serverUrl: user.serverUrl
+        // });
         
         dispatch(readProfile({
           serverUrl: user.serverUrl,
@@ -67,11 +67,11 @@ const Profile: React.FC = () => {
   // Log all contracts when they change
   useEffect(() => {
     if (contracts.length > 0) {
-      console.log('📋 All Available Contracts:', contracts.map(contract => ({
-        id: contract.id,
-        name: contract.name,
-        isProfileContract: contract.name === PROFILE_CONTRACT_NAME
-      })));
+      // console.log('📋 All Available Contracts:', contracts.map(contract => ({
+      //   id: contract.id,
+      //   name: contract.name,
+      //   isProfileContract: contract.name === PROFILE_CONTRACT_NAME
+      // })));
     }
   }, [contracts]);
 
@@ -80,12 +80,12 @@ const Profile: React.FC = () => {
     if (user && contracts.length > 0) {
       const profileContract = contracts.find(contract => contract.name === PROFILE_CONTRACT_NAME);
       if (profileContract && event.contract === profileContract.id) {
-        console.log('🔄 Profile Contract Write Detected:', {
-          eventAction: event.action,
-          contractId: event.contract,
-          profileContractId: profileContract.id,
-          publicKey: user.publicKey
-        });
+        //  console.log('🔄 Profile Contract Write Detected:', {
+        //   eventAction: event.action,
+        //   contractId: event.contract,
+        //   profileContractId: profileContract.id,
+        //   publicKey: user.publicKey
+        // });
         // Refresh profile data from the contract
         dispatch(readProfile({
           serverUrl: user.serverUrl,
@@ -165,7 +165,7 @@ const Profile: React.FC = () => {
           setIsEditing(false);
           setTempImageData(null); // Clear temporary image data after successful save
         } catch (error) {
-          console.error('Failed to save profile:', error);
+          // console.error('Failed to save profile:', error);
           setSaveError('Failed to save profile. Please check your connection and try again.');
         }
       }
@@ -197,7 +197,7 @@ const Profile: React.FC = () => {
         setTempImageData(resizedImageData);
         
       } catch (error) {
-        console.error('Failed to process image:', error);
+        // console.error('Failed to process image:', error);
         setImageUploadError('Failed to process image. Please try again.');
       }
     }

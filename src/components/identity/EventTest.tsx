@@ -9,17 +9,17 @@ const EventTest: React.FC = () => {
 
   // Listen for all three event types
   useEventStream('contract_write', (event) => {
-    console.log('Contract write event received:', event);
+    // console.log('Contract write event received:', event);
     setEvents(prev => [...prev.slice(-9), { ...event, timestamp: new Date().toISOString() }]);
   });
 
   useEventStream('deploy_contract', (event) => {
-    console.log('Deploy contract event received:', event);
+    // console.log('Deploy contract event received:', event);
     setEvents(prev => [...prev.slice(-9), { ...event, timestamp: new Date().toISOString() }]);
   });
 
   useEventStream('a2a_connect', (event) => {
-    console.log('A2A connect event received:', event);
+    // console.log('A2A connect event received:', event);
     setEvents(prev => [...prev.slice(-9), { ...event, timestamp: new Date().toISOString() }]);
   });
 

@@ -22,7 +22,7 @@ class EventStreamService {
       try {
         listener(this.isConnected);
       } catch (e) {
-        console.error('Error in connection status listener:', e);
+        // console.error('Error in connection status listener:', e);
       }
     });
   }
@@ -41,13 +41,13 @@ class EventStreamService {
     }
 
     const streamUrl = `${serverUrl}/stream?agent=${agent}&contract=`;
-    console.log('Connecting to SSE stream:', streamUrl);
+    // console.log('Connecting to SSE stream:', streamUrl);
 
     try {
       this.eventSource = new EventSource(streamUrl);
       this.setupEventHandlers();
     } catch (error) {
-      console.error('Failed to create EventSource:', error);
+      // console.error('Failed to create EventSource:', error);
       this.handleConnectionError();
     }
   }
@@ -56,7 +56,7 @@ class EventStreamService {
     if (!this.eventSource) return;
 
     this.eventSource.onopen = () => {
-      console.log('SSE connection established');
+      // console.log('SSE connection established');
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this.notifyConnectionListeners();
@@ -64,36 +64,36 @@ class EventStreamService {
 
     this.eventSource.onmessage = (event) => {
       if (!event.data || event.data.trim() === "") {
-        console.warn("Received empty SSE event data, skipping parse.");
+        // console.warn("Received empty SSE event data, skipping parse.");
         return;
       }
       try {
         const data = JSON.parse(event.data) as BlockchainEvent;
-        console.log('SSE Event received:', data);
+        // console.log('SSE Event received:', data);
         
         // Notify listeners based on action type
         if (data.action) {
           const listeners = this.listeners.get(data.action as EventType);
           if (listeners) {
-            console.log(`Notifying ${listeners.size} listeners for action: ${data.action}`);
+            // console.log(`Notifying ${listeners.size} listeners for action: ${data.action}`);
             listeners.forEach(listener => {
               try {
                 listener(data);
               } catch (error) {
-                console.error('Error in event listener:', error);
+                // console.error('Error in event listener:', error);
               }
             });
           } else {
-            console.log(`No listeners registered for action: ${data.action}`);
+            // console.log(`No listeners registered for action: ${data.action}`);
           }
         }
       } catch (error) {
-        console.error('Failed to parse SSE event data:', error, 'Raw data:', event.data);
+        // console.error('Failed to parse SSE event data:', error, 'Raw data:', event.data);
       }
     };
 
     this.eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
+      // console.error('SSE connection error:', error);
       this.handleConnectionError();
     };
   }
@@ -104,7 +104,7 @@ class EventStreamService {
     
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+      // console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
       
       setTimeout(() => {
         if (this.eventSource) {
@@ -115,13 +115,13 @@ class EventStreamService {
         // For now, we'll just log the error
       }, this.reconnectDelay * this.reconnectAttempts);
     } else {
-      console.error('Max reconnection attempts reached');
+      // console.error('Max reconnection attempts reached');
     }
   }
 
   disconnect() {
     if (this.eventSource) {
-      console.log('Disconnecting from SSE stream');
+      // console.log('Disconnecting from SSE stream');
       this.eventSource.close();
       this.eventSource = null;
     }
@@ -135,17 +135,17 @@ class EventStreamService {
       this.listeners.set(eventType, new Set());
     }
     this.listeners.get(eventType)!.add(listener);
-    console.log(`Event listener registered for: ${eventType}. Total listeners: ${this.listeners.get(eventType)!.size}`);
+    // console.log(`Event listener registered for: ${eventType}. Total listeners: ${this.listeners.get(eventType)!.size}`);
   }
 
   removeEventListener(eventType: EventType, listener: EventListener) {
     const listeners = this.listeners.get(eventType);
     if (listeners) {
       listeners.delete(listener);
-      console.log(`Event listener removed for: ${eventType}. Remaining listeners: ${listeners.size}`);
+      // console.log(`Event listener removed for: ${eventType}. Remaining listeners: ${listeners.size}`);
       if (listeners.size === 0) {
         this.listeners.delete(eventType);
-        console.log(`No more listeners for: ${eventType}, removed from registry`);
+        // console.log(`No more listeners for: ${eventType}, removed from registry`);
       }
     }
   }

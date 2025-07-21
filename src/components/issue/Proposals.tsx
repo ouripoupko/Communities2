@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Plus, ArrowRight } from 'lucide-react';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { addProposal, getProposals } from '../../store/slices/contractsSlice';
 import './Proposals.scss';
 
 interface Proposal {
@@ -16,67 +18,87 @@ interface ProposalsProps {
 }
 
 const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
-  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const dispatch = useAppDispatch();
+  const { issueProposals } = useAppSelector((state: any) => state.contracts);
+  const proposals = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
+  
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProposalTitle, setNewProposalTitle] = useState('');
   const [newProposalDescription, setNewProposalDescription] = useState('');
 
+  // Load proposals from the contract
   useEffect(() => {
-    const fetchProposals = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      const mockProposals: Proposal[] = [
-        {
-          id: '1',
-          title: 'Use Auth0 for authentication',
-          description: 'Implement Auth0 as the primary authentication provider with OAuth2 and JWT support.',
-          author: 'John Doe',
-          createdAt: '2024-03-15',
-          voteCount: 8
-        },
-        {
-          id: '2',
-          title: 'Build custom auth solution',
-          description: 'Create a custom authentication system using Node.js and Passport.js.',
-          author: 'Jane Smith',
-          createdAt: '2024-03-14',
-          voteCount: 5
-        },
-        {
-          id: '3',
-          title: 'Use Firebase Authentication',
-          description: 'Leverage Firebase Authentication for easy integration and management.',
-          author: 'Mike Johnson',
-          createdAt: '2024-03-13',
-          voteCount: 3
-        }
-      ];
-      
-      setProposals(mockProposals);
-      setIsLoading(false);
+    const loadProposals = async () => {
+      if (!issueId) return;
+
+      try {
+        setIsLoading(true);
+        // Get the issue owner's credentials from the URL
+        const pathParts = window.location.pathname.split('/');
+        const encodedServer = pathParts[2];
+        const agent = pathParts[3];
+        const server = decodeURIComponent(encodedServer);
+
+        await dispatch(getProposals({
+          serverUrl: server,
+          publicKey: agent,
+          contractId: issueId,
+        })).unwrap();
+      } catch (error) {
+        console.error('Failed to load proposals:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    fetchProposals();
-  }, [issueId]);
+    loadProposals();
+  }, [issueId, dispatch]);
 
   const handleCreateProposal = async () => {
-    if (!newProposalTitle.trim()) return;
+    if (!newProposalTitle.trim() || !issueId) return;
 
-    const newProposal: Proposal = {
-      id: Date.now().toString(),
-      title: newProposalTitle,
-      description: newProposalDescription,
-      author: 'You',
-      createdAt: new Date().toISOString().split('T')[0],
-      voteCount: 0
-    };
-
-    setProposals([newProposal, ...proposals]);
-    setNewProposalTitle('');
-    setNewProposalDescription('');
+    // Close dialog immediately to prevent double-clicks
     setShowCreateForm(false);
+
+    try {
+      // Get the issue owner's credentials from the URL
+      const pathParts = window.location.pathname.split('/');
+      const encodedServer = pathParts[2];
+      const agent = pathParts[3];
+      const server = decodeURIComponent(encodedServer);
+
+      // Create proposal object
+      const proposal = {
+        id: Date.now().toString(),
+        title: newProposalTitle,
+        description: newProposalDescription,
+        author: 'You', // This could be enhanced to get real user info
+        createdAt: new Date().toISOString(),
+        voteCount: 0,
+      };
+
+      await dispatch(addProposal({
+        serverUrl: server,
+        publicKey: agent,
+        contractId: issueId,
+        proposal: proposal,
+      })).unwrap();
+
+      // Reload proposals to get the updated list
+      await dispatch(getProposals({
+        serverUrl: server,
+        publicKey: agent,
+        contractId: issueId,
+      }));
+
+      setNewProposalTitle('');
+      setNewProposalDescription('');
+    } catch (error) {
+      console.error('Failed to add proposal:', error);
+      // Reopen dialog if there was an error
+      setShowCreateForm(true);
+    }
   };
 
   if (isLoading) {
@@ -133,7 +155,11 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
               />
             </div>
             <div className="form-actions">
-              <button onClick={handleCreateProposal} className="save-button">
+              <button 
+                onClick={handleCreateProposal} 
+                className="save-button"
+                disabled={!newProposalTitle.trim()}
+              >
                 Add Proposal
               </button>
               <button
@@ -148,37 +174,49 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
       )}
 
       <div className="proposals-list">
-        {proposals.map((proposal) => (
-          <div key={proposal.id} className="proposal-card">
-            <div className="proposal-header">
-              <div className="proposal-title">
-                <h3>{proposal.title}</h3>
+        {proposals.map((proposal: any) => {
+          // Ensure we have string values for display
+          const proposalTitle = typeof proposal.title === 'string' ? proposal.title : 
+                               typeof proposal.title === 'object' ? JSON.stringify(proposal.title) : 
+                               'Unknown Proposal';
+          const proposalDescription = typeof proposal.description === 'string' ? proposal.description : 
+                                    typeof proposal.description === 'object' ? JSON.stringify(proposal.description) : 
+                                    '';
+          const proposalAuthor = typeof proposal.author === 'string' ? proposal.author : 
+                                typeof proposal.author === 'object' ? JSON.stringify(proposal.author) : 
+                                'Unknown Author';
+          const proposalCreatedAt = typeof proposal.createdAt === 'string' ? proposal.createdAt : 
+                                   typeof proposal.createdAt === 'object' ? JSON.stringify(proposal.createdAt) : 
+                                   '';
+          const proposalVoteCount = typeof proposal.voteCount === 'number' ? proposal.voteCount : 0;
+          
+          return (
+            <div key={proposal.id} className="proposal-card">
+              <div className="proposal-header">
+                <div className="proposal-title">
+                  <h3>{proposalTitle}</h3>
+                </div>
+                <div className="proposal-meta">
+                  <span className="author">by {proposalAuthor}</span>
+                  <span className="date">{new Date(proposalCreatedAt).toLocaleDateString()}</span>
+                </div>
               </div>
-              <div className="proposal-meta">
-                <span className="author">by {proposal.author}</span>
-                <span className="date">{proposal.createdAt}</span>
-              </div>
-            </div>
-            
-            <div className="proposal-content">
-              <p>{proposal.description}</p>
-            </div>
+              
+              {proposalDescription && (
+                <div className="proposal-content">
+                  <p>{proposalDescription}</p>
+                </div>
+              )}
 
-            <div className="proposal-stats">
-              <div className="stat">
-                <span className="stat-label">Votes:</span>
-                <span className="stat-value">{proposal.voteCount}</span>
+              <div className="proposal-stats">
+                <div className="stat">
+                  <span className="stat-label">Votes:</span>
+                  <span className="stat-value">{proposalVoteCount}</span>
+                </div>
               </div>
             </div>
-
-            <div className="proposal-actions">
-              <button className="view-button">
-                <span>View Details</span>
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {proposals.length === 0 && !isLoading && (

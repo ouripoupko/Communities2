@@ -7,6 +7,13 @@ class Community:
         self.approvals = self.db['approvals']
         self.properties = self.db['properties']
         self.sub_contracts = self.db['sub_contracts']
+        self.issues = Storage('issues')
+
+    def add_issue(self, issue):
+        self.issues.append(issue)
+
+    def get_issues(self):
+        return [self.issues[key].get_dict() for key in self.issues]
 
     def set_instructions(self, instructions):
         self.properties['instructions'] = instructions
@@ -36,7 +43,8 @@ class Community:
         return reply
     
     def get_members(self):
-        return {key: self.members[key] for key in self.members}
+        # return {key: self.members[key] for key in self.members}
+        return partners()
 
     def is_member(self, agent):
         return agent in self.members
