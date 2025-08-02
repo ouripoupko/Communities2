@@ -1,13 +1,22 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { communityApi } from '../../services/api';
-import type { Community } from '../../services/api';
 
+// Define Community interface
+interface Community {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+}
+
+// Add state for properties and members
 interface CommunitiesState {
   communities: Community[];
   currentCommunity: Community | null;
   loading: boolean;
   error: string | null;
+  communityProperties: Record<string, any>;
+  communityMembers: Record<string, string[]>;
 }
 
 const initialState: CommunitiesState = {
@@ -15,42 +24,81 @@ const initialState: CommunitiesState = {
   currentCommunity: null,
   loading: false,
   error: null,
+  communityProperties: {},
+  communityMembers: {},
 };
 
 // Async thunks
 export const fetchCommunities = createAsyncThunk(
   'communities/fetchCommunities',
   async () => {
-    return await communityApi.fetchCommunities();
+    // TODO: Implement fetchCommunities API call
+    return [];
   }
 );
 
 export const fetchCommunity = createAsyncThunk(
   'communities/fetchCommunity',
-  async (id: string) => {
-    return await communityApi.fetchCommunity(id);
+  async (_id: string) => {
+    // TODO: Implement fetchCommunity API call
+    return null;
   }
 );
 
 export const createCommunity = createAsyncThunk(
   'communities/createCommunity',
-  async (data: { name: string; description: string }) => {
-    return await communityApi.createCommunity(data);
+  async (_data: { name: string; description: string }) => {
+    // TODO: Implement createCommunity API call
+    return null;
   }
 );
 
 export const updateCommunity = createAsyncThunk(
   'communities/updateCommunity',
-  async ({ id, data }: { id: string; data: Partial<Community> }) => {
-    return await communityApi.updateCommunity(id, data);
+  async (_args: { id: string; data: Partial<Community> }) => {
+    // TODO: Implement updateCommunity API call
+    return null;
   }
 );
 
 export const deleteCommunity = createAsyncThunk(
   'communities/deleteCommunity',
   async (id: string) => {
-    await communityApi.deleteCommunity(id);
+    // TODO: Implement deleteCommunity API call
     return id;
+  }
+);
+
+// Async thunks for community contract data
+export const fetchCommunityProperties = createAsyncThunk(
+  'communities/fetchCommunityProperties',
+  async (_args: { serverUrl: string; publicKey: string; contractId: string }) => {
+    // TODO: Implement fetchCommunityProperties API call
+    return {};
+  }
+);
+
+export const updateCommunityProperty = createAsyncThunk(
+  'communities/updateCommunityProperty',
+  async (_args: { serverUrl: string; publicKey: string; contractId: string; key: string; value: unknown }) => {
+    // TODO: Implement updateCommunityProperty API call
+    return null;
+  }
+);
+
+export const fetchCommunityMembers = createAsyncThunk(
+  'communities/fetchCommunityMembers',
+  async (_args: { serverUrl: string; publicKey: string; contractId: string }) => {
+    // TODO: Implement fetchCommunityMembers API call
+    return {};
+  }
+);
+
+export const deployCommunityContract = createAsyncThunk(
+  'communities/deployCommunityContract',
+  async (_args: { serverUrl: string; publicKey: string }) => {
+    // TODO: Implement deployCommunityContract API call
+    return null;
   }
 );
 
@@ -104,7 +152,9 @@ const communitiesSlice = createSlice({
       })
       .addCase(createCommunity.fulfilled, (state, action) => {
         state.loading = false;
-        state.communities.unshift(action.payload);
+        if (action.payload) {
+          state.communities.unshift(action.payload);
+        }
       })
       .addCase(createCommunity.rejected, (state, action) => {
         state.loading = false;
@@ -119,12 +169,15 @@ const communitiesSlice = createSlice({
       })
       .addCase(updateCommunity.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.communities.findIndex(c => c.id === action.payload.id);
-        if (index !== -1) {
-          state.communities[index] = action.payload;
-        }
-        if (state.currentCommunity?.id === action.payload.id) {
-          state.currentCommunity = action.payload;
+        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload) {
+          const payload = action.payload as Community;
+          const index = state.communities.findIndex(c => c.id === payload.id);
+          if (index !== -1) {
+            state.communities[index] = payload;
+          }
+          if (state.currentCommunity?.id === payload.id) {
+            state.currentCommunity = payload;
+          }
         }
       })
       .addCase(updateCommunity.rejected, (state, action) => {

@@ -1,25 +1,22 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3, Share2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { useAuth } from '../contexts/AuthContext';
-import { getIssueDetails, getProposals } from '../store/slices/contractsSlice';
+import { fetchIssueDetails } from '../store/slices/issuesSlice';
 import { eventStreamService } from '../services/eventStream';
 import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
 import Outcome from '../components/issue/Outcome';
-import Share from '../components/issue/Share';
 import '../components/layout/Layout.scss';
 
 const IssueView: React.FC = () => {
   const { server: encodedServer, agent, communityId, issueId } = useParams<{ server: string; agent: string; communityId: string; issueId: string }>();
   const navigate = useNavigate();
   const { issueDetails } = useAppSelector((state: any) => state.contracts);
-  const { user } = useAuth();
+  // Removed unused user and setIsValidated
   const dispatch = useAppDispatch();
   const [fetching, setFetching] = useState(false);
-  const [isValidated, setIsValidated] = useState(false);
   
   // Decode the server URL from the URL parameter
   const server = useMemo(() => {
@@ -35,13 +32,7 @@ const IssueView: React.FC = () => {
       if (event.contract === issueId && issueId) {
         console.log('Contract write event detected for issue:', issueId);
         // Reload issue details
-        dispatch(getIssueDetails({
-          serverUrl: server,
-          publicKey: agent || '',
-          contractId: issueId,
-        }));
-        // Reload proposals
-        dispatch(getProposals({
+        dispatch(fetchIssueDetails({
           serverUrl: server,
           publicKey: agent || '',
           contractId: issueId,
@@ -81,20 +72,12 @@ const IssueView: React.FC = () => {
           setFetching(true);
           try {
             // Fetch the issue using the URL credentials (issue owner's server and agent)
-            await dispatch(getIssueDetails({
+            await dispatch(fetchIssueDetails({
               serverUrl: server,
               publicKey: agent || '',
               contractId: issueId,
             })).unwrap();
             
-            // Also load proposals for the issue
-            await dispatch(getProposals({
-              serverUrl: server,
-              publicKey: agent || '',
-              contractId: issueId,
-            }));
-            
-            setIsValidated(true);
           } catch (error) {
             console.error('Failed to load issue:', error);
             navigate('/');
@@ -116,10 +99,9 @@ const IssueView: React.FC = () => {
     { path: 'proposals', label: 'Proposals', icon: FileText },
     { path: 'vote', label: 'Vote', icon: VoteIcon },
     { path: 'outcome', label: 'Outcome', icon: BarChart3 },
-    { path: 'share', label: 'Share', icon: Share2 },
   ];
 
-  if (fetching || !isValidated) {
+  if (fetching) {
     return (
       <div className="issue-view-container">
         <div className="loading-state">
@@ -183,7 +165,6 @@ const IssueView: React.FC = () => {
             <Route path="proposals" element={<Proposals issueId={issueId!} />} />
             <Route path="vote" element={<Vote issueId={issueId!} />} />
             <Route path="outcome" element={<Outcome issueId={issueId!} />} />
-            <Route path="share" element={<Share issueId={issueId!} server={server} agent={agent} communityId={communityId} />} />
             <Route path="*" element={<Discussion issueId={issueId!} />} />
           </Routes>
         </div>

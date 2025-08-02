@@ -1,25 +1,16 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { useDispatch } from 'react-redux';
-import { checkAgentExists, registerAgent, fetchContracts, clearContracts, clearError, APIError, deployProfileContract, PROFILE_CONTRACT_NAME } from '../store/slices/contractsSlice';
-import type { AppDispatch } from '../store';
+import { useDispatch, useSelector } from 'react-redux';
+import { initializeUser, setCurrentUser, clearUser } from '../store/slices/userSlice';
+import { fetchCommunities } from '../store/slices/communitiesSlice';
+import type { AppDispatch, RootState } from '../store';
 import { eventStreamService } from '../services/eventStream';
 
-interface User {
-  publicKey: string;
-  serverUrl: string;
-  firstName?: string;
-  lastName?: string;
-  profilePicture?: string;
-}
-
 interface AuthContextType {
-  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (publicKey: string, serverUrl: string) => Promise<void>;
   logout: () => void;
-  updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,19 +28,25 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const dispatch = useDispatch<AppDispatch>();
+  const initializationRef = useRef(false);
+  
+  // Get user data from Redux
+  const user = useSelector((state: RootState) => state.user);
+  const isAuthenticated = !!(user.publicKey && user.serverUrl);
 
   useEffect(() => {
     // Check for stored user data on app load
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    if (storedUser && !initializationRef.current) {
       try {
         const userData = JSON.parse(storedUser);
-        setUser(userData);
+        console.log('AuthProvider useEffect found stored user', userData);
+        dispatch(setCurrentUser(userData));
         // Validate stored credentials and load contracts
         validateStoredCredentials(userData.publicKey, userData.serverUrl);
+        initializationRef.current = true;
       } catch (error) {
         localStorage.removeItem('user');
         setIsLoading(false);
@@ -57,111 +54,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } else {
       setIsLoading(false);
     }
-  }, []);
+  }, [dispatch]);
 
   const validateStoredCredentials = async (publicKey: string, serverUrl: string) => {
     try {
-      // First check if agent exists
-      let agentExists = false;
-      try {
-        agentExists = await dispatch(checkAgentExists({ serverUrl, publicKey })).unwrap();
-      } catch (error) {
-        throw error;
-      }
-      if (agentExists) {
-        let contracts;
-        try {
-          contracts = await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-        } catch (error) {
-          throw error;
-        }
-        // Check if profile contract exists, if not deploy it
-        const hasProfileContract = contracts.some(contract => contract.name === PROFILE_CONTRACT_NAME);
-        if (!hasProfileContract) {
-          try {
-            await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
-            await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-          } catch (error) {
-            throw error;
-          }
-        }
-        dispatch(clearError());
-        setIsLoading(false);
-      } else {
-        // Agent does not exist, register it
-        try {
-          await dispatch(registerAgent({ serverUrl, publicKey })).unwrap();
-          await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
-          await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-          dispatch(clearError());
-          setIsLoading(false);
-        } catch (error) {
-          throw error;
-        }
-      }
+      // Use the new initializeUser thunk which handles everything
+      await dispatch(initializeUser()).unwrap();
+      
+      setIsLoading(false);
       
       // Connect to the SSE stream after successful validation
       eventStreamService.connect(serverUrl, publicKey);
-    } catch (error) {
-      // Fail fast: show error, clear state, and exit
-      setUser(null);
-      localStorage.removeItem('user');
-      dispatch(clearContracts());
-      setIsLoading(false);
-      if (error instanceof APIError) {
-        if (error.isNetworkError) {
-          localStorage.setItem('loginError', 'Your previous session could not be restored because the server is unreachable. Please check your connection and try again.');
-        } else if (error.isInvalidServer) {
-          localStorage.setItem('loginError', 'Your previous session could not be restored because the server URL appears to be incorrect. Please check the server URL and try again.');
-        } else {
-          localStorage.setItem('loginError', 'Your previous session could not be restored. Please log in again.');
-        }
-      } else {
-        localStorage.setItem('loginError', 'Your previous session could not be restored. Please log in again.');
-      }
-      return; // Do not proceed further
-    }
-  };
-
-  const handleLoadContracts = async (publicKey: string, serverUrl: string) => {
-    // First check if agent exists
-    let agentExists = false;
-    try {
-      agentExists = await dispatch(checkAgentExists({ serverUrl, publicKey })).unwrap();
-    } catch (error) {
-      // Fail fast: show error and exit
-      throw error;
-    }
-    if (agentExists) {
-      let contracts;
-      try {
-        contracts = await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-      } catch (error) {
-        // Fail fast: show error and exit
-        throw error;
-      }
-      const hasProfileContract = contracts.some(contract => contract.name === PROFILE_CONTRACT_NAME);
-      if (!hasProfileContract) {
-        try {
-          await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
-          await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-        } catch (error) {
-          // Fail fast: show error and exit
-          throw error;
-        }
-      }
-      dispatch(clearError());
-    } else {
-      // Agent does not exist, register it
-      try {
-        await dispatch(registerAgent({ serverUrl, publicKey })).unwrap();
-        await dispatch(deployProfileContract({ serverUrl, publicKey })).unwrap();
-        await dispatch(fetchContracts({ serverUrl, publicKey })).unwrap();
-        dispatch(clearError());
-      } catch (error) {
-        // Fail fast: show error and exit
-        throw error;
-      }
+    } catch (err: any) {
+      throw err;
     }
   };
 
@@ -169,59 +74,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Clear any existing contracts
-      dispatch(clearContracts());
+      // Set the current user in Redux state first
+      dispatch(setCurrentUser({ publicKey, serverUrl }));
       
-      // Handle the login flow with API calls
-      await handleLoadContracts(publicKey, serverUrl);
+      // Use the new initializeUser thunk which handles everything
+      await dispatch(initializeUser()).unwrap();
       
-      const newUser: User = { publicKey, serverUrl };
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
+      // Fetch communities after user is initialized
+      await dispatch(fetchCommunities()).unwrap();
+      
+      // Store in localStorage
+      localStorage.setItem('user', JSON.stringify({ publicKey, serverUrl }));
       
       // Connect to the SSE stream
       eventStreamService.connect(serverUrl, publicKey);
-    } catch (error) {
-      if (error instanceof APIError) {
-        if (error.isNetworkError) {
-          throw new Error('Unable to connect to the server. Please check if the server is running and the URL is correct.');
-        } else if (error.isInvalidServer) {
-          throw new Error('The server doesn\'t recognize the API endpoints. Please check if this is the correct server URL.');
-        } else {
-          throw new Error(error.message);
-        }
-      } else {
-        throw new Error('Login failed. Please try again.');
-      }
+    } catch (err) {
+      // Error handling: just throw error for now
+      throw new Error(String(err));
     } finally {
       setIsLoading(false);
     }
   };
 
   const logout = () => {
-    setUser(null);
     localStorage.removeItem('user');
-    dispatch(clearContracts());
+    
+    // Clear user data from Redux
+    dispatch(clearUser());
     
     // Disconnect from the SSE stream
     eventStreamService.disconnect();
   };
 
-  const updateUser = (updates: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
-  };
-
   const value: AuthContextType = {
-    user,
-    isAuthenticated: !!user,
+    isAuthenticated,
     isLoading,
     login,
     logout,
-    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

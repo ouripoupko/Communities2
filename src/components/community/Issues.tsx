@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Plus, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { useAuth } from '../../contexts/AuthContext';
-import { deployIssueContract, addIssueToCommunity, getCommunityIssues, setIssueProperties } from '../../store/slices/contractsSlice';
-import type { Issue } from '../../services/api';
+import { deployIssueContract, updateIssueProperties, addIssueToCommunity, fetchCommunityIssues } from '../../store/slices/issuesSlice';
 import './Issues.scss';
 import { eventStreamService } from '../../services/eventStream';
 
@@ -12,23 +11,30 @@ interface IssuesProps {
   communityId: string;
 }
 
+interface CommunityIssue {
+  id?: string;
+  title?: string;
+  description?: string;
+  server: string;
+  agent: string;
+  contract: string;
+}
+
 const Issues: React.FC<IssuesProps> = ({ communityId }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { communityIssues } = useAppSelector((state: any) => state.contracts);
-  const { loading } = useAppSelector((state: any) => state.issues);
-  // Use AuthContext for user credentials
+  const communityIssues = useAppSelector((state) => state.issues.communityIssues);
   const { user } = useAuth();
-  const issues = Array.isArray(communityIssues[communityId]) ? communityIssues[communityId] : [];
+  const issues: CommunityIssue[] = Array.isArray(communityIssues[communityId]) ? communityIssues[communityId] : [];
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newIssueTitle, setNewIssueTitle] = useState('');
   const [newIssueDescription, setNewIssueDescription] = useState('');
   const [isLoadingIssues, setIsLoadingIssues] = useState(true);
 
   // Memoize the event handler so its reference is stable
-  const handleContractWrite = useCallback((event: any) => {
+  const handleContractWrite = useCallback((event: { contract?: string }) => {
     if (event.contract === communityId && user?.serverUrl && user?.publicKey) {
-      dispatch(getCommunityIssues({
+      dispatch(fetchCommunityIssues({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: communityId,
@@ -40,16 +46,14 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
 
   useEffect(() => {
     if (!user?.serverUrl || !user?.publicKey || !communityId) return;
-    
     setIsLoadingIssues(true);
-    dispatch(getCommunityIssues({
+    dispatch(fetchCommunityIssues({
       serverUrl: user.serverUrl,
       publicKey: user.publicKey,
       contractId: communityId,
     })).finally(() => {
       setIsLoadingIssues(false);
     });
-    
     if (!listenerRegistered.current) {
       eventStreamService.addEventListener('contract_write', handleContractWrite);
       listenerRegistered.current = true;
@@ -66,26 +70,21 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
     if (!newIssueTitle.trim() || !user || !user.serverUrl || !user.publicKey) {
       return;
     }
-    
-    // Close dialog immediately
     setShowCreateForm(false);
-    
     try {
       // 1. Deploy the issue contract
       const contractId = await dispatch(deployIssueContract({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
       })).unwrap();
-
       // 2. Set the issue properties (name and description)
-      await dispatch(setIssueProperties({
+      await dispatch(updateIssueProperties({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: contractId,
         name: newIssueTitle,
         text: newIssueDescription,
       })).unwrap();
-
       // 3. Add the issue to the community contract
       await dispatch(addIssueToCommunity({
         serverUrl: user.serverUrl,
@@ -97,39 +96,23 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
           contract: contractId,
         },
       })).unwrap();
-
       // 4. Fetch the updated issues list
-      await dispatch(getCommunityIssues({
+      await dispatch(fetchCommunityIssues({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: communityId,
       }));
-
       setNewIssueTitle('');
       setNewIssueDescription('');
-    } catch (error) {
+    } catch {
       alert('Failed to create issue.');
     }
   };
 
-  const handleIssueClick = (issue: any) => {
-    // Generate URL with server, agent, community ID, and issue id - encode the server URL
+  const handleIssueClick = (issue: { server: string; agent: string; contract: string }) => {
     const encodedServer = encodeURIComponent(issue.server);
     const issueUrl = `/issue/${encodedServer}/${issue.agent}/${communityId}/${issue.contract}`;
     navigate(issueUrl);
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <AlertCircle size={16} className="status-icon open" />;
-      case 'voting':
-        return <CheckCircle size={16} className="status-icon voting" />;
-      case 'closed':
-        return <CheckCircle size={16} className="status-icon closed" />;
-      default:
-        return null;
-    }
   };
 
   if (isLoadingIssues) {
@@ -158,7 +141,6 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
           Create Issue
         </button>
       </div>
-
       {showCreateForm && (
         <div className="create-form-overlay">
           <div className="create-form">
@@ -182,73 +164,27 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
                 onChange={(e) => setNewIssueDescription(e.target.value)}
                 placeholder="Describe the issue..."
                 className="input-field"
-                rows={4}
               />
             </div>
             <div className="form-actions">
-              <button
-                onClick={handleCreateIssue}
-                className="save-button"
-                disabled={!newIssueTitle.trim() || !user || !user.serverUrl || !user.publicKey}
-              >
-                Create Issue
+              <button onClick={handleCreateIssue} className="save-button" disabled={!newIssueTitle.trim()}>
+                Create
               </button>
-              <button
-                onClick={() => setShowCreateForm(false)}
-                className="cancel-button"
-              >
+              <button onClick={() => setShowCreateForm(false)} className="cancel-button">
                 Cancel
               </button>
             </div>
           </div>
         </div>
       )}
-
       <div className="issues-list">
-        {issues.map((issue: any, idx: number) => {
-          // Ensure we have string values for display
-          const issueName = typeof issue.name === 'string' ? issue.name : 
-                           typeof issue.name === 'object' ? JSON.stringify(issue.name) : 
-                           'Unknown Issue';
-          const issueDescription = typeof issue.description === 'string' ? issue.description : 
-                                 typeof issue.description === 'object' ? JSON.stringify(issue.description) : 
-                                 '';
-          
-          return (
-            <div
-              key={issue.contract || idx}
-              className="issue-card"
-              onClick={() => handleIssueClick(issue)}
-            >
-              <div className="issue-header">
-                <div className="issue-title">
-                  <h3>{issueName}</h3>
-                </div>
-              </div>
-              {issueDescription && (
-                <div className="issue-description">
-                  <p>{issueDescription}</p>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {issues.map((issue: CommunityIssue) => (
+          <div key={issue.contract} className="issue-card" onClick={() => handleIssueClick(issue)}>
+            <div className="issue-title">{issue.title || 'Untitled Issue'}</div>
+            <div className="issue-description">{issue.description || ''}</div>
+          </div>
+        ))}
       </div>
-
-      {issues.length === 0 && !isLoadingIssues && (
-        <div className="empty-state">
-          <MessageSquare size={48} />
-          <h3>No Issues Yet</h3>
-          <p>Create the first issue to start discussions</p>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="create-button"
-          >
-            <Plus size={20} />
-            Create Issue
-          </button>
-        </div>
-      )}
     </div>
   );
 };

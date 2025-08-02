@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { ArrowUpDown, CheckCircle } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { MultiBackend, PointerTransition, TouchTransition, type MultiBackendOptions } from 'react-dnd-multi-backend';
@@ -7,6 +7,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { usePreview } from 'react-dnd-preview';
 import { getEmptyImage } from 'react-dnd-html5-backend';
+import { submitVote } from '../../store/slices/issuesSlice';
 import './Vote.scss';
 
 // Backend configuration - same as TestDND
@@ -30,20 +31,26 @@ export const HTML5toTouch: MultiBackendOptions = {
 // Item type constant
 const ItemType = 'PROPOSAL_CARD';
 
+// Add a constant for the acceptance bar ID
+const ACCEPTANCE_BAR_ID = '__ACCEPTANCE_BAR__';
+
 interface VoteProps {
   issueId: string;
 }
 
 interface ProposalCardProps {
-  proposal: any;
+  proposal: { id: string; title: string };
   index: number;
   moveCard: (fromIndex: number, toIndex: number) => void;
   cardRef?: React.RefObject<HTMLDivElement | null>;
+  isAcceptanceBar?: boolean;
 }
+
+type ProposalDragItem = { id: string; title: string; index: number };
 
 // Custom preview component that looks identical to the dragged item
 const CustomPreview = ({ width }: { width?: number }) => {
-  const preview = usePreview<any>();
+  const preview = usePreview<ProposalDragItem>();
   if (!preview.display) {
     return null;
   }
@@ -87,20 +94,49 @@ const CustomPreview = ({ width }: { width?: number }) => {
   );
 };
 
+// AcceptanceBar component with concise text
+const AcceptanceBar: React.FC = () => (
+  <div
+    className="acceptance-bar"
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '10px 14px',
+      marginBottom: '8px',
+      borderRadius: '8px',
+      background: 'linear-gradient(90deg, #fbbf24 0%, #f59e42 100%)', // original orange gradient
+      border: '2px solid #f59e42',
+      fontWeight: 700,
+      fontSize: '1rem',
+      minHeight: '36px',
+      boxShadow: '0 4px 12px rgba(251,191,36,0.10)',
+      color: '#7c4700',
+      position: 'relative',
+      cursor: 'grab',
+      userSelect: 'none',
+      width: '100%',
+    }}
+  >
+    <span style={{ flex: 1, height: 3, background: '#e67c00', borderRadius: 2, marginRight: 12, minWidth: 16 }} />
+    <span style={{ fontWeight: 700, textAlign: 'center', whiteSpace: 'nowrap', letterSpacing: 1, color: '#fff' }}>Acceptance Bar</span>
+    <span style={{ flex: 1, height: 3, background: '#e67c00', borderRadius: 2, marginLeft: 12, minWidth: 16 }} />
+  </div>
+);
+
 // Individual draggable proposal card component
-const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, cardRef }) => {
+const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, cardRef, isAcceptanceBar }) => {
   const localRef = React.useRef<HTMLDivElement>(null);
-  const [{ isDragging }, drag, dragPreview] = useDrag<{ isDragging: boolean }, void, { isDragging: boolean }>(
+  const [{ isDragging }, drag, dragPreview] = useDrag<ProposalDragItem, void, { isDragging: boolean }>(
     {
       type: ItemType,
-      item: { ...proposal, index }, // Pass full proposal object with index
+      item: { ...proposal, index },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
     }
   );
 
-  // Suppress the native drag preview
   React.useEffect(() => {
     dragPreview(getEmptyImage(), { captureDraggingState: true });
   }, [dragPreview]);
@@ -110,15 +146,14 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, 
     collect: (monitor) => ({
       isOver: monitor.isOver(),
     }),
-    hover: (draggedItem: any) => {
-      if (draggedItem.index !== index) {
-        moveCard(draggedItem.index, index);
-        draggedItem.index = index; // This is still needed to keep the dragged item's index in sync
+    hover: (draggedItem: unknown) => {
+      if (draggedItem && (draggedItem as ProposalDragItem).index !== index) {
+        moveCard((draggedItem as ProposalDragItem).index, index);
+        (draggedItem as ProposalDragItem).index = index;
       }
     },
   });
 
-  // Use the passed ref for the first card, otherwise use a local ref
   const ref = (node: HTMLDivElement) => {
     drag(drop(node));
     if (cardRef && typeof cardRef !== 'function') {
@@ -128,13 +163,21 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, 
     }
   };
 
+  if (isAcceptanceBar) {
+    return (
+      <div ref={ref} style={{ width: '100%' }}>
+        <AcceptanceBar />
+      </div>
+    );
+  }
+
   return (
     <div
       ref={ref}
       className={`proposal-card one-line ${isDragging ? 'dragging' : ''} ${isOver ? 'over' : ''}`}
       style={{
         opacity: isDragging ? 0.5 : 1,
-        touchAction: 'none', // Important for mobile drag
+        touchAction: 'none',
         display: 'flex',
         alignItems: 'center',
         padding: '12px 20px',
@@ -156,26 +199,57 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, 
 };
 
 const Vote: React.FC<VoteProps> = ({ issueId }) => {
-  const proposals = useSelector((state: any) => state.contracts.issueProposals[issueId] || []);
-  const [currentOrder, setCurrentOrder] = useState<string[]>([]);
-  const [originalOrder, setOriginalOrder] = useState<string[]>([]);
+  const dispatch = useAppDispatch();
+  const proposals = useAppSelector((state: { issues: { issueProposals: Record<string, { id: string; title: string }[]> } }) => state.issues.issueProposals[issueId] || []);
+  const issueDetails = useAppSelector((state: { issues: { issueDetails: Record<string, any> } }) => state.issues.issueDetails[issueId] || {});
+  // Add acceptance bar to the order state
+  const [currentOrder, setCurrentOrder] = useState<string[]>([ACCEPTANCE_BAR_ID]);
+  const [originalOrder, setOriginalOrder] = useState<string[]>([ACCEPTANCE_BAR_ID]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  // No need for cardWidth state; use ref directly
   const firstCardRef = React.useRef<HTMLDivElement>(null);
 
-  // Update order when proposals change
+  // Extract server and agent from URL
+  const pathParts = window.location.pathname.split('/');
+  const encodedServer = pathParts[2];
+  const agent = pathParts[3];
+  const server = decodeURIComponent(encodedServer);
+
+  // Initialize order from user's vote or default
   useEffect(() => {
-    if (proposals.length > 0) {
-      const order = proposals.map((p: any) => p.id);
+    let userOrder: string[] | undefined;
+    if (issueDetails.votes && agent && issueDetails.votes[agent]) {
+      userOrder = issueDetails.votes[agent].order;
+    }
+    if (userOrder && Array.isArray(userOrder) && userOrder.length > 0) {
+      setOriginalOrder(userOrder);
+      setCurrentOrder(userOrder);
+      setHasVoted(true);
+      setIsLoading(false);
+    } else if (proposals.length > 0) {
+      const order = [ACCEPTANCE_BAR_ID, ...proposals.map((p: { id: string }) => p.id)];
       setOriginalOrder(order);
       setCurrentOrder(order);
+      setHasVoted(false);
       setIsLoading(false);
     } else if (proposals.length === 0 && !isLoading) {
       setIsLoading(false);
     }
-  }, [proposals, isLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposals, issueDetails.votes, agent, isLoading]);
+
+  // Listen for contract_write events and re-initialize
+  useEffect(() => {
+    const handleContractWrite = (event: any) => {
+      if (event.contract === issueId) {
+        // Re-fetch issue details or trigger a reload as needed
+        // (Assume parent or redux handles this, so just rely on updated props)
+      }
+    };
+    window.addEventListener('contract_write', handleContractWrite);
+    return () => window.removeEventListener('contract_write', handleContractWrite);
+  }, [issueId]);
 
   const moveCard = useCallback((fromIndex: number, toIndex: number) => {
     setCurrentOrder(prevOrder => {
@@ -189,8 +263,13 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
   const handleSubmitVote = async () => {
     setIsSubmitting(true);
     try {
-      // TODO: Implement vote submission logic
-      console.log('Submitting vote with order:', currentOrder);
+      const vote = { order: currentOrder };
+      await dispatch(submitVote({
+        serverUrl: server,
+        publicKey: agent,
+        contractId: issueId,
+        vote
+      })).unwrap();
       setHasVoted(true);
     } catch (error) {
       console.error('Error submitting vote:', error);
@@ -227,33 +306,42 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
 
   return (
     <DndProvider backend={MultiBackend} options={HTML5toTouch}>
-      <div className="vote-container">
+      <div className="vote-container" style={{ maxWidth: 480, margin: '0 auto', padding: '10px' }}>
         <div className="vote-header">
           <h2>Vote on Proposals</h2>
         </div>
-
         <div className="vote-instructions">
           <div className="instruction-card">
             <ArrowUpDown size={20} />
             <div>
               <h3>How to Vote</h3>
-              <p>Drag proposals to reorder them. The top proposal is your first choice.</p>
+              <p style={{ marginBottom: 0 }}>
+                Rank proposals (drag them up and down). Drag the acceptance bar between accepted and rejected proposals.
+              </p>
             </div>
           </div>
         </div>
 
         <div className="proposals-list">
-          {currentOrder.map((proposalId, index) => {
-            const proposal = proposals.find((p: any) => p.id === proposalId);
+          {currentOrder.map((id, index) => {
+            if (id === ACCEPTANCE_BAR_ID) {
+              return (
+                <ProposalCard
+                  key={ACCEPTANCE_BAR_ID}
+                  proposal={{ id: '', title: '' }}
+                  index={index}
+                  moveCard={moveCard}
+                  cardRef={index === 0 ? firstCardRef : undefined}
+                  isAcceptanceBar
+                />
+              );
+            }
+            const proposal = proposals.find((p: { id: string }) => p.id === id);
             if (!proposal) return null;
-
-            // Attach ref to the first card only
-            // When passing refProp, ensure it is React.RefObject<HTMLDivElement> or undefined
             const refProp = index === 0 ? firstCardRef : undefined;
-
             return (
               <ProposalCard
-                key={proposalId}
+                key={id}
                 proposal={proposal}
                 index={index}
                 moveCard={moveCard}

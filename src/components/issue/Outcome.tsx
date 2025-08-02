@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart3, Trophy, Award } from 'lucide-react';
+import React from 'react';
+import { BarChart3 } from 'lucide-react';
 import './Outcome.scss';
+import { useAppSelector } from '../../store/hooks';
 
 interface Proposal {
   id: string;
@@ -17,50 +18,20 @@ interface OutcomeProps {
 }
 
 const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const issueDetails = useAppSelector((state: any) => state.issues.issueDetails[issueId] || {});
+  const proposals = useAppSelector((state: any) => state.issues.issueProposals[issueId] || []);
+  const condorcetResult = (issueDetails && typeof issueDetails === 'object' && 'condorcetResult' in issueDetails) ? (issueDetails as any).condorcetResult : undefined;
+  const isLoading = !condorcetResult;
 
-  useEffect(() => {
-    const fetchOutcome = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const mockProposals: Proposal[] = [
-        {
-          id: '1',
-          title: 'Use Auth0 for authentication',
-          description: 'Implement Auth0 as the primary authentication provider with OAuth2 and JWT support.',
-          author: 'John Doe',
-          score: 85,
-          rank: 1,
-          voteCount: 12
-        },
-        {
-          id: '2',
-          title: 'Build custom auth solution',
-          description: 'Create a custom authentication system using Node.js and Passport.js.',
-          author: 'Jane Smith',
-          score: 72,
-          rank: 2,
-          voteCount: 8
-        },
-        {
-          id: '3',
-          title: 'Use Firebase Authentication',
-          description: 'Leverage Firebase Authentication for easy integration and management.',
-          author: 'Mike Johnson',
-          score: 58,
-          rank: 3,
-          voteCount: 5
-        }
-      ];
-      
-      setProposals(mockProposals);
-      setIsLoading(false);
-    };
+  // Helper to get proposal title by id (including acceptance bar)
+  const getProposalTitle = (id: string) => {
+    if (id === '__ACCEPTANCE_BAR__') return 'Acceptance Bar';
+    const proposal = proposals.find((p: Proposal) => p.id === id);
+    return proposal ? proposal.title : id;
+  };
 
-    fetchOutcome();
-  }, [issueId]);
+  // Check if there are any cycles
+  const hasCycles = condorcetResult && condorcetResult.ranking.some((group: string[]) => group.length > 1);
 
   if (isLoading) {
     return (
@@ -76,67 +47,49 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
   return (
     <div className="outcome-container">
       <div className="outcome-header">
-        <h2>Voting Results</h2>
-        <p>Aggregated ranking using positional scoring</p>
-      </div>
-
-      <div className="winner-section">
-        <div className="winner-card">
-          <Trophy size={32} className="trophy-icon" />
-          <h3>Winner</h3>
-          <div className="winner-proposal">
-            <h4>{proposals[0]?.title}</h4>
-            <p>{proposals[0]?.description}</p>
-            <span className="author">by {proposals[0]?.author}</span>
-          </div>
-          <div className="winner-stats">
-            <div className="stat">
-              <span className="label">Score:</span>
-              <span className="value">{proposals[0]?.score} points</span>
-            </div>
-            <div className="stat">
-              <span className="label">Votes:</span>
-              <span className="value">{proposals[0]?.voteCount}</span>
-            </div>
-          </div>
-        </div>
+        <h2>Aggregated Ranking</h2>
+        <p>
+          This ranking is computed using the Condorcet method. {hasCycles && (
+            <span style={{ color: '#b91c1c', fontWeight: 600 }}>
+              Cycles detected: proposals in a cycle are shown grouped and are mutually tied.
+            </span>
+          )}
+        </p>
       </div>
 
       <div className="results-section">
-        <h3>All Results</h3>
         <div className="results-list">
-          {proposals.map((proposal, index) => (
-            <div key={proposal.id} className={`result-card ${index === 0 ? 'winner' : ''}`}>
-              <div className="result-rank">
-                {index === 0 ? (
-                  <Trophy size={20} className="rank-icon winner" />
-                ) : index === 1 ? (
-                  <Award size={20} className="rank-icon second" />
-                ) : index === 2 ? (
-                  <Award size={20} className="rank-icon third" />
-                ) : (
-                  <span className="rank-number">{proposal.rank}</span>
-                )}
-              </div>
-              
-              <div className="result-content">
-                <h4>{proposal.title}</h4>
-                <p>{proposal.description}</p>
-                <span className="author">by {proposal.author}</span>
-              </div>
-
-              <div className="result-stats">
-                <div className="stat">
-                  <span className="label">Score:</span>
-                  <span className="value">{proposal.score} pts</span>
-                </div>
-                <div className="stat">
-                  <span className="label">Votes:</span>
-                  <span className="value">{proposal.voteCount}</span>
+          {condorcetResult.ranking.map((group: string[]) =>
+            group.length === 1 ? (
+              <div key={group[0]} className="result-card">
+                <div className="result-content">
+                  <h4>{getProposalTitle(group[0])}</h4>
                 </div>
               </div>
-            </div>
-          ))}
+            ) : (
+              <div key={group.join('-')} className="cycle-group">
+                {group.map((id, idx) => (
+                  <div
+                    key={id}
+                    className="result-card cycle-card"
+                    style={{
+                      marginLeft: `${idx * 24}px`,
+                      marginTop: idx === 0 ? 0 : '-32px',
+                      zIndex: 100 - idx,
+                      position: 'relative',
+                    }}
+                  >
+                    <div className="result-content">
+                      <h4>{getProposalTitle(id)}</h4>
+                      {idx === 0 && (
+                        <span className="cycle-label">Cycle</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
         </div>
       </div>
 
@@ -144,8 +97,10 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
         <div className="info-card">
           <BarChart3 size={20} />
           <div>
-            <h4>Scoring System</h4>
-            <p>Positional scoring: 1st place = 3 points, 2nd place = 2 points, 3rd place = 1 point</p>
+            <h4>Condorcet Method</h4>
+            <p>
+              Each proposal is compared pairwise. If a cycle is detected, it means the group of proposals are mutually tied in the collective ranking.
+            </p>
           </div>
         </div>
       </div>

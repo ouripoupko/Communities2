@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, ArrowRight } from 'lucide-react';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { addProposal, getProposals } from '../../store/slices/contractsSlice';
+import { Plus } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { getProposals, addProposal } from '../../store/slices/issuesSlice';
 import './Proposals.scss';
 
 interface Proposal {
@@ -19,84 +19,66 @@ interface ProposalsProps {
 
 const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   const dispatch = useAppDispatch();
-  const { issueProposals } = useAppSelector((state: any) => state.contracts);
-  const proposals = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
-  
+  const issueProposals = useAppSelector((state) => state.issues.issueProposals);
+  const proposals: Proposal[] = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProposalTitle, setNewProposalTitle] = useState('');
   const [newProposalDescription, setNewProposalDescription] = useState('');
 
-  // Load proposals from the contract
   useEffect(() => {
     const loadProposals = async () => {
       if (!issueId) return;
-
       try {
         setIsLoading(true);
-        // Get the issue owner's credentials from the URL
         const pathParts = window.location.pathname.split('/');
         const encodedServer = pathParts[2];
         const agent = pathParts[3];
         const server = decodeURIComponent(encodedServer);
-
         await dispatch(getProposals({
           serverUrl: server,
           publicKey: agent,
           contractId: issueId,
         })).unwrap();
-      } catch (error) {
-        console.error('Failed to load proposals:', error);
+      } catch {
+        // Error handling omitted for brevity
       } finally {
         setIsLoading(false);
       }
     };
-
     loadProposals();
   }, [issueId, dispatch]);
 
   const handleCreateProposal = async () => {
     if (!newProposalTitle.trim() || !issueId) return;
-
-    // Close dialog immediately to prevent double-clicks
     setShowCreateForm(false);
-
     try {
-      // Get the issue owner's credentials from the URL
       const pathParts = window.location.pathname.split('/');
       const encodedServer = pathParts[2];
       const agent = pathParts[3];
       const server = decodeURIComponent(encodedServer);
-
-      // Create proposal object
-      const proposal = {
+      const proposal: Proposal = {
         id: Date.now().toString(),
         title: newProposalTitle,
         description: newProposalDescription,
-        author: 'You', // This could be enhanced to get real user info
+        author: 'You',
         createdAt: new Date().toISOString(),
         voteCount: 0,
       };
-
       await dispatch(addProposal({
         serverUrl: server,
         publicKey: agent,
         contractId: issueId,
         proposal: proposal,
       })).unwrap();
-
-      // Reload proposals to get the updated list
       await dispatch(getProposals({
         serverUrl: server,
         publicKey: agent,
         contractId: issueId,
       }));
-
       setNewProposalTitle('');
       setNewProposalDescription('');
-    } catch (error) {
-      console.error('Failed to add proposal:', error);
-      // Reopen dialog if there was an error
+    } catch {
       setShowCreateForm(true);
     }
   };
@@ -104,10 +86,8 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   if (isLoading) {
     return (
       <div className="proposals-container">
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p>Loading proposals...</p>
-        </div>
+        <div className="loading-spinner"></div>
+        <p>Loading proposals...</p>
       </div>
     );
   }
@@ -127,7 +107,6 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
           Add Proposal
         </button>
       </div>
-
       {showCreateForm && (
         <div className="create-form-overlay">
           <div className="create-form">
@@ -155,84 +134,33 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
               />
             </div>
             <div className="form-actions">
-              <button 
-                onClick={handleCreateProposal} 
-                className="save-button"
-                disabled={!newProposalTitle.trim()}
-              >
+              <button onClick={handleCreateProposal} className="save-button" disabled={!newProposalTitle.trim()}>
                 Add Proposal
               </button>
-              <button
-                onClick={() => setShowCreateForm(false)}
-                className="cancel-button"
-              >
+              <button onClick={() => setShowCreateForm(false)} className="cancel-button">
                 Cancel
               </button>
             </div>
           </div>
         </div>
       )}
-
       <div className="proposals-list">
-        {proposals.map((proposal: any) => {
-          // Ensure we have string values for display
-          const proposalTitle = typeof proposal.title === 'string' ? proposal.title : 
-                               typeof proposal.title === 'object' ? JSON.stringify(proposal.title) : 
-                               'Unknown Proposal';
-          const proposalDescription = typeof proposal.description === 'string' ? proposal.description : 
-                                    typeof proposal.description === 'object' ? JSON.stringify(proposal.description) : 
-                                    '';
-          const proposalAuthor = typeof proposal.author === 'string' ? proposal.author : 
-                                typeof proposal.author === 'object' ? JSON.stringify(proposal.author) : 
-                                'Unknown Author';
-          const proposalCreatedAt = typeof proposal.createdAt === 'string' ? proposal.createdAt : 
-                                   typeof proposal.createdAt === 'object' ? JSON.stringify(proposal.createdAt) : 
-                                   '';
-          const proposalVoteCount = typeof proposal.voteCount === 'number' ? proposal.voteCount : 0;
-          
-          return (
-            <div key={proposal.id} className="proposal-card">
-              <div className="proposal-header">
-                <div className="proposal-title">
-                  <h3>{proposalTitle}</h3>
-                </div>
-                <div className="proposal-meta">
-                  <span className="author">by {proposalAuthor}</span>
-                  <span className="date">{new Date(proposalCreatedAt).toLocaleDateString()}</span>
-                </div>
+        {proposals.map((proposal) => (
+          <div key={proposal.id} className="proposal-card">
+            <div className="proposal-header">
+              <div className="proposal-title">
+                <h3>{proposal.title}</h3>
               </div>
-              
-              {proposalDescription && (
-                <div className="proposal-content">
-                  <p>{proposalDescription}</p>
-                </div>
-              )}
-
-              <div className="proposal-stats">
-                <div className="stat">
-                  <span className="stat-label">Votes:</span>
-                  <span className="stat-value">{proposalVoteCount}</span>
-                </div>
+              <div className="proposal-meta">
+                <span className="proposal-author">{proposal.author}</span>
+                <span className="proposal-date">{proposal.createdAt}</span>
               </div>
             </div>
-          );
-        })}
+            <div className="proposal-description">{proposal.description}</div>
+            <div className="proposal-votes">Votes: {proposal.voteCount}</div>
+          </div>
+        ))}
       </div>
-
-      {proposals.length === 0 && !isLoading && (
-        <div className="empty-state">
-          <FileText size={48} />
-          <h3>No Proposals Yet</h3>
-          <p>Add the first proposal to start the voting process</p>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="create-button"
-          >
-            <Plus size={20} />
-            Add Proposal
-          </button>
-        </div>
-      )}
     </div>
   );
 };

@@ -1,15 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Crown } from 'lucide-react';
-import './Members.scss';
+import React from 'react';
 import { useAppSelector } from '../../store/hooks';
-
-interface Member {
-  id: string;
-  name: string;
-  role: 'owner' | 'member';
-  joinedAt: string;
-  contributionScore: number;
-}
 
 interface MembersProps {
   communityId: string;
@@ -17,8 +7,8 @@ interface MembersProps {
 
 const Members: React.FC<MembersProps> = ({ communityId }) => {
   // Get the list of public keys from Redux
-  const communityMembers = useAppSelector(state => state.contracts.communityMembers);
-  const members = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+  const communityMembers = useAppSelector((state) => state.communities.communityMembers);
+  const members: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
 
   return (
     <div className="members-container">
@@ -26,7 +16,6 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
         <h2>Members</h2>
         <p>{members.length} community members</p>
       </div>
-
       <div className="members-list">
         {members.length === 0 ? (
           <div className="empty-state">

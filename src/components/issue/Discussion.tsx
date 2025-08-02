@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Edit, Save, ChevronDown, ChevronRight, Reply } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { setIssueDescription, addComment, getComments } from '../../store/slices/contractsSlice';
+import { getComments, addComment, setIssueDescription } from '../../store/slices/issuesSlice';
 import './Discussion.scss';
 
 interface Comment {
@@ -20,7 +20,7 @@ interface DiscussionProps {
 
 const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   const dispatch = useAppDispatch();
-  const { issueDetails, issueComments } = useAppSelector((state: any) => state.contracts);
+  const { issueDetails, issueComments } = useAppSelector((state) => state.issues);
   const currentIssue = issueDetails[issueId];
   const comments = Array.isArray(issueComments[issueId]) ? issueComments[issueId] : [];
   
@@ -43,7 +43,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   // Update description when issue data changes
   useEffect(() => {
     setDescription(getIssueDescription());
-  }, [currentIssue]);
+  }, [currentIssue, getIssueDescription]);
 
   // Load comments from the contract
   useEffect(() => {
@@ -203,7 +203,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
     return rootComments;
   };
 
-  const commentTree = buildCommentTree(comments);
+  const commentTree = buildCommentTree(comments as unknown[]);
 
   const toggleCollapse = (commentId: string) => {
     const updateCollapse = (comments: Comment[]): Comment[] => {
@@ -223,7 +223,6 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
 
     // Since we're using real data, we'll need to handle collapse state differently
     // For now, we'll just toggle the local state
-    const updatedTree = updateCollapse(commentTree);
     // In a real implementation, you might want to store collapse state in localStorage or Redux
   };
 

@@ -1,7 +1,7 @@
 export interface BlockchainEvent {
   action: 'contract_write' | 'deploy_contract' | 'a2a_connect' | string;
   contract?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export type EventListener = (event: BlockchainEvent) => void;
@@ -92,8 +92,8 @@ class EventStreamService {
       }
     };
 
-    this.eventSource.onerror = (error) => {
-      // console.error('SSE connection error:', error);
+    this.eventSource.onerror = () => {
+      // console.error('SSE connection error');
       this.handleConnectionError();
     };
   }
@@ -135,7 +135,6 @@ class EventStreamService {
       this.listeners.set(eventType, new Set());
     }
     this.listeners.get(eventType)!.add(listener);
-    // console.log(`Event listener registered for: ${eventType}. Total listeners: ${this.listeners.get(eventType)!.size}`);
   }
 
   removeEventListener(eventType: EventType, listener: EventListener) {

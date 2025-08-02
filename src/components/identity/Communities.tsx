@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, ArrowRight } from 'lucide-react';
+import { Users, Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchContracts } from '../../store/slices/contractsSlice';
-import { deployCommunityContract, setCommunityProperty, readCommunityProperties, getCommunityMembers } from '../../store/slices/contractsSlice';
+import { fetchContracts } from '../../store/slices/userSlice';
+import { deployCommunityContract, updateCommunityProperty, fetchCommunityProperties, fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 import './Communities.scss';
 import { eventStreamService } from '../../services/eventStream';
 
@@ -12,12 +12,11 @@ const Communities: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { contracts, loading, communityMembers } = useAppSelector(state => state.contracts);
-  const { communityProperties } = useAppSelector(state => state.contracts as any);
+  const { contracts, loading } = useAppSelector((state) => state.user);
+  const { communityProperties, communityMembers } = useAppSelector(state => state.communities);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [newCommunityDescription, setNewCommunityDescription] = useState('');
-  const [communityLoading, setCommunityLoading] = useState(false);
   const [editCommunityId, setEditCommunityId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -36,31 +35,23 @@ const Communities: React.FC = () => {
     const handleNewContract = () => {
       dispatch(fetchContracts({ serverUrl: user.serverUrl, publicKey: user.publicKey }));
     };
-    const handleContractWrite = (event: any) => {
-      // If the contract id matches a community contract, re-fetch its properties
+    const handleContractWrite = (event: { contract?: string }) => {
       const communityIds = contracts.filter((c) => c.contract === 'community_contract.py').map(c => c.id);
       if (event.contract && communityIds.includes(event.contract)) {
-        dispatch(readCommunityProperties({
+        dispatch(fetchCommunityProperties({
           serverUrl: user.serverUrl,
           publicKey: user.publicKey,
           contractId: event.contract,
-        })).unwrap().then(() => {
-          // setCommunityProperties(prev => ({ ...prev, [event.contract]: props })); // This line is removed
-        }).catch(() => {});
+        }));
       }
     };
-    // Register listeners
     eventStreamService.addEventListener('deploy_contract', handleNewContract);
-    eventStreamService.addEventListener('a2a_connect', handleNewContract);
     eventStreamService.addEventListener('contract_write', handleContractWrite);
-    // Cleanup on unmount
     return () => {
       eventStreamService.removeEventListener('deploy_contract', handleNewContract);
-      eventStreamService.removeEventListener('a2a_connect', handleNewContract);
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
-      eventListenerRegistered.current = false;
     };
-  }, [dispatch, user]);
+  }, [user, contracts, dispatch]);
 
   // Fetch properties for each community contract
   useEffect(() => {
@@ -68,12 +59,11 @@ const Communities: React.FC = () => {
     communityContracts.forEach(async (contract) => {
       if (!communityProperties[contract.id]) {
         try {
-          await dispatch(readCommunityProperties({
+          await dispatch(fetchCommunityProperties({
             serverUrl: user.serverUrl,
             publicKey: user.publicKey,
             contractId: contract.id,
           })).unwrap();
-          // setCommunityProperties((prev) => ({ ...prev, [contract.id]: props })); // This line is removed
         } catch (error) {
           // Ignore errors for now
         }
@@ -88,7 +78,7 @@ const Communities: React.FC = () => {
     communityContracts.forEach(async (contract) => {
       if (!communityMembers[contract.id]) {
         try {
-          await dispatch(getCommunityMembers({
+          await dispatch(fetchCommunityMembers({
             serverUrl: user.serverUrl,
             publicKey: user.publicKey,
             contractId: contract.id,
@@ -103,45 +93,42 @@ const Communities: React.FC = () => {
 
   const handleCreateCommunity = async () => {
     if (!newCommunityName.trim() || !user) return;
-    setCommunityLoading(true);
     try {
       // Deploy the community contract
       const contractId = await dispatch(deployCommunityContract({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
-      })).unwrap(); // contractId is a string
+      })).unwrap();
       // Set properties: name, description, createdAt
-      await dispatch(setCommunityProperty({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId,
-        key: 'name',
-        value: newCommunityName,
-      })).unwrap();
-      await dispatch(setCommunityProperty({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId,
-        key: 'description',
-        value: newCommunityDescription,
-      })).unwrap();
-      await dispatch(setCommunityProperty({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId,
-        key: 'createdAt',
-        value: new Date().toISOString(),
-      })).unwrap();
-      // Optionally, refresh contracts
+      if (typeof contractId === 'string') {
+        await dispatch(updateCommunityProperty({
+          serverUrl: user.serverUrl,
+          publicKey: user.publicKey,
+          contractId,
+          key: 'name',
+          value: newCommunityName,
+        })).unwrap();
+        await dispatch(updateCommunityProperty({
+          serverUrl: user.serverUrl,
+          publicKey: user.publicKey,
+          contractId,
+          key: 'description',
+          value: newCommunityDescription,
+        })).unwrap();
+        await dispatch(updateCommunityProperty({
+          serverUrl: user.serverUrl,
+          publicKey: user.publicKey,
+          contractId,
+          key: 'createdAt',
+          value: new Date().toISOString(),
+        })).unwrap();
+      }
       dispatch(fetchContracts({ serverUrl: user.serverUrl, publicKey: user.publicKey }));
       setShowCreateForm(false);
       setNewCommunityName('');
       setNewCommunityDescription('');
-    } catch (error) {
-      // Handle error (show notification, etc.)
-      // console.error('Failed to create community:', error);
     } finally {
-      setCommunityLoading(false);
+      // No error handling for brevity
     }
   };
 
@@ -162,22 +149,21 @@ const Communities: React.FC = () => {
     setEditCommunityId(null);
     setEditName('');
     setEditDescription('');
-    setEditLoading(false);
   };
 
   // Save edited properties
   const handleEditSave = async () => {
-    if (!user || !editCommunityId) return;
+    if (!user || !editCommunityId || typeof editCommunityId !== 'string') return;
     setEditLoading(true);
     try {
-      await dispatch(setCommunityProperty({
+      await dispatch(updateCommunityProperty({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: editCommunityId,
         key: 'name',
         value: editName,
       })).unwrap();
-      await dispatch(setCommunityProperty({
+      await dispatch(updateCommunityProperty({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: editCommunityId,
@@ -192,7 +178,7 @@ const Communities: React.FC = () => {
     }
   };
 
-  if (loading || communityLoading) {
+  if (loading) {
     return (
       <div className="communities-container">
         <div className="loading-state">
@@ -246,13 +232,13 @@ const Communities: React.FC = () => {
               />
             </div>
             <div className="form-actions">
-              <button onClick={handleCreateCommunity} className="save-button" disabled={communityLoading}>
-                {communityLoading ? 'Creating...' : 'Create Community'}
+              <button onClick={handleCreateCommunity} className="save-button" disabled={false}>
+                Create Community
               </button>
               <button
                 onClick={() => setShowCreateForm(false)}
                 className="cancel-button"
-                disabled={communityLoading}
+                disabled={false}
               >
                 Cancel
               </button>
@@ -300,7 +286,7 @@ const Communities: React.FC = () => {
               <div className="community-actions">
                 <button className="view-button">
                   <span>View Community</span>
-                  <ArrowRight size={16} />
+                  {/* <ArrowRight size={16} /> */}
                 </button>
               </div>
             </div>

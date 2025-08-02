@@ -234,6 +234,34 @@
   line-height: 1.5;
 }
 
+.cycle-group {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.cycle-card {
+  box-shadow: 0 2px 8px 0 rgba(255, 153, 0, 0.12);
+  border: 2px solid #fbbf24;
+  background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%);
+  min-width: 180px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.cycle-label {
+  display: inline-block;
+  background: #fbbf24;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  padding: 0.1rem 0.7rem;
+  margin-left: 0.5rem;
+  margin-top: 0.2rem;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .winner-stats {

@@ -5,9 +5,11 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 import { stringToUint8Array, uint8ArrayToString, uint8ArrayToHex } from '../../services/encodeDecode';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDispatch } from '../../store/hooks';
-import { fetchContracts } from '../../store/slices/contractsSlice';
+import { fetchContracts } from '../../store/slices/userSlice';
 import { eventStreamService } from '../../services/eventStream';
+import type { BlockchainEvent } from '../../services/eventStream';
 import { useNavigate } from 'react-router-dom';
+import { joinContract } from '../../services/api';
 
 // No longer using CommunityInvite type; use plain object with server, agent, contract
 const JoinCommunity: React.FC = () => {
@@ -22,7 +24,7 @@ const JoinCommunity: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   // Store decoded data for display and editing
   const [decodedData, setDecodedData] = useState('');
-  const a2aListenerRef = React.useRef<((event: any) => void) | null>(null);
+  const a2aListenerRef = React.useRef<((event: BlockchainEvent) => void) | null>(null);
 
   // Register a2a_connect listener on mount and cleanup on unmount
   useEffect(() => {
@@ -51,14 +53,14 @@ const JoinCommunity: React.FC = () => {
         eventStreamService.removeEventListener('a2a_connect', a2aListenerRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isJoining, dispatch, navigate, user]);
 
   const handleScanQR = () => {
     setShowScanner(true);
   };
 
-  const handleScanResult = (codes: any[]) => {
+  const handleScanResult = (codes: { rawValue: string }[]) => {
     if (codes && codes.length > 0 && codes[0].rawValue) {
       const result = codes[0].rawValue;
       setShowScanner(false);
@@ -92,19 +94,14 @@ const JoinCommunity: React.FC = () => {
     setIsJoining(true);
     setJoinSuccess(false);
     try {
-      const url = `${user.serverUrl}/ibc/app/${user.publicKey}?action=join_contract`;
-      const body = JSON.stringify({
+      await joinContract({
+        serverUrl: user.serverUrl,
+        publicKey: user.publicKey,
         address: server,
         agent,
         contract,
-        profile: ""
+        profile: ''
       });
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body
-      });
-      if (!response.ok) throw new Error('Failed to join community');
       // Button remains disabled until a2a_connect is received
     } catch (error) {
       setIsJoining(false);

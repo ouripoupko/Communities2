@@ -7,13 +7,14 @@ import Members from '../components/community/Members';
 import Currency from '../components/community/Currency';
 import Share from '../components/community/Share';
 import '../components/layout/Layout.scss';
-import { readCommunityProperties, getCommunityMembers } from '../store/slices/contractsSlice';
+import { fetchCommunityProperties, fetchCommunityMembers } from '../store/slices/communitiesSlice';
 
 const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   // Get contracts and properties from Redux
-  const { contracts, communityProperties = {} } = useAppSelector(state => state.contracts as any);
+  const { contracts } = useAppSelector(state => state.user);
+  const { communityProperties = {} } = useAppSelector(state => state.communities);
   const [fetching, setFetching] = useState(false);
   const dispatch = useAppDispatch();
 
@@ -31,21 +32,9 @@ const CommunityView: React.FC = () => {
           const user = JSON.parse(userStr);
           if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
             setFetching(true);
-            dispatch(readCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+            dispatch(fetchCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
               .then(() => {
-                // After contracts are fetched, fetch properties for this community
-                dispatch(readCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-                  .then((result: any) => {
-                  })
-                  .catch((err: any) => {
-                  });
-                
-                // Also fetch community members
-                dispatch(getCommunityMembers({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-                  .then((result: any) => {
-                  })
-                  .catch((err: any) => {
-                  })
+                dispatch(fetchCommunityMembers({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
                   .finally(() => setFetching(false));
               })
               .catch(() => setFetching(false));
@@ -63,19 +52,12 @@ const CommunityView: React.FC = () => {
           const user = JSON.parse(userStr);
           if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
             setFetching(true);
-            dispatch(readCommunityProperties({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-              .then((result: any) => {
+            dispatch(fetchCommunityProperties({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+              .then(() => {
+                dispatch(fetchCommunityMembers({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
+                  .finally(() => setFetching(false));
               })
-              .catch((err: any) => {
-              });
-            
-            // Also fetch community members
-            dispatch(getCommunityMembers({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-              .then((result: any) => {
-              })
-              .catch((err: any) => {
-              })
-              .finally(() => setFetching(false));
+              .catch(() => setFetching(false));
           }
         } catch (e) {
           // ignore

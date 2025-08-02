@@ -34,10 +34,16 @@ class Issue:
     def get_proposals(self):
         return [self.proposals[key].get_dict() for key in self.proposals]
     
+    def add_vote(self, voter, vote):
+        self.votes[voter] = vote
+
+    def get_votes(self):
+        return {key: self.votes[key].get_dict() for key in self.votes}
+
     def get_issue(self):
         return {
             'name': self.get_name(),
             'description': self.get_description(),
             'proposals': self.get_proposals(),
-            'votes': {}
+            'votes': self.get_votes()
         }

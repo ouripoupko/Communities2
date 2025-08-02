@@ -8,7 +8,8 @@ import JoinCommunity from '../components/identity/JoinCommunity';
 import '../components/layout/Layout.scss';
 
 const MyIdentity: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -33,16 +34,6 @@ const MyIdentity: React.FC = () => {
                 <LogOut size={16} />
                 <span>Logout</span>
               </button>
-            </div>
-            <div className="user-info">
-              <div className="user-key">
-                <span className="label">Key:</span>
-                <span className="value">{user?.publicKey}</span>
-              </div>
-              <div className="user-server">
-                <span className="label">Server:</span>
-                <span className="value">{user?.serverUrl}</span>
-              </div>
             </div>
           </div>
         </div>

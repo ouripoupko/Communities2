@@ -1,8 +1,6 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, Suspense, lazy } from 'react';
-import { useAppDispatch } from './store/hooks';
-import { fetchCurrentUser } from './store/slices/userSlice';
+import { Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './App.scss';
 
@@ -13,13 +11,6 @@ const IssueView = lazy(() => import('./pages/IssueView'));
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
-  const dispatch = useAppDispatch();
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      dispatch(fetchCurrentUser());
-    }
-  }, [isAuthenticated, dispatch]);
 
   if (isLoading) {
     return (
