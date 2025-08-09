@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import type { ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { initializeUser, setCurrentUser, clearUser } from '../store/slices/userSlice';
-import { fetchCommunities } from '../store/slices/communitiesSlice';
 import type { AppDispatch, RootState } from '../store';
 import { eventStreamService } from '../services/eventStream';
 
@@ -79,9 +78,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Use the new initializeUser thunk which handles everything
       await dispatch(initializeUser()).unwrap();
-      
-      // Fetch communities after user is initialized
-      await dispatch(fetchCommunities()).unwrap();
       
       // Store in localStorage
       localStorage.setItem('user', JSON.stringify({ publicKey, serverUrl }));

@@ -1,18 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { readProfile } from '../../store/slices/userSlice';
 import { useEventStream, useEventStreamConnection } from '../../hooks/useEventStream';
 import { User, Camera, Save, Key, Server } from 'lucide-react';
 import './Profile.scss';
+import { contractWrite } from '../../services/api';
 
 const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
+  const dispatch = useAppDispatch();
   const { isConnected } = useEventStreamConnection();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
-  const [tempImageData, setTempImageData] = useState<string | null>(null);
+  const [imageData, setImageData] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Find the profile contract
@@ -20,24 +23,14 @@ const Profile: React.FC = () => {
 
   // Update local state when profile is loaded
   useEffect(() => {
+    console.log("user profile effect", user.profile);
     if (user.profile) {
       setFirstName(user.profile.firstName || '');
       setLastName(user.profile.lastName || '');
+      setImageData(user.profile.userPhoto || null);
       setImageUploadError(null); // Clear any previous image upload errors
-      setTempImageData(null); // Clear any temporary image data
     }
   }, [user.profile]);
-
-  // Log all contracts when they change
-  useEffect(() => {
-    if (user.contracts.length > 0) {
-      console.log('📋 All Available Contracts:', user.contracts.map((contract: any) => ({
-        id: contract.id,
-        name: contract.name,
-        isProfileContract: contract.name === 'unique-gloki-communities-profile-contract'
-      })));
-    }
-  }, [user.contracts]);
 
   // Listen for profile contract write events
   useEventStream('contract_write', (event) => {
@@ -48,8 +41,8 @@ const Profile: React.FC = () => {
         profileContractId: profileContract.id,
         publicKey: user.publicKey
       });
-      // Note: Profile updates will be handled by the main user initialization
-      // which will be triggered by the event stream
+      // Dispatch profile read to get updated profile from server
+      dispatch(readProfile());
     }
   });
 
@@ -94,34 +87,27 @@ const Profile: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (user.publicKey && profileContract) {
+    if (user.serverUrl && user.publicKey && profileContract) {
       try {
         setSaveError(null);
         
         // Prepare profile data including image if uploaded
         const profileData: { firstName: string; lastName: string; userPhoto?: string } = {
           firstName,
-          lastName
+          lastName,
+          userPhoto: imageData || undefined
         };
         
-        // Include image data if a new image was uploaded
-        if (tempImageData) {
-          profileData.userPhoto = tempImageData;
-        }
-        
-        // This part of the logic needs to be updated to use the new fetchUserProfile
-        // For now, we'll just log the action and assume it will be handled by the event stream
-        console.log('Attempting to save profile data:', profileData);
-        // await dispatch(fetchUserProfile({
-        //   serverUrl: user.serverUrl,
-        //   publicKey: user.publicKey,
-        //   contractId: profileContract.contractId,
-        //   profileData
-        // })).unwrap();
+        contractWrite({
+          serverUrl: user.serverUrl,
+          publicKey: user.publicKey,
+          contractId: profileContract.id,
+          method: 'set_values',
+          args: {items: { firstName, lastName, userPhoto: imageData }}
+        });
         
         // Profile data will be refreshed automatically via SSE event
         setIsEditing(false);
-        setTempImageData(null); // Clear temporary image data after successful save
       } catch (error: unknown) {
         // console.error('Failed to save profile:', error);
         setSaveError('Failed to save profile. Please check your connection and try again.');
@@ -150,8 +136,8 @@ const Profile: React.FC = () => {
         // Resize and compress the image
         const resizedImageData = await resizeImage(file);
         
-        // Store the processed image data temporarily (not saved to server yet)
-        setTempImageData(resizedImageData);
+        // Store the processed image data
+        setImageData(resizedImageData);
         
       } catch (error: unknown) {
         // console.error('Failed to process image:', error);
@@ -210,8 +196,8 @@ const Profile: React.FC = () => {
         <div className="profile-section">
           <div className="profile-picture-section">
             <div className="profile-picture">
-              {(tempImageData || user.profile?.userPhoto) ? (
-                <img src={tempImageData || user.profile?.userPhoto} alt="Profile" />
+              {imageData ? (
+                <img src={imageData} alt="Profile" />
               ) : (
                 <div className="profile-picture-placeholder">
                   <User size={48} />
@@ -292,8 +278,8 @@ const Profile: React.FC = () => {
                       setIsEditing(false);
                       setFirstName(user.profile?.firstName || '');
                       setLastName(user.profile?.lastName || '');
+                      setImageData(user.profile?.userPhoto || null);
                       setSaveError(null);
-                      setTempImageData(null); // Clear temporary image data
                     }}
                     className="cancel-button"
                   >

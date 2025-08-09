@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import { contractRead } from '../../services/api';
 
 // Define Community interface
 interface Community {
@@ -9,96 +10,45 @@ interface Community {
   createdAt: string;
 }
 
-// Add state for properties and members
+// Communities state
 interface CommunitiesState {
-  communities: Community[];
   currentCommunity: Community | null;
-  loading: boolean;
   error: string | null;
   communityProperties: Record<string, any>;
   communityMembers: Record<string, string[]>;
 }
 
 const initialState: CommunitiesState = {
-  communities: [],
   currentCommunity: null,
-  loading: false,
   error: null,
   communityProperties: {},
   communityMembers: {},
 };
 
-// Async thunks
-export const fetchCommunities = createAsyncThunk(
-  'communities/fetchCommunities',
-  async () => {
-    // TODO: Implement fetchCommunities API call
-    return [];
-  }
-);
-
-export const fetchCommunity = createAsyncThunk(
-  'communities/fetchCommunity',
-  async (_id: string) => {
-    // TODO: Implement fetchCommunity API call
-    return null;
-  }
-);
-
-export const createCommunity = createAsyncThunk(
-  'communities/createCommunity',
-  async (_data: { name: string; description: string }) => {
-    // TODO: Implement createCommunity API call
-    return null;
-  }
-);
-
-export const updateCommunity = createAsyncThunk(
-  'communities/updateCommunity',
-  async (_args: { id: string; data: Partial<Community> }) => {
-    // TODO: Implement updateCommunity API call
-    return null;
-  }
-);
-
-export const deleteCommunity = createAsyncThunk(
-  'communities/deleteCommunity',
-  async (id: string) => {
-    // TODO: Implement deleteCommunity API call
-    return id;
-  }
-);
-
-// Async thunks for community contract data
+// Async thunks for community data (will be used in community pages)
 export const fetchCommunityProperties = createAsyncThunk(
   'communities/fetchCommunityProperties',
-  async (_args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    // TODO: Implement fetchCommunityProperties API call
-    return {};
-  }
-);
-
-export const updateCommunityProperty = createAsyncThunk(
-  'communities/updateCommunityProperty',
-  async (_args: { serverUrl: string; publicKey: string; contractId: string; key: string; value: unknown }) => {
-    // TODO: Implement updateCommunityProperty API call
-    return null;
+  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
+    const result = await contractRead({
+      serverUrl: args.serverUrl,
+      publicKey: args.publicKey,
+      contractId: args.contractId,
+      method: 'get_properties'
+    });
+    return { contractId: args.contractId, properties: result };
   }
 );
 
 export const fetchCommunityMembers = createAsyncThunk(
   'communities/fetchCommunityMembers',
-  async (_args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    // TODO: Implement fetchCommunityMembers API call
-    return {};
-  }
-);
-
-export const deployCommunityContract = createAsyncThunk(
-  'communities/deployCommunityContract',
-  async (_args: { serverUrl: string; publicKey: string }) => {
-    // TODO: Implement deployCommunityContract API call
-    return null;
+  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
+    const result = await contractRead({
+      serverUrl: args.serverUrl,
+      publicKey: args.publicKey,
+      contractId: args.contractId,
+      method: 'get_members'
+    });
+    return { contractId: args.contractId, members: result };
   }
 );
 
@@ -114,93 +64,22 @@ const communitiesSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Fetch communities
+    // Fetch community properties
     builder
-      .addCase(fetchCommunities.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+      .addCase(fetchCommunityProperties.fulfilled, (state, action) => {
+        state.communityProperties[action.payload.contractId] = action.payload.properties;
       })
-      .addCase(fetchCommunities.fulfilled, (state, action) => {
-        state.loading = false;
-        state.communities = action.payload;
-      })
-      .addCase(fetchCommunities.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch communities';
+      .addCase(fetchCommunityProperties.rejected, (state, action) => {
+        state.error = action.error.message || 'Failed to fetch community properties';
       });
 
-    // Fetch single community
+    // Fetch community members
     builder
-      .addCase(fetchCommunity.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+      .addCase(fetchCommunityMembers.fulfilled, (state, action) => {
+        state.communityMembers[action.payload.contractId] = action.payload.members;
       })
-      .addCase(fetchCommunity.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentCommunity = action.payload;
-      })
-      .addCase(fetchCommunity.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch community';
-      });
-
-    // Create community
-    builder
-      .addCase(createCommunity.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(createCommunity.fulfilled, (state, action) => {
-        state.loading = false;
-        if (action.payload) {
-          state.communities.unshift(action.payload);
-        }
-      })
-      .addCase(createCommunity.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to create community';
-      });
-
-    // Update community
-    builder
-      .addCase(updateCommunity.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateCommunity.fulfilled, (state, action) => {
-        state.loading = false;
-        if (action.payload && typeof action.payload === 'object' && 'id' in action.payload) {
-          const payload = action.payload as Community;
-          const index = state.communities.findIndex(c => c.id === payload.id);
-          if (index !== -1) {
-            state.communities[index] = payload;
-          }
-          if (state.currentCommunity?.id === payload.id) {
-            state.currentCommunity = payload;
-          }
-        }
-      })
-      .addCase(updateCommunity.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to update community';
-      });
-
-    // Delete community
-    builder
-      .addCase(deleteCommunity.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(deleteCommunity.fulfilled, (state, action) => {
-        state.loading = false;
-        state.communities = state.communities.filter(c => c.id !== action.payload);
-        if (state.currentCommunity?.id === action.payload) {
-          state.currentCommunity = null;
-        }
-      })
-      .addCase(deleteCommunity.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to delete community';
+      .addCase(fetchCommunityMembers.rejected, (state, action) => {
+        state.error = action.error.message || 'Failed to fetch community members';
       });
   },
 });
