@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { MessageSquare, Edit, Save, ChevronDown, ChevronRight, Reply } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { getComments, addComment, setIssueDescription } from '../../store/slices/issuesSlice';
+import { getComments } from '../../store/slices/issuesSlice';
+import { contractWrite } from '../../services/api';
 import './Discussion.scss';
 
 interface Comment {
@@ -19,10 +21,14 @@ interface DiscussionProps {
 }
 
 const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
+  const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
   const dispatch = useAppDispatch();
   const { issueDetails, issueComments } = useAppSelector((state) => state.issues);
   const currentIssue = issueDetails[issueId];
   const comments = Array.isArray(issueComments[issueId]) ? issueComments[issueId] : [];
+  
+  // Decode the issue host server URL
+  const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
   
   // Get description from real issue data
   const getIssueDescription = () => {
@@ -37,7 +43,11 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
-  const [isCreator] = useState(true); // Mock: assume current user is creator
+  const { publicKey: userPublicKey } = useAppSelector((state) => state.user);
+  const [isCreator] = useState(() => {
+    // Check if current user is the issue host
+    return userPublicKey === issueHostAgent;
+  });
   const [isLoadingComments, setIsLoadingComments] = useState(true);
 
   // Update description when issue data changes
@@ -48,19 +58,13 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   // Load comments from the contract
   useEffect(() => {
     const loadComments = async () => {
-      if (!issueId) return;
+      if (!issueId || !issueHostServer || !issueHostAgent) return;
 
       try {
         setIsLoadingComments(true);
-        // Get the issue owner's credentials from the URL
-        const pathParts = window.location.pathname.split('/');
-        const encodedServer = pathParts[2];
-        const agent = pathParts[3];
-        const server = decodeURIComponent(encodedServer);
-
         await dispatch(getComments({
-          serverUrl: server,
-          publicKey: agent,
+          serverUrl: issueHostServer,
+          publicKey: issueHostAgent,
           contractId: issueId,
         })).unwrap();
       } catch (error) {
@@ -71,24 +75,19 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
     };
 
     loadComments();
-  }, [issueId, dispatch]);
+  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
   const handleSaveDescription = async () => {
-    if (!issueId) return;
+    if (!issueId || !issueHostServer || !issueHostAgent) return;
 
     try {
-      // Get the issue owner's credentials from the URL
-      const pathParts = window.location.pathname.split('/');
-      const encodedServer = pathParts[2];
-      const agent = pathParts[3];
-      const server = decodeURIComponent(encodedServer);
-
-      await dispatch(setIssueDescription({
-        serverUrl: server,
-        publicKey: agent,
+      await contractWrite({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
-        text: description,
-      })).unwrap();
+        method: 'set_description',
+        args: { text: description },
+      });
       
       setIsEditingDescription(false);
     } catch (error) {
@@ -97,15 +96,9 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || !issueId) return;
+    if (!newComment.trim() || !issueId || !issueHostServer || !issueHostAgent) return;
 
     try {
-      // Get the issue owner's credentials from the URL
-      const pathParts = window.location.pathname.split('/');
-      const encodedServer = pathParts[2];
-      const agent = pathParts[3];
-      const server = decodeURIComponent(encodedServer);
-
       // Create comment object with tree structure
       const comment = {
         id: Date.now().toString(),
@@ -115,17 +108,18 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         parentId: null, // Top-level comment
       };
 
-      await dispatch(addComment({
-        serverUrl: server,
-        publicKey: agent,
+      await contractWrite({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
-        comment: comment,
-      })).unwrap();
+        method: 'add_comment',
+        args: { comment: comment },
+      });
 
       // Reload comments to get the updated list
       await dispatch(getComments({
-        serverUrl: server,
-        publicKey: agent,
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
       }));
 
@@ -136,15 +130,9 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   };
 
   const handleReply = async (commentId: string) => {
-    if (!replyContent.trim() || !issueId) return;
+    if (!replyContent.trim() || !issueId || !issueHostServer || !issueHostAgent) return;
 
     try {
-      // Get the issue owner's credentials from the URL
-      const pathParts = window.location.pathname.split('/');
-      const encodedServer = pathParts[2];
-      const agent = pathParts[3];
-      const server = decodeURIComponent(encodedServer);
-
       // Create reply comment object
       const reply = {
         id: Date.now().toString(),
@@ -154,17 +142,18 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         parentId: commentId,
       };
 
-      await dispatch(addComment({
-        serverUrl: server,
-        publicKey: agent,
+      await contractWrite({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
-        comment: reply,
-      })).unwrap();
+        method: 'add_comment',
+        args: { comment: reply },
+      });
 
       // Reload comments to get the updated list
       await dispatch(getComments({
-        serverUrl: server,
-        publicKey: agent,
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
       }));
 

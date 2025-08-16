@@ -3,6 +3,7 @@ import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchIssueDetails } from '../store/slices/issuesSlice';
+import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
 import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
@@ -11,30 +12,75 @@ import Outcome from '../components/issue/Outcome';
 import '../components/layout/Layout.scss';
 
 const IssueView: React.FC = () => {
-  const { server: encodedServer, agent, communityId, issueId } = useParams<{ server: string; agent: string; communityId: string; issueId: string }>();
+  const { issueHostServer: encodedIssueHostServer, issueHostAgent: issueHostAgentFromUrl, communityId, issueId } = useParams<{ issueHostServer: string; issueHostAgent: string; communityId: string; issueId: string }>();
   const navigate = useNavigate();
-  const { issueDetails } = useAppSelector((state: any) => state.contracts);
-  // Removed unused user and setIsValidated
+  const { issueDetails = {} } = useAppSelector((state) => state.issues);
+  const communityProperties = useAppSelector((state) => communityId ? state.communities?.communityProperties?.[communityId] : null);
+
+  const { publicKey, serverUrl, contracts } = useAppSelector((state) => state.user);
   const dispatch = useAppDispatch();
-  const [fetching, setFetching] = useState(false);
+  const [fetchingIssue, setFetchingIssue] = useState(false);
+  const [fetchingCommunity, setFetchingCommunity] = useState(false);
   
-  // Decode the server URL from the URL parameter
-  const server = useMemo(() => {
-    return encodedServer ? decodeURIComponent(encodedServer) : '';
-  }, [encodedServer]);
+  // Decode the issue host credentials from the URL parameters
+  const issueHostServer = useMemo(() => {
+    return encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
+  }, [encodedIssueHostServer]);
+  const issueHostAgent = issueHostAgentFromUrl || '';
+
+  // Check if current user has access to the community
+  const userCommunityContract = useMemo(() => 
+    contracts.find((c: any) => c.id === communityId), 
+    [contracts, communityId]
+  );
 
   // Get the current issue details
   const currentIssue = issueDetails[issueId!];
 
-  // Handle contract_write events to reload issue details and proposals
+  // Validate community access and load data
   useEffect(() => {
+    if (!communityId || !publicKey || !serverUrl) {
+      return;
+    }
+
+    if(!issueId || !issueHostServer || !issueHostAgent) {
+      return;
+    }
+
+    // Check if user has the community contract
+    if (!contracts || !userCommunityContract) {
+      return;
+    }
+
+    // Load community properties using user credentials
+    console.log('communityProperties', communityProperties, communityId, fetchingCommunity);
+    if (!communityProperties && !fetchingCommunity) {
+      setFetchingCommunity(true);
+      dispatch(fetchCommunityProperties({
+        serverUrl,
+        publicKey,
+        contractId: communityId,
+      }));
+      return
+    }
+
+    // Load issue details using issue host credentials
+    console.log('issueDetails', issueDetails, issueId, fetchingIssue);
+    if (issueId && !issueDetails?.name && !fetchingIssue) {
+      setFetchingIssue(true);
+      dispatch(fetchIssueDetails({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
+        contractId: issueId,
+      }));
+    }
+
     const handleContractWrite = (event: any) => {
       if (event.contract === issueId && issueId) {
-        console.log('Contract write event detected for issue:', issueId);
         // Reload issue details
         dispatch(fetchIssueDetails({
-          serverUrl: server,
-          publicKey: agent || '',
+          serverUrl: issueHostServer,
+          publicKey: issueHostAgent,
           contractId: issueId,
         }));
       }
@@ -47,52 +93,9 @@ const IssueView: React.FC = () => {
     return () => {
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
     };
-  }, [issueId, server, agent, dispatch]);
+  }, [serverUrl, publicKey, communityId, issueId, issueHostServer, issueHostAgent, contracts, userCommunityContract, communityProperties, dispatch]);
 
-  // Validate credentials and load issue data
-  useEffect(() => {
-    const validateAndLoadIssue = async () => {
-      // Check if user credentials are in localStorage for authentication
-      const userStr = localStorage.getItem('user');
-      if (!userStr) {
-        navigate('/');
-        return;
-      }
 
-      try {
-        const storedUser = JSON.parse(userStr);
-        if (!storedUser.serverUrl || !storedUser.publicKey) {
-          navigate('/');
-          return;
-        }
-
-        // For issue access, we use the URL credentials (issue owner's credentials)
-        // but we validate that the user has their own credentials in localStorage
-        if (issueId && !fetching) {
-          setFetching(true);
-          try {
-            // Fetch the issue using the URL credentials (issue owner's server and agent)
-            await dispatch(fetchIssueDetails({
-              serverUrl: server,
-              publicKey: agent || '',
-              contractId: issueId,
-            })).unwrap();
-            
-          } catch (error) {
-            console.error('Failed to load issue:', error);
-            navigate('/');
-          } finally {
-            setFetching(false);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to validate credentials:', error);
-        navigate('/');
-      }
-    };
-
-    validateAndLoadIssue();
-  }, [server, agent, issueId, navigate, dispatch]);
 
   const navItems = [
     { path: 'discussion', label: 'Discussion', icon: MessageSquare },
@@ -101,30 +104,45 @@ const IssueView: React.FC = () => {
     { path: 'outcome', label: 'Outcome', icon: BarChart3 },
   ];
 
-  if (fetching) {
+  console.log('issueDetails before return', issueDetails);
+  if (!issueId || !(issueId in issueDetails)) {
     return (
       <div className="issue-view-container">
         <div className="loading-state">
           <div className="loading-spinner"></div>
-          <p>Loading issue...</p>
+          <p>{'Loading issue...'}</p>
         </div>
       </div>
     );
   }
 
-  if (!currentIssue) {
-    return (
-      <div className="issue-view-container">
-        <div className="error-state">
-          <h2>Issue Not Found</h2>
-          <p>The issue you're looking for doesn't exist.</p>
-          <button onClick={() => navigate(`/community/${communityId}`)} className="back-button">
-            Back to Community
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // if (!userCommunityContract) {
+  //   return (
+  //     <div className="issue-view-container">
+  //       <div className="error-state">
+  //         <h2>Access Denied</h2>
+  //         <p>You don't have access to this community.</p>
+  //         <button onClick={() => navigate('/identity/communities')} className="back-button">
+  //           Back to Communities
+  //         </button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  // if (!currentIssue) {
+  //   return (
+  //     <div className="issue-view-container">
+  //       <div className="error-state">
+  //         <h2>Issue Not Found</h2>
+  //         <p>The issue you're looking for doesn't exist.</p>
+  //         <button onClick={() => navigate(`/community/${communityId}`)} className="back-button">
+  //           Back to Community
+  //         </button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Handle different possible response structures for issue data
   const issueName = typeof currentIssue.name === 'string' ? currentIssue.name : 
@@ -137,7 +155,7 @@ const IssueView: React.FC = () => {
         <div className="header-left">
           <button onClick={() => navigate(`/community/${communityId}`)} className="back-button">
             <ArrowLeft size={16} />
-            Back
+            Back to Community
           </button>
           <div className="issue-info">
             <h1>{issueName}</h1>
@@ -150,8 +168,8 @@ const IssueView: React.FC = () => {
           {navItems.map((item) => (
             <button
               key={item.path}
-              onClick={() => navigate(`/issue/${encodeURIComponent(server)}/${agent}/${communityId}/${issueId}/${item.path}`)}
-              className={`issue-nav-item ${window.location.pathname.includes(`/issue/${encodeURIComponent(server)}/${agent}/${communityId}/${issueId}/${item.path}`) ? 'active' : ''}`}
+              onClick={() => navigate(`/issue/${encodeURIComponent(issueHostServer)}/${issueHostAgent}/${communityId}/${issueId}/${item.path}`)}
+              className={`issue-nav-item ${window.location.pathname.includes(`/issue/${encodeURIComponent(issueHostServer)}/${issueHostAgent}/${communityId}/${issueId}/${item.path}`) ? 'active' : ''}`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>

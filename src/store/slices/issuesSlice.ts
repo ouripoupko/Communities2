@@ -1,10 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import {
-  deployContract,
-  contractWrite,
   contractRead,
 } from '../../services/api';
+
 
 // Define Proposal and CommunityIssue interfaces
 interface Proposal {
@@ -94,75 +93,30 @@ export const deleteIssue = createAsyncThunk(
 );
 
 // Async thunks for issue contract data
-export const fetchIssueDetails = createAsyncThunk(
-  'issues/fetchIssueDetails',
-  async (_args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    // TODO: Implement fetchIssueDetails API call
-    return null;
-  }
-);
-
-export const updateIssueProperties = createAsyncThunk(
-  'issues/updateIssueProperties',
-  async (_args: { serverUrl: string; publicKey: string; contractId: string; name: string; text: string }) => {
-    // TODO: Implement updateIssueProperties API call
-    return null;
-  }
-);
-
-export const submitVote = createAsyncThunk(
-  'issues/submitVote',
-  async (_args: { serverUrl: string; publicKey: string; contractId: string; vote: unknown }) => {
-    // TODO: Implement submitVote API call
-    return null;
-  }
-);
-
-export const deployIssueContract = createAsyncThunk(
-  'issues/deployIssueContract',
-  async ({ serverUrl, publicKey }: { serverUrl: string; publicKey: string }) => {
-    const contractName = 'unique-gloki-communities-issue-contract';
-    const fileName = 'issue_contract.py';
-    const code = '';
-    // You may want to import the contract code if available
-    const response = await deployContract({
-      serverUrl,
-      publicKey,
-      contractName,
-      fileName,
-      code,
-    });
-    return response.id || response;
-  }
-);
-
-export const addIssueToCommunity = createAsyncThunk(
-  'issues/addIssueToCommunity',
-  async ({ serverUrl, publicKey, contractId, issue }: { serverUrl: string; publicKey: string; contractId: string; issue: { server: string; agent: string; contract: string } }) => {
-    // Use contractWrite to call add_issue
-    const response = await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: 'add_issue',
-      args: { issue },
-    });
-    return response;
-  }
-);
-
 export const fetchCommunityIssues = createAsyncThunk(
   'issues/fetchCommunityIssues',
-  async ({ serverUrl, publicKey, contractId }: { serverUrl: string; publicKey: string; contractId: string }) => {
-    // Use contractRead to call get_issues
-    const response = await contractRead({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: 'get_issues',
-      args: {},
+  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
+    const result = await contractRead({
+      serverUrl: args.serverUrl,
+      publicKey: args.publicKey,
+      contractId: args.contractId,
+      method: 'get_issues'
     });
-    return response;
+    return { contractId: args.contractId, issues: result };
+  }
+);
+
+export const fetchIssueDetails = createAsyncThunk(
+  'issues/fetchIssueDetails',
+  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
+    const result = await contractRead({
+      serverUrl: args.serverUrl,
+      publicKey: args.publicKey,
+      contractId: args.contractId,
+      method: 'get_issue'
+    });
+    console.log('fetchIssueDetails', result);
+    return { contractId: args.contractId, issueDetails: result };
   }
 );
 
@@ -180,35 +134,7 @@ export const getComments = createAsyncThunk(
   }
 );
 
-export const addComment = createAsyncThunk(
-  'issues/addComment',
-  async ({ serverUrl, publicKey, contractId, comment }: { serverUrl: string; publicKey: string; contractId: string; comment: unknown }) => {
-    const response = await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: 'add_comment',
-      args: { comment },
-    });
-    return response;
-  }
-);
-
-export const setIssueDescription = createAsyncThunk(
-  'issues/setIssueDescription',
-  async ({ serverUrl, publicKey, contractId, text }: { serverUrl: string; publicKey: string; contractId: string; text: string }) => {
-    const response = await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: 'set_description',
-      args: { text },
-    });
-    return response;
-  }
-);
-
-// Add getProposals and addProposal thunks for components
+// Add getProposals thunk for components
 export const getProposals = createAsyncThunk(
   'issues/getProposals',
   async ({ serverUrl, publicKey, contractId }: { serverUrl: string; publicKey: string; contractId: string }) => {
@@ -220,20 +146,6 @@ export const getProposals = createAsyncThunk(
       args: {},
     });
     return { contractId, proposals: response };
-  }
-);
-
-export const addProposal = createAsyncThunk(
-  'issues/addProposal',
-  async ({ serverUrl, publicKey, contractId, proposal }: { serverUrl: string; publicKey: string; contractId: string; proposal: Proposal }) => {
-    const response = await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: 'add_proposal',
-      args: { proposal },
-    });
-    return response;
   }
 );
 
@@ -346,8 +258,7 @@ const issuesSlice = createSlice({
       })
       .addCase(fetchCommunityIssues.fulfilled, (state, action) => {
         state.loading = false;
-        const communityId = action.meta.arg.contractId;
-        state.communityIssues[communityId] = action.payload as CommunityIssue[];
+        state.communityIssues[action.payload.contractId] = action.payload.issues;
       })
       .addCase(fetchCommunityIssues.rejected, (state, action) => {
         state.loading = false;
@@ -364,6 +275,21 @@ const issuesSlice = createSlice({
       .addCase(getProposals.fulfilled, (state, action) => {
         const contractId = action.meta.arg.contractId;
         state.issueProposals[contractId] = action.payload.proposals as Proposal[];
+      });
+
+    // Fetch issue details
+    builder
+      .addCase(fetchIssueDetails.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchIssueDetails.fulfilled, (state, action) => {
+        state.loading = false;
+        state.issueDetails[action.payload.contractId] = action.payload.issueDetails;
+      })
+      .addCase(fetchIssueDetails.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch issue details';
       });
   },
 });

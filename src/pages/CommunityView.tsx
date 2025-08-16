@@ -7,7 +7,7 @@ import Members from '../components/community/Members';
 import Currency from '../components/community/Currency';
 import Share from '../components/community/Share';
 import '../components/layout/Layout.scss';
-import { fetchCommunityProperties, fetchCommunityMembers } from '../store/slices/communitiesSlice';
+import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
 
 const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
@@ -23,48 +23,29 @@ const CommunityView: React.FC = () => {
   const props = contract ? communityProperties[contract.id] || {} : null;
 
   useEffect(() => {
-    // If contract is missing, fetch contracts and then properties (existing logic)
-    if (!contract && communityId) {
-      // Try to fetch contracts if credentials are in localStorage
+    if (!communityId) return;
+    
+    // Only fetch properties if we don't have them yet
+    if (!props || Object.keys(props).length === 0) {
       const userStr = localStorage.getItem('user');
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
-          if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
+          if (user.serverUrl && user.publicKey) {
             setFetching(true);
-            dispatch(fetchCommunityProperties({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-              .then(() => {
-                dispatch(fetchCommunityMembers({ contractId: communityId, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-                  .finally(() => setFetching(false));
-              })
-              .catch(() => setFetching(false));
+            dispatch(fetchCommunityProperties({ 
+              contractId: communityId, 
+              serverUrl: user.serverUrl, 
+              publicKey: user.publicKey 
+            }))
+            .finally(() => setFetching(false));
           }
         } catch (e) {
           // ignore
         }
       }
     }
-    // If contract exists but properties are missing, fetch properties
-    else if (contract && (!props || Object.keys(props).length === 0) && !fetching) {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          if (user.serverUrl && user.publicKey && typeof dispatch === 'function') {
-            setFetching(true);
-            dispatch(fetchCommunityProperties({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-              .then(() => {
-                dispatch(fetchCommunityMembers({ contractId: contract.id, serverUrl: user.serverUrl, publicKey: user.publicKey }))
-                  .finally(() => setFetching(false));
-              })
-              .catch(() => setFetching(false));
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
-  }, [contract, communityId, dispatch]);
+  }, [communityId, props, dispatch]);
 
   const navItems = [
     { path: 'issues', label: 'Issues', icon: MessageSquare },
@@ -85,8 +66,6 @@ const CommunityView: React.FC = () => {
   }
 
   if (!contract || !props || !props.name) {
-    // Debug log before showing Not Found
-    // console.log('[CommunityView] Not Found condition:', { contract, props });
     return (
       <div className="community-view-container">
         <div className="error-state">

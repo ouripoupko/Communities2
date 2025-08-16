@@ -1,14 +1,27 @@
-import React from 'react';
-import { useAppSelector } from '../../store/hooks';
+import React, { useEffect } from 'react';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 
 interface MembersProps {
   communityId: string;
 }
 
 const Members: React.FC<MembersProps> = ({ communityId }) => {
-  // Get the list of public keys from Redux
-  const communityMembers = useAppSelector((state) => state.communities.communityMembers);
+  const dispatch = useAppDispatch();
+  const { communityMembers } = useAppSelector((state) => state.communities);
+  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const members: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+
+  // Fetch members data when component mounts
+  useEffect(() => {
+    if (publicKey && serverUrl && communityId && !communityMembers[communityId]) {
+      dispatch(fetchCommunityMembers({
+        serverUrl,
+        publicKey,
+        contractId: communityId,
+      }));
+    }
+  }, [communityId, publicKey, serverUrl, communityMembers, dispatch]);
 
   return (
     <div className="members-container">

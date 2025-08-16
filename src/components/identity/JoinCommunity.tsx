@@ -3,8 +3,8 @@ import { QrCode, Camera, CheckCircle, AlertCircle } from 'lucide-react';
 import './JoinCommunity.scss';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { stringToUint8Array, uint8ArrayToString, uint8ArrayToHex } from '../../services/encodeDecode';
-import { useAuth } from '../../contexts/AuthContext';
-import { useAppDispatch } from '../../store/hooks';
+
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
 import { eventStreamService } from '../../services/eventStream';
 import type { BlockchainEvent } from '../../services/eventStream';
@@ -13,7 +13,7 @@ import { joinContract } from '../../services/api';
 
 // No longer using CommunityInvite type; use plain object with server, agent, contract
 const JoinCommunity: React.FC = () => {
-  const { user } = useAuth();
+  const { publicKey, serverUrl } = useAppSelector(state => state.user);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [scannedData, setScannedData] = useState<string>('');
@@ -33,8 +33,8 @@ const JoinCommunity: React.FC = () => {
         setIsResetting(true);
         setIsJoining(false);
         // Refresh contracts list from server and wait for it to complete
-        if (user?.serverUrl && user?.publicKey) {
-          await dispatch(fetchContracts({ serverUrl: user.serverUrl, publicKey: user.publicKey }));
+        if (serverUrl && publicKey) {
+          await dispatch(fetchContracts());
         }
         // Reset all fields
         setScannedData('');
@@ -54,7 +54,7 @@ const JoinCommunity: React.FC = () => {
       }
     };
      
-  }, [isJoining, dispatch, navigate, user]);
+  }, [isJoining, dispatch, navigate, publicKey, serverUrl]);
 
   const handleScanQR = () => {
     setShowScanner(true);
@@ -88,15 +88,15 @@ const JoinCommunity: React.FC = () => {
   };
 
   const handleJoinCommunity = async () => {
-    if (!parsedInvite || !user || !user.serverUrl || !user.publicKey) return;
+    if (!parsedInvite || !serverUrl || !publicKey) return;
     const { server, agent, contract } = parsedInvite;
     if (!server || !agent || !contract) return;
     setIsJoining(true);
     setJoinSuccess(false);
     try {
       await joinContract({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
+        serverUrl: serverUrl,
+        publicKey: publicKey,
         address: server,
         agent,
         contract,

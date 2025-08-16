@@ -41,7 +41,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (storedUser && !initializationRef.current) {
       try {
         const userData = JSON.parse(storedUser);
-        console.log('AuthProvider useEffect found stored user', userData);
         dispatch(setCurrentUser(userData));
         // Validate stored credentials and load contracts
         validateStoredCredentials(userData.publicKey, userData.serverUrl);

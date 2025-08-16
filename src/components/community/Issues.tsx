@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { useAuth } from '../../contexts/AuthContext';
-import { deployIssueContract, updateIssueProperties, addIssueToCommunity, fetchCommunityIssues } from '../../store/slices/issuesSlice';
+
+import { fetchCommunityIssues } from '../../store/slices/issuesSlice';
+import { deployContract, contractWrite } from '../../services/api';
+import issueContractCode from '../../assets/contracts/issue_contract.py?raw';
 import './Issues.scss';
 import { eventStreamService } from '../../services/eventStream';
 
@@ -24,7 +26,7 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const communityIssues = useAppSelector((state) => state.issues.communityIssues);
-  const { user } = useAuth();
+  const user = useAppSelector((state) => state.user);
   const issues: CommunityIssue[] = Array.isArray(communityIssues[communityId]) ? communityIssues[communityId] : [];
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newIssueTitle, setNewIssueTitle] = useState('');
@@ -73,45 +75,67 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
     setShowCreateForm(false);
     try {
       // 1. Deploy the issue contract
-      const contractId = await dispatch(deployIssueContract({
+      const contractName = 'unique-gloki-communities-issue-contract';
+      const fileName = 'issue_contract.py';
+      const response = await deployContract({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
-      })).unwrap();
+        name: contractName,
+        contract: fileName,
+        code: issueContractCode,
+      });
+      const contractId = response.id || response;
+      
       // 2. Set the issue properties (name and description)
-      await dispatch(updateIssueProperties({
+      await contractWrite({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: contractId,
-        name: newIssueTitle,
-        text: newIssueDescription,
-      })).unwrap();
+        method: 'set_name',
+        args: { name: newIssueTitle },
+      });
+      
+      await contractWrite({
+        serverUrl: user.serverUrl,
+        publicKey: user.publicKey,
+        contractId: contractId,
+        method: 'set_description',
+        args: { text: newIssueDescription },
+      });
+      
       // 3. Add the issue to the community contract
-      await dispatch(addIssueToCommunity({
+      await contractWrite({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: communityId,
-        issue: {
-          server: user.serverUrl,
-          agent: user.publicKey,
-          contract: contractId,
+        method: 'add_issue',
+        args: {
+          issue: {
+            server: user.serverUrl,
+            agent: user.publicKey,
+            contract: contractId,
+          },
         },
-      })).unwrap();
+      });
+      
       // 4. Fetch the updated issues list
       await dispatch(fetchCommunityIssues({
         serverUrl: user.serverUrl,
         publicKey: user.publicKey,
         contractId: communityId,
       }));
+      
       setNewIssueTitle('');
       setNewIssueDescription('');
-    } catch {
-      alert('Failed to create issue.');
+    } catch (error) {
+      console.error('Failed to create issue:', error);
+      alert('Failed to create issue. Please try again.');
     }
   };
 
   const handleIssueClick = (issue: { server: string; agent: string; contract: string }) => {
-    const encodedServer = encodeURIComponent(issue.server);
-    const issueUrl = `/issue/${encodedServer}/${issue.agent}/${communityId}/${issue.contract}`;
+    const encodedIssueHostServer = encodeURIComponent(issue.server);
+    const issueUrl = `/issue/${encodedIssueHostServer}/${issue.agent}/${communityId}/${issue.contract}`;
     navigate(issueUrl);
   };
 

@@ -3,7 +3,7 @@ import { Copy, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import './Share.scss';
 import { useAppSelector } from '../../store/hooks';
-import { useAuth } from '../../contexts/AuthContext';
+
 import { stringToUint8Array, hexToUint8Array, concatUint8Arrays, uint8ArrayToString } from '../../services/encodeDecode';
 
 interface ShareProps {
@@ -11,12 +11,12 @@ interface ShareProps {
 }
 
 const Share: React.FC<ShareProps> = ({ communityId }) => {
-  // Get community contract info from Redux (or props/context as needed)
+  // Get community contract info from Redux
   const { contracts } = useAppSelector(state => state.user);
-  const { user } = useAuth();
+  const { publicKey } = useAppSelector(state => state.user);
   const communityContract = contracts.find((c: any) => c.id === communityId);
   const server = communityContract?.address || '';
-  const agent = user?.publicKey || '';
+  const agent = publicKey || '';
   const contract = communityContract?.id || '';
 
   // Only include the three fields needed for sharing

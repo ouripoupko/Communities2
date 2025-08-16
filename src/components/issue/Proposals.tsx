@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { getProposals, addProposal } from '../../store/slices/issuesSlice';
+import { getProposals } from '../../store/slices/issuesSlice';
+import { contractWrite } from '../../services/api';
 import './Proposals.scss';
 
 interface Proposal {
@@ -18,6 +20,7 @@ interface ProposalsProps {
 }
 
 const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
+  const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
   const dispatch = useAppDispatch();
   const issueProposals = useAppSelector((state) => state.issues.issueProposals);
   const proposals: Proposal[] = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
@@ -26,18 +29,17 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   const [newProposalTitle, setNewProposalTitle] = useState('');
   const [newProposalDescription, setNewProposalDescription] = useState('');
 
+  // Decode the issue host server URL
+  const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
+
   useEffect(() => {
     const loadProposals = async () => {
-      if (!issueId) return;
+      if (!issueId || !issueHostServer || !issueHostAgent) return;
       try {
         setIsLoading(true);
-        const pathParts = window.location.pathname.split('/');
-        const encodedServer = pathParts[2];
-        const agent = pathParts[3];
-        const server = decodeURIComponent(encodedServer);
         await dispatch(getProposals({
-          serverUrl: server,
-          publicKey: agent,
+          serverUrl: issueHostServer,
+          publicKey: issueHostAgent,
           contractId: issueId,
         })).unwrap();
       } catch {
@@ -47,16 +49,12 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
       }
     };
     loadProposals();
-  }, [issueId, dispatch]);
+  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
   const handleCreateProposal = async () => {
-    if (!newProposalTitle.trim() || !issueId) return;
+    if (!newProposalTitle.trim() || !issueId || !issueHostServer || !issueHostAgent) return;
     setShowCreateForm(false);
     try {
-      const pathParts = window.location.pathname.split('/');
-      const encodedServer = pathParts[2];
-      const agent = pathParts[3];
-      const server = decodeURIComponent(encodedServer);
       const proposal: Proposal = {
         id: Date.now().toString(),
         title: newProposalTitle,
@@ -65,15 +63,16 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
         createdAt: new Date().toISOString(),
         voteCount: 0,
       };
-      await dispatch(addProposal({
-        serverUrl: server,
-        publicKey: agent,
+      await contractWrite({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
-        proposal: proposal,
-      })).unwrap();
+        method: 'add_proposal',
+        args: { proposal: proposal },
+      });
       await dispatch(getProposals({
-        serverUrl: server,
-        publicKey: agent,
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
       }));
       setNewProposalTitle('');

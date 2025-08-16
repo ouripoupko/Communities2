@@ -1,29 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Coins, Send, TrendingUp, TrendingDown } from 'lucide-react';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { fetchCommunityCurrency, fetchCurrencyBalances } from '../../store/slices/currencySlice';
 import './Currency.scss';
 
 interface CurrencyProps {
   communityId: string;
 }
 
-const Currency: React.FC<CurrencyProps> = () => {
-  const [balance, setBalance] = useState(1250);
+const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
+  const dispatch = useAppDispatch();
+  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
+  const { communityCurrencies, currencyBalances } = useAppSelector((state) => state.currency);
+  
+  const currency = communityCurrencies[communityId];
+  const balances = currencyBalances[communityId] || {};
+  const userBalance = balances[publicKey || ''] || 0;
+  
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [mintPreference, setMintPreference] = useState(100);
   const [burnPreference, setBurnPreference] = useState(50);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
 
+  // Fetch currency data when component mounts
+  useEffect(() => {
+    if (publicKey && serverUrl && communityId) {
+      if (!currency) {
+        dispatch(fetchCommunityCurrency({
+          serverUrl,
+          publicKey,
+          contractId: communityId,
+        }));
+      }
+      if (!balances || Object.keys(balances).length === 0) {
+        dispatch(fetchCurrencyBalances({
+          serverUrl,
+          publicKey,
+          contractId: communityId,
+        }));
+      }
+    }
+  }, [communityId, publicKey, serverUrl, currency, balances, dispatch]);
+
   const handlePayment = async () => {
     if (!recipient || !amount || parseFloat(amount) <= 0) return;
     
     const paymentAmount = parseFloat(amount);
-    if (paymentAmount > balance) {
+    if (paymentAmount > userBalance) {
       alert('Insufficient balance');
       return;
     }
 
-    setBalance(balance - paymentAmount);
+    // TODO: Implement actual payment logic
     setAmount('');
     setRecipient('');
     setShowPaymentForm(false);
@@ -44,8 +73,8 @@ const Currency: React.FC<CurrencyProps> = () => {
               <h3>Your Balance</h3>
             </div>
             <div className="balance-amount">
-              <span className="amount">{balance}</span>
-              <span className="currency">credits</span>
+              <span className="amount">{userBalance}</span>
+              <span className="currency">{currency?.symbol || 'credits'}</span>
             </div>
             <div className="balance-stats">
               <div className="stat">
@@ -124,7 +153,7 @@ const Currency: React.FC<CurrencyProps> = () => {
                   placeholder="Enter amount"
                   className="input-field"
                   min="1"
-                  max={balance}
+                  max={userBalance}
                 />
               </div>
               <div className="form-actions">

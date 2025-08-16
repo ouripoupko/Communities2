@@ -23,7 +23,6 @@ const Profile: React.FC = () => {
 
   // Update local state when profile is loaded
   useEffect(() => {
-    console.log("user profile effect", user.profile);
     if (user.profile) {
       setFirstName(user.profile.firstName || '');
       setLastName(user.profile.lastName || '');
@@ -35,12 +34,6 @@ const Profile: React.FC = () => {
   // Listen for profile contract write events
   useEventStream('contract_write', (event) => {
     if (user && profileContract && event.contract === profileContract.id) {
-      console.log('🔄 Profile Contract Write Detected:', {
-        eventAction: event.action,
-        contractId: event.contract,
-        profileContractId: profileContract.id,
-        publicKey: user.publicKey
-      });
       // Dispatch profile read to get updated profile from server
       dispatch(readProfile());
     }
@@ -90,13 +83,6 @@ const Profile: React.FC = () => {
     if (user.serverUrl && user.publicKey && profileContract) {
       try {
         setSaveError(null);
-        
-        // Prepare profile data including image if uploaded
-        const profileData: { firstName: string; lastName: string; userPhoto?: string } = {
-          firstName,
-          lastName,
-          userPhoto: imageData || undefined
-        };
         
         contractWrite({
           serverUrl: user.serverUrl,

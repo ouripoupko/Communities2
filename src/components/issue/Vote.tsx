@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { useParams } from 'react-router-dom';
+import { useAppSelector } from '../../store/hooks';
 import { ArrowUpDown, CheckCircle } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { MultiBackend, PointerTransition, TouchTransition, type MultiBackendOptions } from 'react-dnd-multi-backend';
@@ -7,7 +8,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { usePreview } from 'react-dnd-preview';
 import { getEmptyImage } from 'react-dnd-html5-backend';
-import { submitVote } from '../../store/slices/issuesSlice';
+import { contractWrite } from '../../services/api';
 import './Vote.scss';
 
 // Backend configuration - same as TestDND
@@ -199,7 +200,8 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, 
 };
 
 const Vote: React.FC<VoteProps> = ({ issueId }) => {
-  const dispatch = useAppDispatch();
+  const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
+
   const proposals = useAppSelector((state: { issues: { issueProposals: Record<string, { id: string; title: string }[]> } }) => state.issues.issueProposals[issueId] || []);
   const issueDetails = useAppSelector((state: { issues: { issueDetails: Record<string, any> } }) => state.issues.issueDetails[issueId] || {});
   // Add acceptance bar to the order state
@@ -210,17 +212,14 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
   const [isLoading, setIsLoading] = useState(true);
   const firstCardRef = React.useRef<HTMLDivElement>(null);
 
-  // Extract server and agent from URL
-  const pathParts = window.location.pathname.split('/');
-  const encodedServer = pathParts[2];
-  const agent = pathParts[3];
-  const server = decodeURIComponent(encodedServer);
+  // Decode the issue host server URL
+  const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
 
   // Initialize order from user's vote or default
   useEffect(() => {
     let userOrder: string[] | undefined;
-    if (issueDetails.votes && agent && issueDetails.votes[agent]) {
-      userOrder = issueDetails.votes[agent].order;
+    if (issueDetails.votes && issueHostAgent && issueDetails.votes[issueHostAgent]) {
+      userOrder = issueDetails.votes[issueHostAgent].order;
     }
     if (userOrder && Array.isArray(userOrder) && userOrder.length > 0) {
       setOriginalOrder(userOrder);
@@ -237,7 +236,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposals, issueDetails.votes, agent, isLoading]);
+  }, [proposals, issueDetails.votes, issueHostAgent, isLoading]);
 
   // Listen for contract_write events and re-initialize
   useEffect(() => {
@@ -261,15 +260,18 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
   }, []);
 
   const handleSubmitVote = async () => {
+    if (!issueHostServer || !issueHostAgent) return;
+    
     setIsSubmitting(true);
     try {
       const vote = { order: currentOrder };
-      await dispatch(submitVote({
-        serverUrl: server,
-        publicKey: agent,
+      await contractWrite({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
         contractId: issueId,
-        vote
-      })).unwrap();
+        method: 'submit_vote',
+        args: { vote }
+      });
       setHasVoted(true);
     } catch (error) {
       console.error('Error submitting vote:', error);

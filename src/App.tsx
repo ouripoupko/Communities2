@@ -36,7 +36,7 @@ function AppContent() {
           <Route path="/" element={<Navigate to="/identity" replace />} />
           <Route path="/identity/*" element={<MyIdentity />} />
           <Route path="/community/:communityId/*" element={<CommunityView />} />
-          <Route path="/issue/:server/:agent/:communityId/:issueId/*" element={<IssueView />} />
+          <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
         </Routes>
       </Suspense>
     </Router>

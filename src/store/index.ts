@@ -2,12 +2,14 @@ import { configureStore } from '@reduxjs/toolkit';
 import communitiesReducer from './slices/communitiesSlice';
 import issuesReducer from './slices/issuesSlice';
 import userReducer from './slices/userSlice';
+import currencyReducer from './slices/currencySlice';
 
 export const store = configureStore({
   reducer: {
     communities: communitiesReducer,
     issues: issuesReducer,
     user: userReducer,
+    currency: currencyReducer,
   },
 });
 

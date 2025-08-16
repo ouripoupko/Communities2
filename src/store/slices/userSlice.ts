@@ -70,7 +70,6 @@ export const initializeUser = createAsyncThunk(
       
       return null;
     } catch (error) {
-      console.log('initializeUser error', error);
       return rejectWithValue(String(error));
     }
   }
@@ -115,10 +114,8 @@ export const readProfile = createAsyncThunk(
     try {
       // 3. Handle profile contract
       const profileContract = contracts?.find((c: IContract) => {
-        console.log('profileContract c ', c.name);
         return c.name === PROFILE_CONTRACT_NAME;
       });
-      console.log('profileContract found', profileContract);
       let profileData = null;
       
       if (profileContract) {
