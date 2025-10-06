@@ -4,6 +4,13 @@ import { Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './App.scss';
 
+// Get the base path from Vite's import.meta.env.BASE_URL
+const getBasename = () => {
+  const baseUrl = import.meta.env.BASE_URL;
+  // Remove trailing slash and return the basename
+  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+};
+
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const MyIdentity = lazy(() => import('./pages/MyIdentity'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
@@ -30,7 +37,7 @@ function AppContent() {
   }
 
   return (
-    <Router>
+    <Router basename={getBasename()}>
       <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
         <Routes>
           <Route path="/" element={<Navigate to="/identity" replace />} />
