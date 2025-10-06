@@ -1,8 +1,8 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { fetchIssueDetails } from '../store/slices/issuesSlice';
+import { fetchIssueDetails, getProposals } from '../store/slices/issuesSlice';
 import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
 import Discussion from '../components/issue/Discussion';
@@ -14,13 +14,11 @@ import '../components/layout/Layout.scss';
 const IssueView: React.FC = () => {
   const { issueHostServer: encodedIssueHostServer, issueHostAgent: issueHostAgentFromUrl, communityId, issueId } = useParams<{ issueHostServer: string; issueHostAgent: string; communityId: string; issueId: string }>();
   const navigate = useNavigate();
-  const { issueDetails = {} } = useAppSelector((state) => state.issues);
+  const { issueDetails = {}, issueProposals, proposalsLoading } = useAppSelector((state) => state.issues);
   const communityProperties = useAppSelector((state) => communityId ? state.communities?.communityProperties?.[communityId] : null);
 
   const { publicKey, serverUrl, contracts } = useAppSelector((state) => state.user);
   const dispatch = useAppDispatch();
-  const [fetchingIssue, setFetchingIssue] = useState(false);
-  const [fetchingCommunity, setFetchingCommunity] = useState(false);
   
   // Decode the issue host credentials from the URL parameters
   const issueHostServer = useMemo(() => {
@@ -34,51 +32,56 @@ const IssueView: React.FC = () => {
     [contracts, communityId]
   );
 
-  // Get the current issue details
+  // Get the current issue details and proposals
   const currentIssue = issueDetails[issueId!];
+  const currentProposals = issueProposals[issueId!] || [];
+  const isProposalsLoading = proposalsLoading[issueId!] || false;
 
-  // Validate community access and load data
+  // Load community properties when needed
   useEffect(() => {
-    if (!communityId || !publicKey || !serverUrl) {
-      return;
-    }
-
-    if(!issueId || !issueHostServer || !issueHostAgent) {
-      return;
-    }
-
-    // Check if user has the community contract
-    if (!contracts || !userCommunityContract) {
-      return;
-    }
-
-    // Load community properties using user credentials
-    console.log('communityProperties', communityProperties, communityId, fetchingCommunity);
-    if (!communityProperties && !fetchingCommunity) {
-      setFetchingCommunity(true);
+    if (communityId && publicKey && serverUrl && userCommunityContract && !communityProperties) {
       dispatch(fetchCommunityProperties({
         serverUrl,
         publicKey,
         contractId: communityId,
       }));
-      return
     }
+  }, [communityId, publicKey, serverUrl, userCommunityContract, communityProperties, dispatch]);
 
-    // Load issue details using issue host credentials
-    console.log('issueDetails', issueDetails, issueId, fetchingIssue);
-    if (issueId && !issueDetails?.name && !fetchingIssue) {
-      setFetchingIssue(true);
+  // Load issue details when needed
+  useEffect(() => {
+    if (issueId && issueHostServer && issueHostAgent && !currentIssue) {
       dispatch(fetchIssueDetails({
         serverUrl: issueHostServer,
         publicKey: issueHostAgent,
         contractId: issueId,
       }));
     }
+  }, [issueId, issueHostServer, issueHostAgent, currentIssue, dispatch]);
 
+  // Load proposals when needed (shared data for multiple components)
+  useEffect(() => {
+    if (issueId && issueHostServer && issueHostAgent && !isProposalsLoading && currentProposals.length === 0) {
+      dispatch(getProposals({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
+        contractId: issueId,
+      }));
+    }
+  }, [issueId, issueHostServer, issueHostAgent, isProposalsLoading, currentProposals.length, dispatch]);
+
+  // Handle contract_write events
+  useEffect(() => {
     const handleContractWrite = (event: any) => {
       if (event.contract === issueId && issueId) {
-        // Reload issue details
+        console.log('Contract write event detected for issue:', issueId);
+        // Refresh both issue details and proposals when contract changes
         dispatch(fetchIssueDetails({
+          serverUrl: issueHostServer,
+          publicKey: issueHostAgent,
+          contractId: issueId,
+        }));
+        dispatch(getProposals({
           serverUrl: issueHostServer,
           publicKey: issueHostAgent,
           contractId: issueId,
@@ -86,16 +89,11 @@ const IssueView: React.FC = () => {
       }
     };
 
-    // Add event listener for contract_write events
     eventStreamService.addEventListener('contract_write', handleContractWrite);
-
-    // Cleanup event listener on unmount
     return () => {
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
     };
-  }, [serverUrl, publicKey, communityId, issueId, issueHostServer, issueHostAgent, contracts, userCommunityContract, communityProperties, dispatch]);
-
-
+  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
   const navItems = [
     { path: 'discussion', label: 'Discussion', icon: MessageSquare },
@@ -104,45 +102,17 @@ const IssueView: React.FC = () => {
     { path: 'outcome', label: 'Outcome', icon: BarChart3 },
   ];
 
-  console.log('issueDetails before return', issueDetails);
-  if (!issueId || !(issueId in issueDetails)) {
+  // Show loading state while essential data is being fetched
+  if (!currentIssue || isProposalsLoading) {
     return (
       <div className="issue-view-container">
         <div className="loading-state">
           <div className="loading-spinner"></div>
-          <p>{'Loading issue...'}</p>
+          <p>Loading issue data...</p>
         </div>
       </div>
     );
   }
-
-  // if (!userCommunityContract) {
-  //   return (
-  //     <div className="issue-view-container">
-  //       <div className="error-state">
-  //         <h2>Access Denied</h2>
-  //         <p>You don't have access to this community.</p>
-  //         <button onClick={() => navigate('/identity/communities')} className="back-button">
-  //           Back to Communities
-  //         </button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // if (!currentIssue) {
-  //   return (
-  //     <div className="issue-view-container">
-  //       <div className="error-state">
-  //         <h2>Issue Not Found</h2>
-  //         <p>The issue you're looking for doesn't exist.</p>
-  //         <button onClick={() => navigate(`/community/${communityId}`)} className="back-button">
-  //           Back to Community
-  //         </button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
   // Handle different possible response structures for issue data
   const issueName = typeof currentIssue.name === 'string' ? currentIssue.name : 

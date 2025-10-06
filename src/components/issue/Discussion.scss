@@ -18,6 +18,21 @@
   margin-bottom: 1rem;
 }
 
+.description-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.proposals-count {
+  font-size: 0.875rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 500;
+}
+
 .description-header h3 {
   font-size: 1.25rem;
   font-weight: 600;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { ArrowUpDown, CheckCircle } from 'lucide-react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { MultiBackend, PointerTransition, TouchTransition, type MultiBackendOptions } from 'react-dnd-multi-backend';
@@ -202,53 +202,43 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, 
 const Vote: React.FC<VoteProps> = ({ issueId }) => {
   const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
 
-  const proposals = useAppSelector((state: { issues: { issueProposals: Record<string, { id: string; title: string }[]> } }) => state.issues.issueProposals[issueId] || []);
-  const issueDetails = useAppSelector((state: { issues: { issueDetails: Record<string, any> } }) => state.issues.issueDetails[issueId] || {});
+  const proposals = useAppSelector((state) => state.issues.issueProposals[issueId] || []);
+  const issueDetails = useAppSelector((state) => state.issues.issueDetails[issueId] || {});
+  
   // Add acceptance bar to the order state
   const [currentOrder, setCurrentOrder] = useState<string[]>([ACCEPTANCE_BAR_ID]);
   const [originalOrder, setOriginalOrder] = useState<string[]>([ACCEPTANCE_BAR_ID]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const firstCardRef = React.useRef<HTMLDivElement>(null);
 
   // Decode the issue host server URL
   const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
 
+
+
   // Initialize order from user's vote or default
   useEffect(() => {
+    if (proposals.length === 0) {
+      return;
+    }
+
     let userOrder: string[] | undefined;
     if (issueDetails.votes && issueHostAgent && issueDetails.votes[issueHostAgent]) {
       userOrder = issueDetails.votes[issueHostAgent].order;
     }
+    
     if (userOrder && Array.isArray(userOrder) && userOrder.length > 0) {
       setOriginalOrder(userOrder);
       setCurrentOrder(userOrder);
       setHasVoted(true);
-      setIsLoading(false);
-    } else if (proposals.length > 0) {
+    } else {
       const order = [ACCEPTANCE_BAR_ID, ...proposals.map((p: { id: string }) => p.id)];
       setOriginalOrder(order);
       setCurrentOrder(order);
       setHasVoted(false);
-      setIsLoading(false);
-    } else if (proposals.length === 0 && !isLoading) {
-      setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposals, issueDetails.votes, issueHostAgent, isLoading]);
-
-  // Listen for contract_write events and re-initialize
-  useEffect(() => {
-    const handleContractWrite = (event: any) => {
-      if (event.contract === issueId) {
-        // Re-fetch issue details or trigger a reload as needed
-        // (Assume parent or redux handles this, so just rely on updated props)
-      }
-    };
-    window.addEventListener('contract_write', handleContractWrite);
-    return () => window.removeEventListener('contract_write', handleContractWrite);
-  }, [issueId]);
+  }, [proposals, issueDetails.votes, issueHostAgent]);
 
   const moveCard = useCallback((fromIndex: number, toIndex: number) => {
     setCurrentOrder(prevOrder => {
@@ -285,22 +275,12 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
     setHasVoted(false);
   };
 
-  if (isLoading) {
-    return (
-      <div className="vote-container">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading proposals...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Show message when no proposals exist (proposals are already loaded by parent)
   if (proposals.length === 0) {
     return (
       <div className="vote-container">
         <div className="no-proposals">
-          <p>No proposals available for voting.</p>
+          <p>No proposals have been submitted for this issue yet.</p>
         </div>
       </div>
     );

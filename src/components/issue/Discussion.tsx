@@ -23,9 +23,10 @@ interface DiscussionProps {
 const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
   const dispatch = useAppDispatch();
-  const { issueDetails, issueComments } = useAppSelector((state) => state.issues);
+  const { issueDetails, issueComments, issueProposals } = useAppSelector((state) => state.issues);
   const currentIssue = issueDetails[issueId];
   const comments = Array.isArray(issueComments[issueId]) ? issueComments[issueId] : [];
+  const proposals = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
   
   // Decode the issue host server URL
   const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
@@ -296,15 +297,20 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
       <div className="description-section">
         <div className="description-header">
           <h3>Description</h3>
-          {isCreator && (
-            <button
-              onClick={() => setIsEditingDescription(!isEditingDescription)}
-              className="edit-button"
-            >
-              {isEditingDescription ? <Save size={16} /> : <Edit size={16} />}
-              {isEditingDescription ? 'Save' : 'Edit'}
-            </button>
-          )}
+          <div className="description-meta">
+            <span className="proposals-count">
+              {proposals.length} proposal{proposals.length !== 1 ? 's' : ''}
+            </span>
+            {isCreator && (
+              <button
+                onClick={() => setIsEditingDescription(!isEditingDescription)}
+                className="edit-button"
+              >
+                {isEditingDescription ? <Save size={16} /> : <Edit size={16} />}
+                {isEditingDescription ? 'Save' : 'Edit'}
+              </button>
+            )}
+          </div>
         </div>
         
         {isEditingDescription ? (

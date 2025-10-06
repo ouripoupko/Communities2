@@ -31,6 +31,7 @@ interface IssuesState {
   error: string | null;
   issueDetails: Record<string, any>;
   issueProposals: Record<string, Proposal[]>;
+  proposalsLoading: Record<string, boolean>;
   communityIssues: Record<string, CommunityIssue[]>;
   issueComments: Record<string, any[]>;
 }
@@ -42,6 +43,7 @@ const initialState: IssuesState = {
   error: null,
   issueDetails: {},
   issueProposals: {},
+  proposalsLoading: {},
   communityIssues: {},
   issueComments: {},
 };
@@ -272,9 +274,17 @@ const issuesSlice = createSlice({
       });
 
     builder
+      .addCase(getProposals.pending, (state, action) => {
+        state.proposalsLoading[action.meta.arg.contractId] = true;
+      })
       .addCase(getProposals.fulfilled, (state, action) => {
-        const contractId = action.meta.arg.contractId;
+        const contractId = action.payload.contractId;
         state.issueProposals[contractId] = action.payload.proposals as Proposal[];
+        state.proposalsLoading[contractId] = false;
+      })
+      .addCase(getProposals.rejected, (state, action) => {
+        state.proposalsLoading[action.meta.arg.contractId] = false;
+        state.error = action.error.message || 'Failed to fetch proposals';
       });
 
     // Fetch issue details

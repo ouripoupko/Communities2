@@ -18,9 +18,9 @@ interface OutcomeProps {
 }
 
 const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
-  const issueDetails = useAppSelector((state: any) => state.issues.issueDetails[issueId] || {});
-  const proposals = useAppSelector((state: any) => state.issues.issueProposals[issueId] || []);
-  const condorcetResult = (issueDetails && typeof issueDetails === 'object' && 'condorcetResult' in issueDetails) ? (issueDetails as any).condorcetResult : undefined;
+  const issueDetails = useAppSelector((state) => state.issues.issueDetails[issueId] || {});
+  const proposals = useAppSelector((state) => state.issues.issueProposals[issueId] || []);
+  const condorcetResult = (issueDetails && typeof issueDetails === 'object' && 'condorcetResult' in issueDetails) ? issueDetails.condorcetResult : undefined;
   const isLoading = !condorcetResult;
 
   // Helper to get proposal title by id (including acceptance bar)
@@ -32,6 +32,18 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
 
   // Check if there are any cycles
   const hasCycles = condorcetResult && condorcetResult.ranking.some((group: string[]) => group.length > 1);
+
+  // Show message when no proposals exist (proposals are already loaded by parent)
+  if (proposals.length === 0) {
+    return (
+      <div className="outcome-container">
+        <div className="outcome-header">
+          <h2>Aggregated Ranking</h2>
+          <p>No proposals have been submitted for this issue yet.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

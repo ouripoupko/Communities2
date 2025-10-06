@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -24,32 +24,12 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   const dispatch = useAppDispatch();
   const issueProposals = useAppSelector((state) => state.issues.issueProposals);
   const proposals: Proposal[] = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
-  const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProposalTitle, setNewProposalTitle] = useState('');
   const [newProposalDescription, setNewProposalDescription] = useState('');
 
   // Decode the issue host server URL
   const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
-
-  useEffect(() => {
-    const loadProposals = async () => {
-      if (!issueId || !issueHostServer || !issueHostAgent) return;
-      try {
-        setIsLoading(true);
-        await dispatch(getProposals({
-          serverUrl: issueHostServer,
-          publicKey: issueHostAgent,
-          contractId: issueId,
-        })).unwrap();
-      } catch {
-        // Error handling omitted for brevity
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadProposals();
-  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
   const handleCreateProposal = async () => {
     if (!newProposalTitle.trim() || !issueId || !issueHostServer || !issueHostAgent) return;
@@ -70,6 +50,7 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
         method: 'add_proposal',
         args: { proposal: proposal },
       });
+      // Refresh proposals using the centralized loading mechanism
       await dispatch(getProposals({
         serverUrl: issueHostServer,
         publicKey: issueHostAgent,
@@ -82,11 +63,26 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
     }
   };
 
-  if (isLoading) {
+  // Show message when no proposals exist (proposals are already loaded by parent)
+  if (proposals.length === 0) {
     return (
       <div className="proposals-container">
-        <div className="loading-spinner"></div>
-        <p>Loading proposals...</p>
+        <div className="proposals-header">
+          <div>
+            <h2>Proposals</h2>
+            <p>Review and vote on proposed solutions</p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="create-button"
+          >
+            <Plus size={20} />
+            Add Proposal
+          </button>
+        </div>
+        <div className="no-proposals">
+          <p>No proposals have been submitted for this issue yet.</p>
+        </div>
       </div>
     );
   }
