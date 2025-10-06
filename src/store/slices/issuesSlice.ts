@@ -117,7 +117,6 @@ export const fetchIssueDetails = createAsyncThunk(
       contractId: args.contractId,
       method: 'get_issue'
     });
-    console.log('fetchIssueDetails', result);
     return { contractId: args.contractId, issueDetails: result };
   }
 );

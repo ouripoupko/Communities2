@@ -87,12 +87,9 @@ const IssueView: React.FC = () => {
       const now = Date.now();
       // Debounce: only process if at least 2 seconds have passed since last contract write
       if (now - lastContractWriteTime.current < 2000) {
-        console.log('Contract write event debounced for issue:', issueId);
         return;
       }
       lastContractWriteTime.current = now;
-      
-      console.log('Contract write event detected for issue:', issueId);
       
       // Only refresh if not already loading
       if (!isLoadingIssueDetails.current) {

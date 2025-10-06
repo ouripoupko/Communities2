@@ -259,8 +259,8 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
         serverUrl: issueHostServer,
         publicKey: issueHostAgent,
         contractId: issueId,
-        method: 'submit_vote',
-        args: { vote }
+        method: 'add_vote',
+        args: { voter: issueHostAgent, vote }
       });
       setHasVoted(true);
     } catch (error) {

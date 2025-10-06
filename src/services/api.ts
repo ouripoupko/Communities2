@@ -20,7 +20,6 @@ export async function isExistAgent({
   serverUrl: string;
   publicKey: string;
 }) {
-  console.log('API: isExistAgent', { serverUrl, publicKey });
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}?action=is_exist_agent`,
     { method: 'GET' }
@@ -35,7 +34,6 @@ export async function registerAgent({
   serverUrl: string;
   publicKey: string;
 }) {
-  console.log('API: registerAgent', { serverUrl, publicKey });
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}?action=register_agent`,
     {
@@ -54,7 +52,6 @@ export async function getContracts({
   serverUrl: string;
   publicKey: string;
 }) {
-  console.log('API: getContracts', { serverUrl, publicKey });
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}?action=get_contracts`,
     { method: 'GET' }
@@ -75,7 +72,6 @@ export async function deployContract({
   contract: string;
   code: string;
 }) {
-  console.log('API: deployContract', { serverUrl, publicKey, name, contract });
   // Construct IContract object with defaults
   const IContract = {
     id: '',
@@ -117,7 +113,6 @@ export async function joinContract({
   contract: string;
   profile?: string;
 }) {
-  console.log('API: joinContract', { serverUrl, publicKey, address, agent, contract, profile });
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}?action=join_contract`,
     {
@@ -142,7 +137,6 @@ export async function contractWrite({
   method: string;
   args?: Record<string, unknown>;
 }) {
-  console.log('API: contractWrite', { serverUrl, publicKey, contractId, method, args });
   // Construct IMethod object
   const IMethod = {
     name: method,
@@ -173,7 +167,6 @@ export async function contractRead({
   method: string;
   args?: Record<string, unknown>;
 }) {
-  console.log('API: contractRead', { serverUrl, publicKey, contractId, method, args });
   // Construct IMethod object
   const IMethod = {
     name: method,
