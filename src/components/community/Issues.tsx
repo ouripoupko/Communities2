@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 
-import { fetchCommunityIssues } from '../../store/slices/issuesSlice';
-import { deployContract, contractWrite } from '../../services/api';
-import issueContractCode from '../../assets/contracts/issue_contract.py?raw';
-import './Issues.scss';
+import { fetchCommunityIssues, fetchIssueDetails } from '../../store/slices/issuesSlice';
+import CreateIssueDialog from './issues/CreateIssueDialog';
+import styles from './Issues.module.scss';
 import { eventStreamService } from '../../services/eventStream';
 
 interface IssuesProps {
@@ -28,10 +27,10 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
   const communityIssues = useAppSelector((state) => state.issues.communityIssues);
   const user = useAppSelector((state) => state.user);
   const issues: CommunityIssue[] = Array.isArray(communityIssues[communityId]) ? communityIssues[communityId] : [];
+  const issueDetails = useAppSelector((state) => state.issues.issueDetails);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newIssueTitle, setNewIssueTitle] = useState('');
-  const [newIssueDescription, setNewIssueDescription] = useState('');
   const [isLoadingIssues, setIsLoadingIssues] = useState(true);
+  const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
 
   // Memoize the event handler so its reference is stable
   const handleContractWrite = useCallback((event: { contract?: string }) => {
@@ -68,69 +67,74 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
     };
   }, [communityId, user?.serverUrl, user?.publicKey, dispatch, handleContractWrite]);
 
-  const handleCreateIssue = async () => {
-    if (!newIssueTitle.trim() || !user || !user.serverUrl || !user.publicKey) {
+  // Fetch issue details in parallel after issues list is loaded
+  useEffect(() => {
+    if (isLoadingIssues || issues.length === 0 || !user?.serverUrl || !user?.publicKey) {
       return;
     }
-    setShowCreateForm(false);
-    try {
-      // 1. Deploy the issue contract
-      const contractName = 'unique-gloki-communities-issue-contract';
-      const fileName = 'issue_contract.py';
-      const response = await deployContract({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        name: contractName,
-        contract: fileName,
-        code: issueContractCode,
-      });
-      const contractId = response.id || response;
-      
-      // 2. Set the issue properties (name and description)
-      await contractWrite({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: contractId,
-        method: 'set_name',
-        args: { name: newIssueTitle },
-      });
-      
-      await contractWrite({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: contractId,
-        method: 'set_description',
-        args: { text: newIssueDescription },
-      });
-      
-      // 3. Add the issue to the community contract
-      await contractWrite({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: communityId,
-        method: 'add_issue',
-        args: {
-          issue: {
-            server: user.serverUrl,
-            agent: user.publicKey,
-            contract: contractId,
-          },
-        },
-      });
-      
-      // 4. Fetch the updated issues list
-      await dispatch(fetchCommunityIssues({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: communityId,
-      }));
-      
-      setNewIssueTitle('');
-      setNewIssueDescription('');
-    } catch (error) {
-      console.error('Failed to create issue:', error);
-      alert('Failed to create issue. Please try again.');
+
+    // Get issues that don't have details yet and aren't currently loading
+    const issuesToLoad = issues.filter(issue => {
+      const contractId = issue.contract;
+      return !issueDetails[contractId] && !loadingDetails.has(contractId);
+    });
+
+    if (issuesToLoad.length === 0) {
+      return;
     }
+
+    // Mark these issues as loading
+    setLoadingDetails(prev => {
+      const newSet = new Set(prev);
+      issuesToLoad.forEach(issue => newSet.add(issue.contract));
+      return newSet;
+    });
+
+    // Fetch details for all issues in parallel
+    const loadPromises = issuesToLoad.map(issue => {
+      return dispatch(fetchIssueDetails({
+        serverUrl: issue.server,
+        publicKey: issue.agent,
+        contractId: issue.contract,
+      })).finally(() => {
+        // Remove from loading set when done
+        setLoadingDetails(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(issue.contract);
+          return newSet;
+        });
+      });
+    });
+
+    // Wait for all to complete (but don't block UI updates)
+    Promise.all(loadPromises).catch(error => {
+      console.error('Error loading issue details:', error);
+    });
+
+  }, [issues, issueDetails, loadingDetails, isLoadingIssues, user?.serverUrl, user?.publicKey, dispatch]);
+
+  // Helper function to get display title for an issue
+  const getIssueDisplayTitle = (issue: CommunityIssue): string => {
+    const contractId = issue.contract;
+    const details = issueDetails[contractId];
+    
+    // If we have details and a name, use it
+    if (details && details.name) {
+      return details.name;
+    }
+    
+    // If we're currently loading details, show loading
+    if (loadingDetails.has(contractId)) {
+      return 'Loading...';
+    }
+    
+    // Fallback to issue title if available
+    if (issue.title) {
+      return issue.title;
+    }
+    
+    // Last resort fallback
+    return 'Untitled Issue';
   };
 
   const handleIssueClick = (issue: { server: string; agent: string; contract: string }) => {
@@ -141,71 +145,48 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
 
   if (isLoadingIssues) {
     return (
-      <div className="issues-container">
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p>Loading issues...</p>
+      <div className={styles.container}>
+        <div className={styles.loadingState}>
+          <div className={styles.spinner}></div>
+          <p className={styles.text}>Loading issues...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="issues-container">
-      <div className="issues-header">
-        <div>
-          <h2>Issues</h2>
-          <p>Raise any issue you want to discuss with the community</p>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div className={styles.titleSection}>
+          <h2 className={styles.title}>Issues</h2>
+          <p className={styles.subtitle}>Raise any issue you want to discuss with the community</p>
         </div>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="create-button"
+          className={styles.createButton}
         >
           <Plus size={20} />
           Create Issue
         </button>
       </div>
-      {showCreateForm && (
-        <div className="create-form-overlay">
-          <div className="create-form">
-            <h3>Create New Issue</h3>
-            <div className="form-group">
-              <label htmlFor="issueTitle">Issue Title</label>
-              <input
-                id="issueTitle"
-                type="text"
-                value={newIssueTitle}
-                onChange={(e) => setNewIssueTitle(e.target.value)}
-                placeholder="Enter issue title"
-                className="input-field"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="issueDescription">Description</label>
-              <textarea
-                id="issueDescription"
-                value={newIssueDescription}
-                onChange={(e) => setNewIssueDescription(e.target.value)}
-                placeholder="Describe the issue..."
-                className="input-field"
-              />
-            </div>
-            <div className="form-actions">
-              <button onClick={handleCreateIssue} className="save-button" disabled={!newIssueTitle.trim()}>
-                Create
-              </button>
-              <button onClick={() => setShowCreateForm(false)} className="cancel-button">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="issues-list">
+      <CreateIssueDialog 
+        isVisible={showCreateForm} 
+        onClose={() => setShowCreateForm(false)}
+        communityId={communityId}
+      />
+      <div className={styles.list}>
         {issues.map((issue: CommunityIssue) => (
-          <div key={issue.contract} className="issue-card" onClick={() => handleIssueClick(issue)}>
-            <div className="issue-title">{issue.title || 'Untitled Issue'}</div>
-            <div className="issue-description">{issue.description || ''}</div>
+          <div key={issue.contract} className={styles.card} onClick={() => handleIssueClick(issue)}>
+            <div className={styles.cardHeader}>
+              <div className={styles.titleSection}>
+                <h3 className={styles.title}>{getIssueDisplayTitle(issue)}</h3>
+              </div>
+            </div>
+            <div className={styles.content}>
+              <p className={styles.description}>
+                {issueDetails[issue.contract]?.description || issue.description || ''}
+              </p>
+            </div>
           </div>
         ))}
       </div>
