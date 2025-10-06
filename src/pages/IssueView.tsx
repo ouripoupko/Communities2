@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
@@ -19,6 +19,11 @@ const IssueView: React.FC = () => {
 
   const { publicKey, serverUrl, contracts } = useAppSelector((state) => state.user);
   const dispatch = useAppDispatch();
+  
+  // Refs to track loading states and prevent duplicate requests
+  const isLoadingIssueDetails = useRef(false);
+  const isLoadingProposals = useRef(false);
+  const lastContractWriteTime = useRef(0);
   
   // Decode the issue host credentials from the URL parameters
   const issueHostServer = useMemo(() => {
@@ -50,50 +55,76 @@ const IssueView: React.FC = () => {
 
   // Load issue details when needed
   useEffect(() => {
-    if (issueId && issueHostServer && issueHostAgent && !currentIssue) {
+    if (issueId && issueHostServer && issueHostAgent && !currentIssue && !isLoadingIssueDetails.current) {
+      isLoadingIssueDetails.current = true;
       dispatch(fetchIssueDetails({
         serverUrl: issueHostServer,
         publicKey: issueHostAgent,
         contractId: issueId,
-      }));
+      })).finally(() => {
+        isLoadingIssueDetails.current = false;
+      });
     }
   }, [issueId, issueHostServer, issueHostAgent, currentIssue, dispatch]);
 
   // Load proposals when needed (shared data for multiple components)
   useEffect(() => {
-    if (issueId && issueHostServer && issueHostAgent && !isProposalsLoading && currentProposals.length === 0) {
+    if (issueId && issueHostServer && issueHostAgent && !isProposalsLoading && currentProposals.length === 0 && !isLoadingProposals.current) {
+      isLoadingProposals.current = true;
       dispatch(getProposals({
         serverUrl: issueHostServer,
         publicKey: issueHostAgent,
         contractId: issueId,
-      }));
+      })).finally(() => {
+        isLoadingProposals.current = false;
+      });
     }
   }, [issueId, issueHostServer, issueHostAgent, isProposalsLoading, currentProposals.length, dispatch]);
 
-  // Handle contract_write events
-  useEffect(() => {
-    const handleContractWrite = (event: any) => {
-      if (event.contract === issueId && issueId) {
-        console.log('Contract write event detected for issue:', issueId);
-        // Refresh both issue details and proposals when contract changes
+  // Handle contract_write events with debouncing and duplicate prevention
+  const handleContractWrite = useCallback((event: any) => {
+    if (event.contract === issueId && issueId) {
+      const now = Date.now();
+      // Debounce: only process if at least 2 seconds have passed since last contract write
+      if (now - lastContractWriteTime.current < 2000) {
+        console.log('Contract write event debounced for issue:', issueId);
+        return;
+      }
+      lastContractWriteTime.current = now;
+      
+      console.log('Contract write event detected for issue:', issueId);
+      
+      // Only refresh if not already loading
+      if (!isLoadingIssueDetails.current) {
+        isLoadingIssueDetails.current = true;
         dispatch(fetchIssueDetails({
           serverUrl: issueHostServer,
           publicKey: issueHostAgent,
           contractId: issueId,
-        }));
+        })).finally(() => {
+          isLoadingIssueDetails.current = false;
+        });
+      }
+      
+      if (!isLoadingProposals.current) {
+        isLoadingProposals.current = true;
         dispatch(getProposals({
           serverUrl: issueHostServer,
           publicKey: issueHostAgent,
           contractId: issueId,
-        }));
+        })).finally(() => {
+          isLoadingProposals.current = false;
+        });
       }
-    };
+    }
+  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
+  useEffect(() => {
     eventStreamService.addEventListener('contract_write', handleContractWrite);
     return () => {
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
     };
-  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
+  }, [handleContractWrite]);
 
   const navItems = [
     { path: 'discussion', label: 'Discussion', icon: MessageSquare },
