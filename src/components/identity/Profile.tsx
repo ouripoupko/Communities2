@@ -16,6 +16,7 @@ const Profile: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Find the profile contract
@@ -82,9 +83,10 @@ const Profile: React.FC = () => {
   const handleSave = async () => {
     if (user.serverUrl && user.publicKey && profileContract) {
       try {
+        setIsSaving(true);
         setSaveError(null);
         
-        contractWrite({
+        await contractWrite({
           serverUrl: user.serverUrl,
           publicKey: user.publicKey,
           contractId: profileContract.id,
@@ -95,9 +97,13 @@ const Profile: React.FC = () => {
         // Profile data will be refreshed automatically via SSE event
         setIsEditing(false);
       } catch (error: unknown) {
-        // console.error('Failed to save profile:', error);
+        console.error('Failed to save profile:', error);
         setSaveError('Failed to save profile. Please check your connection and try again.');
+      } finally {
+        setIsSaving(false);
       }
+    } else {
+      setSaveError('Missing user credentials or profile contract. Please try logging in again.');
     }
   };
 
@@ -255,9 +261,13 @@ const Profile: React.FC = () => {
             <div className="form-actions">
               {isEditing ? (
                 <>
-                  <button onClick={handleSave} className="save-button">
+                  <button 
+                    onClick={handleSave} 
+                    className="save-button"
+                    disabled={isSaving}
+                  >
                     <Save size={16} />
-                    Save
+                    {isSaving ? 'Saving...' : 'Save'}
                   </button>
                   <button
                     onClick={() => {
