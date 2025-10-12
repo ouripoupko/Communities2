@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { initializeUser, setCurrentUser, clearUser } from '../store/slices/userSlice';
+import { initializeUser, setCurrentUser, clearUser, fetchContracts } from '../store/slices/userSlice';
 import type { AppDispatch, RootState } from '../store';
 import { eventStreamService } from '../services/eventStream';
 
@@ -56,13 +56,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const validateStoredCredentials = async (publicKey: string, serverUrl: string) => {
     try {
+      // Connect to the SSE stream BEFORE initialization so we can catch deploy_contract events
+      eventStreamService.connect(serverUrl, publicKey);
+      
+      // Set up listener for contract deployment events to refresh contracts list
+      const handleContractDeploy = () => {
+        dispatch(fetchContracts());
+      };
+      eventStreamService.addEventListener('deploy_contract', handleContractDeploy);
+      
       // Use the new initializeUser thunk which handles everything
       await dispatch(initializeUser()).unwrap();
       
       setIsLoading(false);
-      
-      // Connect to the SSE stream after successful validation
-      eventStreamService.connect(serverUrl, publicKey);
     } catch (err: any) {
       throw err;
     }
@@ -75,14 +81,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Set the current user in Redux state first
       dispatch(setCurrentUser({ publicKey, serverUrl }));
       
+      // Connect to the SSE stream BEFORE initialization so we can catch deploy_contract events
+      eventStreamService.connect(serverUrl, publicKey);
+      
+      // Set up listener for contract deployment events to refresh contracts list
+      const handleContractDeploy = () => {
+        dispatch(fetchContracts());
+      };
+      eventStreamService.addEventListener('deploy_contract', handleContractDeploy);
+      
       // Use the new initializeUser thunk which handles everything
       await dispatch(initializeUser()).unwrap();
       
       // Store in localStorage
       localStorage.setItem('user', JSON.stringify({ publicKey, serverUrl }));
-      
-      // Connect to the SSE stream
-      eventStreamService.connect(serverUrl, publicKey);
     } catch (err) {
       // Error handling: just throw error for now
       throw new Error(String(err));

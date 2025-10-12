@@ -22,14 +22,30 @@ const LoginPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Default server URL
+    const defaultServer = 'https://gdi.gloki.contact';
+    
     // Load server URL history from localStorage
     const history = localStorage.getItem('serverUrlHistory');
+    let historyArray: string[] = [];
+    
     if (history) {
       try {
-        setServerUrlHistory(JSON.parse(history));
+        historyArray = JSON.parse(history);
       } catch (error) {
+        historyArray = [];
       }
     }
+    
+    // Always ensure default server is in the list
+    if (!historyArray.includes(defaultServer)) {
+      historyArray = [defaultServer, ...historyArray];
+    } else {
+      // Move default server to the top if it's already in the list
+      historyArray = [defaultServer, ...historyArray.filter(url => url !== defaultServer)];
+    }
+    
+    setServerUrlHistory(historyArray);
   }, []);
 
   useEffect(() => {

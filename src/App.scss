@@ -67,6 +67,7 @@ body {
   font-size: 1rem;
   transition: border-color 0.2s, box-shadow 0.2s;
   background-color: white;
+  color: #1e293b;
 }
 
 .input-field:focus {
@@ -79,6 +80,24 @@ body {
   background-color: #f1f5f9;
   color: #64748b;
   cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  .input-field {
+    background-color: #1e293b;
+    color: #f1f5f9;
+    border-color: #475569;
+  }
+
+  .input-field:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+
+  .input-field:disabled {
+    background-color: #0f172a;
+    color: #64748b;
+  }
 }
 
 .form-group {

@@ -128,7 +128,7 @@ export const readProfile = createAsyncThunk(
         });
         profileData = profileResult;
       } else {
-        // Deploy profile contract
+        // Deploy profile contract - SSE listener will handle updating contracts list
         await deployContract({
           serverUrl,
           publicKey,
