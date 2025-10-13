@@ -71,17 +71,20 @@
             align-items: center;
             gap: $spacing-sm;
             padding: $spacing-sm $spacing-md;
-            background-color: $gray-100;
-            color: $gray-700;
-            border: 1px solid $gray-300;
+            background-color: #fee2e2;
+            color: $error;
+            border: 1px solid #fca5a5;
             border-radius: $radius-md;
             font-size: $text-sm;
+            font-weight: $font-medium;
             cursor: pointer;
             transition: all $transition-base;
 
             &:hover {
-              background-color: $gray-200;
-              color: $error;
+              background-color: $error;
+              color: white;
+              border-color: #b91c1c;
+              transform: translateY(-1px);
             }
           }
         }
@@ -308,6 +311,18 @@
 
         .info p {
           color: $dark-text-secondary;
+        }
+
+        .info .titleRow .logoutButton {
+          background-color: $dark-surface;
+          color: $dark-text;
+          border-color: $dark-border;
+
+          &:hover {
+            background-color: #7f1d1d;
+            color: white;
+            border-color: #991b1b;
+          }
         }
       }
 

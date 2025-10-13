@@ -1,0 +1,231 @@
+// LoginPage.module.scss
+// Hierarchical SCSS structure for LoginPage component
+@use '../styles/variables' as *;
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: $spacing-lg;
+
+  .card {
+    background: white;
+    border-radius: $radius-xl;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    padding: $spacing-3xl;
+    width: 100%;
+    max-width: 450px;
+
+    .header {
+      text-align: center;
+      margin-bottom: $spacing-2xl;
+
+      h1 {
+        font-size: $text-3xl;
+        font-weight: $font-bold;
+        color: $gray-800;
+        margin-bottom: $spacing-sm;
+      }
+
+      p {
+        color: $gray-600;
+        font-size: $text-base;
+      }
+    }
+
+    .form {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-xl;
+
+      .inputGroup {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+
+        label {
+          display: flex;
+          align-items: center;
+          gap: $spacing-sm;
+          font-weight: $font-medium;
+          color: $gray-700;
+          font-size: $text-sm;
+        }
+
+        .inputWithButton {
+          display: flex;
+          gap: $spacing-sm;
+
+          .inputField {
+            flex: 1;
+          }
+
+          .generateButton {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: $spacing-md;
+            background-color: $gray-100;
+            color: $gray-700;
+            border: 1px solid $gray-300;
+            border-radius: $radius-md;
+            cursor: pointer;
+            transition: all $transition-base;
+
+            &:hover {
+              background-color: $gray-200;
+              color: $gray-800;
+            }
+          }
+        }
+
+        .inputWithDropdown {
+          position: relative;
+
+          .historyDropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid $gray-300;
+            border-radius: $radius-md;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            max-height: 200px;
+            overflow-y: auto;
+
+            .historyItem {
+              padding: $spacing-md;
+              cursor: pointer;
+              border-bottom: 1px solid $gray-100;
+              font-size: $text-sm;
+              transition: background-color $transition-base;
+
+              &:last-child {
+                border-bottom: none;
+              }
+
+              &:hover {
+                background-color: $gray-50;
+              }
+            }
+          }
+        }
+      }
+
+      .errorMessage {
+        display: flex;
+        align-items: flex-start;
+        gap: $spacing-md;
+        padding: $spacing-lg;
+        border-radius: $radius-md;
+        font-size: $text-sm;
+        margin-bottom: $spacing-lg;
+        border: 1px solid;
+
+        &.generalError {
+          background-color: #fef2f2;
+          border-color: #fecaca;
+          color: $error;
+        }
+
+        &.serverError {
+          background-color: #fffbeb;
+          border-color: #fcd34d;
+          color: $warning;
+        }
+
+        .errorIcon {
+          font-size: $text-xl;
+          flex-shrink: 0;
+          margin-top: 0.125rem;
+        }
+
+        .errorContent {
+          flex: 1;
+
+          .errorTitle {
+            font-weight: $font-semibold;
+            margin-bottom: $spacing-xs;
+          }
+
+          .errorDescription {
+            line-height: 1.4;
+          }
+
+          .retryButton {
+            margin-top: $spacing-md;
+            padding: $spacing-sm $spacing-lg;
+            background-color: $warning;
+            color: white;
+            border: none;
+            border-radius: $radius-sm;
+            font-size: $text-sm;
+            font-weight: $font-medium;
+            cursor: pointer;
+            transition: background-color $transition-base;
+
+            &:hover {
+              background-color: #d97706;
+            }
+          }
+        }
+      }
+
+      .loginButton {
+        margin-top: $spacing-lg;
+        width: 100%;
+        justify-content: center;
+        padding: $spacing-lg $spacing-xl;
+        font-size: $text-lg;
+      }
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .container {
+    .card {
+      background-color: $dark-bg;
+
+      .header {
+        h1 {
+          color: $dark-text;
+        }
+
+        p {
+          color: $dark-text-secondary;
+        }
+      }
+
+      .form {
+        .inputGroup {
+          label {
+            color: $dark-text;
+          }
+
+          .inputWithDropdown {
+            .historyDropdown {
+              background-color: $dark-surface;
+              border-color: $dark-border;
+
+              .historyItem {
+                border-bottom-color: $dark-border;
+                color: $dark-text;
+
+                &:hover {
+                  background-color: $dark-border;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
