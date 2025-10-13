@@ -1,6 +1,6 @@
 // globals.scss
 // Global utility classes and reusable components
-@import './variables';
+@use './variables' as *;
 
 /* Loading States */
 .loading-container {

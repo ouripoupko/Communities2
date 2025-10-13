@@ -2,8 +2,8 @@
 // Entry point for all styles
 
 // Import variables and globals
-@import './variables';
-@import './globals';
+@use './variables';
+@use './globals';
 
 // Root styles
 :root {
