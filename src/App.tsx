@@ -2,7 +2,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import './App.scss';
 
 // Get the base path from Vite's import.meta.env.BASE_URL
 const getBasename = () => {
