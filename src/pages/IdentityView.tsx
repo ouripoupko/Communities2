@@ -1,16 +1,16 @@
 import React from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { User, Users, QrCode, LogOut } from 'lucide-react';
 import Profile from '../components/identity/Profile';
 import Communities from '../components/identity/Communities';
 import JoinCommunity from '../components/identity/JoinCommunity';
-import '../components/layout/Layout.scss';
+import styles from './Container.module.scss';
 
-const MyIdentity: React.FC = () => {
+const IdentityView: React.FC = () => {
   const { logout } = useAuth();
-  
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -24,13 +24,13 @@ const MyIdentity: React.FC = () => {
   ];
 
   return (
-    <div className="identity-view-container">
-      <div className="identity-header">
-        <div className="header-left">
-          <div className="identity-info">
-            <div className="identity-title-row">
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <div className={styles.info}>
+            <div className={styles.titleRow}>
               <h1>My Identity</h1>
-              <button onClick={handleLogout} className="logout-button">
+              <button onClick={handleLogout} className={styles.logoutButton}>
                 <LogOut size={16} />
                 <span>Logout</span>
               </button>
@@ -39,13 +39,13 @@ const MyIdentity: React.FC = () => {
         </div>
       </div>
 
-      <div className="identity-content">
-        <nav className="identity-nav">
+      <div className={styles.content}>
+        <nav className={styles.nav}>
           {navItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(`/identity/${item.path}`)}
-              className={`nav-item ${window.location.pathname.includes(`/identity/${item.path}`) ? 'active' : ''}`}
+              className={`${styles.navItem} ${location.pathname.includes(`/identity/${item.path}`) ? styles.active : ''}`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
@@ -53,7 +53,7 @@ const MyIdentity: React.FC = () => {
           ))}
         </nav>
 
-        <div className="identity-main">
+        <div className={styles.main}>
           <Routes>
             <Route path="profile" element={<Profile />} />
             <Route path="communities" element={<Communities />} />
@@ -66,4 +66,5 @@ const MyIdentity: React.FC = () => {
   );
 };
 
-export default MyIdentity; 
+export default IdentityView;
+

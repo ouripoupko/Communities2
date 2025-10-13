@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useCallback, useRef } from 'react';
-import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchIssueDetails, getProposals } from '../store/slices/issuesSlice';
@@ -9,11 +9,12 @@ import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
 import Outcome from '../components/issue/Outcome';
-import '../components/layout/Layout.scss';
+import styles from './Container.module.scss';
 
 const IssueView: React.FC = () => {
   const { issueHostServer: encodedIssueHostServer, issueHostAgent: issueHostAgentFromUrl, communityId, issueId } = useParams<{ issueHostServer: string; issueHostAgent: string; communityId: string; issueId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { issueDetails = {}, issueProposals, proposalsLoading } = useAppSelector((state) => state.issues);
   const communityProperties = useAppSelector((state) => communityId ? state.communities?.communityProperties?.[communityId] : null);
 
@@ -133,9 +134,9 @@ const IssueView: React.FC = () => {
   // Show loading state while essential data is being fetched
   if (!currentIssue || isProposalsLoading) {
     return (
-      <div className="issue-view-container">
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
+      <div className={styles.container}>
+        <div className={styles.loadingState}>
+          <div className={styles.spinner}></div>
           <p>Loading issue data...</p>
         </div>
       </div>
@@ -148,26 +149,26 @@ const IssueView: React.FC = () => {
                    'Unknown Issue';
 
   return (
-    <div className="issue-view-container">
-      <div className="issue-page-header">
-        <div className="header-left">
-          <button onClick={() => navigate(`/community/${communityId}`)} className="back-button">
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <button onClick={() => navigate(`/community/${communityId}`)} className={styles.backButton}>
             <ArrowLeft size={16} />
             Back to Community
           </button>
-          <div className="issue-info">
+          <div className={styles.info}>
             <h1>{issueName}</h1>
           </div>
         </div>
       </div>
 
-      <div className="issue-page-content">
-        <nav className="issue-page-nav">
+      <div className={styles.content}>
+        <nav className={styles.nav}>
           {navItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(`/issue/${encodeURIComponent(issueHostServer)}/${issueHostAgent}/${communityId}/${issueId}/${item.path}`)}
-              className={`issue-nav-item ${window.location.pathname.includes(`/issue/${encodeURIComponent(issueHostServer)}/${issueHostAgent}/${communityId}/${issueId}/${item.path}`) ? 'active' : ''}`}
+              className={`${styles.navItem} ${location.pathname.includes(`/issue/${encodeURIComponent(issueHostServer)}/${issueHostAgent}/${communityId}/${issueId}/${item.path}`) ? styles.active : ''}`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
@@ -175,7 +176,7 @@ const IssueView: React.FC = () => {
           ))}
         </nav>
 
-        <div className="issue-page-main">
+        <div className={styles.main}>
           <Routes>
             <Route path="discussion" element={<Discussion issueId={issueId!} />} />
             <Route path="proposals" element={<Proposals issueId={issueId!} />} />

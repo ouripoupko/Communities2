@@ -1,17 +1,18 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Users, Coins, Share2 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import Issues from '../components/community/Issues';
 import Members from '../components/community/Members';
 import Currency from '../components/community/Currency';
 import Share from '../components/community/Share';
-import '../components/layout/Layout.scss';
+import styles from './Container.module.scss';
 import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
 
 const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   // Get contracts and properties from Redux
   const { contracts } = useAppSelector(state => state.user);
   const { communityProperties = {} } = useAppSelector(state => state.communities);
@@ -56,9 +57,9 @@ const CommunityView: React.FC = () => {
 
   if (fetching) {
     return (
-      <div className="community-view-container">
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
+      <div className={styles.container}>
+        <div className={styles.loadingState}>
+          <div className={styles.spinner}></div>
           <p>Loading community...</p>
         </div>
       </div>
@@ -67,8 +68,8 @@ const CommunityView: React.FC = () => {
 
   if (!contract || !props || !props.name) {
     return (
-      <div className="community-view-container">
-        <div className="error-state">
+      <div className={styles.container}>
+        <div className={styles.errorState}>
           <h2>Community Not Found</h2>
           <p>The community you're looking for doesn't exist.</p>
           <button onClick={() => navigate('/identity/communities')} className="back-button">
@@ -80,34 +81,33 @@ const CommunityView: React.FC = () => {
   }
 
   return (
-    <div className="community-view-container">
-      <div className="community-header">
-        <div className="header-left">
-          <button onClick={() => navigate('/identity/communities')} className="back-button">
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <button onClick={() => navigate('/identity/communities')} className={styles.backButton}>
             <ArrowLeft size={16} />
             Back
           </button>
-          <div className="community-info">
+          <div className={styles.info}>
             <h1>{props.name}</h1>
             <p>{props.description}</p>
           </div>
         </div>
-        <div className="header-right">
-          <span className="stat">
+        <div className={styles.headerRight}>
+          <span className={styles.stat}>
             <Users size={16} />
             {Array.isArray(props.members) ? props.members.length : '-'} members
           </span>
-          {/* Optionally, show owner badge if available */}
         </div>
       </div>
 
-      <div className="community-content">
-        <nav className="community-nav">
+      <div className={styles.content}>
+        <nav className={styles.nav}>
           {navItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(`/community/${communityId}/${item.path}`)}
-              className={`nav-item ${window.location.pathname.includes(`/community/${communityId}/${item.path}`) ? 'active' : ''}`}
+              className={`${styles.navItem} ${location.pathname.includes(`/community/${communityId}/${item.path}`) ? styles.active : ''}`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
@@ -115,7 +115,7 @@ const CommunityView: React.FC = () => {
           ))}
         </nav>
 
-        <div className="community-main">
+        <div className={styles.main}>
           <Routes>
             <Route path="issues" element={<Issues communityId={communityId!} />} />
             <Route path="members" element={<Members communityId={communityId!} />} />

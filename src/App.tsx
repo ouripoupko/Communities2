@@ -11,7 +11,7 @@ const getBasename = () => {
 };
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
-const MyIdentity = lazy(() => import('./pages/MyIdentity'));
+const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
 const IssueView = lazy(() => import('./pages/IssueView'));
 
@@ -40,7 +40,7 @@ function AppContent() {
       <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
         <Routes>
           <Route path="/" element={<Navigate to="/identity" replace />} />
-          <Route path="/identity/*" element={<MyIdentity />} />
+          <Route path="/identity/*" element={<IdentityView />} />
           <Route path="/community/:communityId/*" element={<CommunityView />} />
           <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
         </Routes>
