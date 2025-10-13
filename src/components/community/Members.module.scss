@@ -1,0 +1,192 @@
+// Members.module.scss
+// Hierarchical SCSS structure for Members component
+@use '../../styles/variables' as *;
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+
+  .header {
+    margin-bottom: $spacing-2xl;
+
+    h2 {
+      font-size: $text-2xl;
+      font-weight: $font-bold;
+      color: $gray-800;
+      margin-bottom: $spacing-sm;
+    }
+
+    p {
+      color: $gray-600;
+    }
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-lg;
+
+    .memberCard {
+      display: flex;
+      align-items: center;
+      gap: $spacing-lg;
+      background: white;
+      border-radius: $radius-lg;
+      padding: $spacing-xl;
+      box-shadow: $shadow-base;
+      border: 1px solid $gray-200;
+
+      .memberAvatar {
+        position: relative;
+        width: 48px;
+        height: 48px;
+        border-radius: $radius-full;
+        background-color: $gray-100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: $gray-400;
+        flex-shrink: 0;
+
+        .ownerIcon {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          background-color: #fef3c7;
+          color: #92400e;
+          border-radius: $radius-full;
+          padding: 2px;
+        }
+      }
+
+      .memberInfo {
+        flex: 1;
+        overflow-x: auto;
+        max-width: 100%;
+        padding: $spacing-xs 0;
+
+        h3 {
+          font-size: $text-lg;
+          font-weight: $font-semibold;
+          color: $gray-800;
+          margin-bottom: $spacing-xs;
+        }
+
+        .roleBadge {
+          display: inline-block;
+          padding: $spacing-xs $spacing-md;
+          border-radius: $radius-full;
+          font-size: $text-xs;
+          font-weight: $font-medium;
+          text-transform: uppercase;
+
+          &.owner {
+            background-color: #fef3c7;
+            color: #92400e;
+          }
+
+          &.member {
+            background-color: #eff6ff;
+            color: #1e40af;
+          }
+        }
+
+        .publicKey {
+          display: block;
+          font-family: monospace;
+          background: $gray-100;
+          color: $gray-800;
+          padding: $spacing-xs $spacing-sm;
+          border-radius: $radius-sm;
+          white-space: nowrap;
+          overflow-x: auto;
+          max-width: 100%;
+        }
+      }
+
+      .memberStats {
+        display: flex;
+        gap: $spacing-lg;
+        font-size: $text-sm;
+        color: $gray-500;
+
+        .stat {
+          display: flex;
+          flex-direction: column;
+          gap: $spacing-xs;
+
+          .statLabel {
+            font-size: $text-xs;
+            color: $gray-400;
+            font-weight: $font-medium;
+          }
+
+          .statValue {
+            font-weight: $font-semibold;
+            color: $gray-700;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: $breakpoint-md) {
+  .container {
+    .list {
+      .memberCard {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: $spacing-md;
+
+        .memberStats {
+          width: 100%;
+          justify-content: space-between;
+        }
+      }
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .container {
+    .header {
+      h2 {
+        color: $dark-text;
+      }
+
+      p {
+        color: $dark-text-secondary;
+      }
+    }
+
+    .list {
+      .memberCard {
+        background-color: $dark-bg;
+        border-color: $dark-border;
+
+        .memberInfo {
+          h3 {
+            color: $dark-text;
+          }
+
+          .publicKey {
+            background-color: $dark-surface;
+            color: $dark-text;
+          }
+        }
+
+        .memberStats {
+          .stat {
+            .statValue {
+              color: $dark-text;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

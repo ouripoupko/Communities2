@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
+import styles from './Members.module.scss';
 
 interface MembersProps {
   communityId: string;
@@ -24,21 +25,21 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
   }, [communityId, publicKey, serverUrl, communityMembers, dispatch]);
 
   return (
-    <div className="members-container">
-      <div className="members-header">
+    <div className={styles.container}>
+      <div className={styles.header}>
         <h2>Members</h2>
         <p>{members.length} community members</p>
       </div>
-      <div className="members-list">
+      <div className={styles.list}>
         {members.length === 0 ? (
           <div className="empty-state">
             <p>No members found.</p>
           </div>
         ) : (
           members.map((publicKey: string) => (
-            <div key={publicKey} className="member-card">
-              <div className="member-info">
-                <span className="public-key">{publicKey}</span>
+            <div key={publicKey} className={styles.memberCard}>
+              <div className={styles.memberInfo}>
+                <span className={styles.publicKey}>{publicKey}</span>
               </div>
             </div>
           ))

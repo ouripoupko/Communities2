@@ -1,0 +1,295 @@
+// Currency.module.scss
+// Hierarchical SCSS structure for Currency component
+@use '../../styles/variables' as *;
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+
+  .header {
+    margin-bottom: $spacing-2xl;
+
+    h2 {
+      font-size: $text-2xl;
+      font-weight: $font-bold;
+      color: $gray-800;
+      margin-bottom: $spacing-sm;
+    }
+
+    p {
+      color: $gray-600;
+    }
+  }
+
+  .content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-2xl;
+
+    .balanceSection {
+      grid-column: 1 / -1;
+
+      .balanceCard {
+        background: white;
+        border-radius: $radius-lg;
+        padding: $spacing-2xl;
+        box-shadow: $shadow-base;
+        text-align: center;
+
+        .balanceHeader {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: $spacing-md;
+          margin-bottom: $spacing-xl;
+          color: $primary;
+
+          h3 {
+            font-size: $text-xl;
+            font-weight: $font-semibold;
+            color: $gray-800;
+            margin: 0;
+          }
+        }
+
+        .balanceAmount {
+          margin-bottom: $spacing-xl;
+
+          .amount {
+            font-size: 3rem;
+            font-weight: $font-bold;
+            color: $gray-800;
+            line-height: 1;
+          }
+
+          .currency {
+            font-size: $text-xl;
+            color: $gray-600;
+            font-weight: $font-medium;
+            margin-left: $spacing-sm;
+          }
+        }
+
+        .balanceStats {
+          display: flex;
+          justify-content: center;
+          gap: $spacing-2xl;
+
+          .stat {
+            display: flex;
+            flex-direction: column;
+            gap: $spacing-xs;
+
+            .label {
+              font-size: $text-sm;
+              color: $gray-500;
+              font-weight: $font-medium;
+            }
+
+            .value {
+              font-size: $text-lg;
+              color: $gray-700;
+              font-weight: $font-semibold;
+            }
+          }
+        }
+      }
+    }
+
+    .actionsSection {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-xl;
+
+      .actionCard {
+        background: white;
+        border-radius: $radius-lg;
+        padding: $spacing-xl;
+        box-shadow: $shadow-base;
+
+        h3 {
+          font-size: $text-lg;
+          font-weight: $font-semibold;
+          color: $gray-800;
+          margin-bottom: $spacing-lg;
+        }
+
+        .actionButton {
+          display: flex;
+          align-items: center;
+          gap: $spacing-sm;
+          padding: $spacing-md $spacing-xl;
+          background-color: $primary;
+          color: white;
+          border: none;
+          border-radius: $radius-md;
+          font-size: $text-sm;
+          font-weight: $font-medium;
+          cursor: pointer;
+          transition: background-color $transition-base;
+
+          &:hover {
+            background-color: $primary-dark;
+          }
+        }
+
+        .preferences {
+          display: flex;
+          flex-direction: column;
+          gap: $spacing-lg;
+
+          .preferenceItem {
+            display: flex;
+            align-items: center;
+            gap: $spacing-lg;
+
+            label {
+              flex: 1;
+              font-weight: $font-medium;
+              color: $gray-700;
+              font-size: $text-sm;
+            }
+
+            .inputField {
+              width: 120px;
+              text-align: center;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .mintIcon {
+    color: $success;
+  }
+
+  .burnIcon {
+    color: #ef4444;
+  }
+
+  .paymentFormOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: $spacing-lg;
+
+    .paymentForm {
+      background: white;
+      border-radius: $radius-lg;
+      padding: $spacing-2xl;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+
+      h3 {
+        font-size: $text-xl;
+        font-weight: $font-semibold;
+        color: $gray-800;
+        margin-bottom: $spacing-xl;
+      }
+
+      .sendButton {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: $breakpoint-md) {
+  .container {
+    .content {
+      grid-template-columns: 1fr;
+      gap: $spacing-lg;
+
+      .balanceSection .balanceCard {
+        .balanceAmount .amount {
+          font-size: 2.5rem;
+        }
+
+        .balanceStats {
+          flex-direction: column;
+          gap: $spacing-lg;
+        }
+      }
+
+      .actionsSection .actionCard .preferences .preferenceItem {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: $spacing-sm;
+
+        .inputField {
+          width: 100%;
+        }
+      }
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .container {
+    .header {
+      h2 {
+        color: $dark-text;
+      }
+
+      p {
+        color: $dark-text-secondary;
+      }
+    }
+
+    .content {
+      .balanceSection .balanceCard,
+      .actionsSection .actionCard {
+        background-color: $dark-bg;
+
+        h3 {
+          color: $dark-text;
+        }
+
+        .balanceAmount {
+          .amount {
+            color: $dark-text;
+          }
+
+          .currency {
+            color: $dark-text-secondary;
+          }
+        }
+
+        .balanceStats .stat {
+          .label {
+            color: $dark-text-secondary;
+          }
+
+          .value {
+            color: $dark-text;
+          }
+        }
+
+        .preferences .preferenceItem label {
+          color: $dark-text;
+        }
+      }
+    }
+
+    .paymentFormOverlay .paymentForm {
+      background-color: $dark-bg;
+
+      h3 {
+        color: $dark-text;
+      }
+    }
+  }
+}
+

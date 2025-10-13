@@ -1,0 +1,318 @@
+// JoinCommunity.module.scss
+// Hierarchical SCSS structure for JoinCommunity component
+@use '../../styles/variables' as *;
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+
+  .header {
+    margin-bottom: $spacing-2xl;
+
+    h1 {
+      font-size: $text-3xl;
+      font-weight: $font-bold;
+      color: $gray-800;
+      margin-bottom: $spacing-sm;
+    }
+
+    p {
+      color: $gray-600;
+    }
+  }
+
+  .content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-2xl;
+
+    .scanSection,
+    .manualInputSection {
+      background: white;
+      border-radius: $radius-lg;
+      padding: $spacing-2xl;
+      box-shadow: $shadow-base;
+
+      h3 {
+        font-size: $text-xl;
+        font-weight: $font-semibold;
+        color: $gray-800;
+        margin-bottom: $spacing-xl;
+      }
+
+      .scanArea {
+        position: relative;
+        min-height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px dashed $gray-300;
+        border-radius: $radius-md;
+        background-color: $gray-50;
+
+        .scannerModal {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+        }
+
+        .scanningOverlay {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: $spacing-lg;
+          color: $gray-500;
+
+          .scanningAnimation {
+            animation: pulse 2s infinite;
+          }
+        }
+
+        .qrPlaceholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: $spacing-lg;
+          color: $gray-500;
+          text-align: center;
+        }
+
+        .scanButton {
+          display: flex;
+          align-items: center;
+          gap: $spacing-sm;
+          padding: $spacing-md $spacing-xl;
+          background-color: $primary;
+          color: white;
+          border: none;
+          border-radius: $radius-md;
+          font-size: $text-sm;
+          font-weight: $font-medium;
+          cursor: pointer;
+          transition: background-color $transition-base;
+
+          &:hover {
+            background-color: $primary-dark;
+          }
+        }
+      }
+
+      .scrollXNoWrap {
+        white-space: pre;
+        word-break: break-all;
+        width: 100%;
+        max-width: 400px;
+        resize: vertical;
+        overflow-x: auto;
+        box-sizing: border-box;
+        font-family: monospace;
+      }
+    }
+
+    .invitePreview {
+      grid-column: 1 / -1;
+      background: white;
+      border-radius: $radius-lg;
+      padding: $spacing-2xl;
+      box-shadow: $shadow-base;
+      margin-top: $spacing-2xl;
+
+      h3 {
+        font-size: $text-xl;
+        font-weight: $font-semibold;
+        color: $gray-800;
+        margin-bottom: $spacing-xl;
+      }
+
+      .communityPreviewCard {
+        border: 1px solid $gray-200;
+        border-radius: $radius-md;
+        padding: $spacing-xl;
+        background-color: $gray-50;
+
+        .previewHeader {
+          display: flex;
+          align-items: flex-start;
+          gap: $spacing-lg;
+          margin-bottom: $spacing-lg;
+
+          .previewIcon {
+            width: 48px;
+            height: 48px;
+            background-color: #eff6ff;
+            border-radius: $radius-md;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: $primary;
+            flex-shrink: 0;
+          }
+
+          .previewInfo {
+            h4 {
+              font-size: $text-lg;
+              font-weight: $font-semibold;
+              color: $gray-800;
+              margin-bottom: $spacing-sm;
+            }
+
+            p {
+              color: $gray-600;
+              font-size: $text-sm;
+              line-height: 1.5;
+            }
+          }
+        }
+
+        .previewDetails {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: $spacing-lg;
+          margin-bottom: $spacing-xl;
+          padding: $spacing-lg 0;
+          border-top: 1px solid $gray-200;
+          border-bottom: 1px solid $gray-200;
+
+          .detailItem {
+            display: flex;
+            flex-direction: column;
+            gap: $spacing-xs;
+
+            .label {
+              font-size: $text-xs;
+              color: $gray-500;
+              font-weight: $font-medium;
+            }
+
+            .value {
+              font-size: $text-sm;
+              color: $gray-700;
+              font-weight: $font-semibold;
+              font-family: monospace;
+            }
+          }
+        }
+
+        .joinActions {
+          display: flex;
+          justify-content: flex-end;
+
+          .joinButton {
+            display: flex;
+            align-items: center;
+            gap: $spacing-sm;
+            padding: $spacing-md $spacing-xl;
+            background-color: $success;
+            color: white;
+            border: none;
+            border-radius: $radius-md;
+            font-size: $text-sm;
+            font-weight: $font-medium;
+            cursor: pointer;
+            transition: background-color $transition-base;
+
+            &:hover {
+              background-color: #059669;
+            }
+
+            &:disabled {
+              background-color: $gray-400;
+              cursor: not-allowed;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+// Responsive Design
+@media (max-width: $breakpoint-md) {
+  .container {
+    .content {
+      grid-template-columns: 1fr;
+      gap: $spacing-lg;
+
+      .scanSection,
+      .manualInputSection {
+        padding: $spacing-xl;
+      }
+
+      .invitePreview {
+        .communityPreviewCard {
+          .previewDetails {
+            grid-template-columns: 1fr;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .container {
+    .header {
+      h1 {
+        color: $dark-text;
+      }
+
+      p {
+        color: $dark-text-secondary;
+      }
+    }
+
+    .content {
+      .scanSection,
+      .manualInputSection,
+      .invitePreview {
+        background-color: $dark-bg;
+
+        h3 {
+          color: $dark-text;
+        }
+      }
+
+      .scanSection .scanArea {
+        background-color: $dark-surface;
+        border-color: $dark-border;
+      }
+
+      .invitePreview .communityPreviewCard {
+        background-color: $dark-surface;
+        border-color: $dark-border;
+
+        .previewHeader .previewInfo {
+          h4 {
+            color: $dark-text;
+          }
+
+          p {
+            color: $dark-text-secondary;
+          }
+        }
+
+        .previewDetails {
+          border-color: $dark-border;
+
+          .detailItem {
+            .label {
+              color: $dark-text-secondary;
+            }
+
+            .value {
+              color: $dark-text;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

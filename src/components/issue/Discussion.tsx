@@ -4,7 +4,7 @@ import { MessageSquare, Edit, Save, ChevronDown, ChevronRight, Reply } from 'luc
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { getComments } from '../../store/slices/issuesSlice';
 import { contractWrite } from '../../services/api';
-import './Discussion.scss';
+import styles from './Discussion.module.scss';
 
 interface Comment {
   id: string;
@@ -221,32 +221,32 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
     const hasReplies = comment.children && comment.children.length > 0;
 
     return (
-      <div key={comment.id} className={`comment ${isReply ? 'reply' : ''}`}>
-        <div className="comment-header">
-          <div className="comment-author">
+      <div key={comment.id} className={`${styles.comment} ${isReply ? styles.reply : ''}`}>
+        <div className={styles.commentHeader}>
+          <div className={styles.commentAuthor}>
             <strong>{comment.author}</strong>
-            <span className="comment-date">
+            <span className={styles.commentDate}>
               {new Date(comment.createdAt).toLocaleDateString()}
             </span>
           </div>
           {hasReplies && (
             <button
               onClick={() => toggleCollapse(comment.id)}
-              className="collapse-button"
+              className={styles.collapseButton}
             >
               {comment.isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </button>
           )}
         </div>
         
-        <div className="comment-content">
+        <div className={styles.commentContent}>
           <p>{comment.content}</p>
         </div>
 
-        <div className="comment-actions">
+        <div className={styles.commentActions}>
           <button
             onClick={() => setReplyingTo(comment.id)}
-            className="reply-button"
+            className={styles.replyButton}
           >
             <Reply size={14} />
             Reply
@@ -254,7 +254,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         </div>
 
         {replyingTo === comment.id && (
-          <div className="reply-form">
+          <div className={styles.replyForm}>
             <textarea
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
@@ -262,7 +262,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
               className="input-field"
               rows={3}
             />
-            <div className="reply-actions">
+            <div className={styles.replyActions}>
               <button
                 onClick={() => handleReply(comment.id)}
                 className="save-button"
@@ -284,7 +284,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         )}
 
         {comment.children && !comment.isCollapsed && (
-          <div className="comment-replies">
+          <div className={styles.commentReplies}>
             {comment.children.map(child => renderComment(child, level + 1))}
           </div>
         )}
@@ -293,12 +293,12 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   };
 
   return (
-    <div className="discussion-container">
-      <div className="description-section">
-        <div className="description-header">
+    <div className={styles.container}>
+      <div className={styles.descriptionSection}>
+        <div className={styles.descriptionHeader}>
           <h3>Description</h3>
-          <div className="description-meta">
-            <span className="proposals-count">
+          <div className={styles.descriptionMeta}>
+            <span className={styles.proposalsCount}>
               {proposals.length} proposal{proposals.length !== 1 ? 's' : ''}
             </span>
             {isCreator && (
@@ -314,14 +314,14 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         </div>
         
         {isEditingDescription ? (
-          <div className="description-edit">
+          <div className={styles.descriptionEdit}>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="input-field"
               rows={4}
             />
-            <div className="edit-actions">
+            <div className={styles.editActions}>
               <button onClick={handleSaveDescription} className="save-button">
                 Save Description
               </button>
@@ -334,14 +334,14 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
             </div>
           </div>
         ) : (
-          <div className="description-content">
+          <div className={styles.descriptionContent}>
             <p>{description}</p>
           </div>
         )}
       </div>
 
-      <div className="comments-section">
-        <div className="comments-header">
+      <div className={styles.commentsSection}>
+        <div className={styles.commentsHeader}>
           <h3>Comments</h3>
         </div>
 
@@ -352,7 +352,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
           </div>
         ) : (
           <>
-            <div className="add-comment">
+            <div className={styles.addComment}>
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
@@ -362,7 +362,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
               />
               <button
                 onClick={handleAddComment}
-                className="add-comment-button"
+                className={styles.addCommentButton}
                 disabled={!newComment.trim()}
               >
                 <MessageSquare size={16} />
@@ -370,7 +370,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
               </button>
             </div>
 
-            <div className="comments-list">
+            <div className={styles.commentsList}>
               {commentTree.map(comment => renderComment(comment))}
             </div>
 

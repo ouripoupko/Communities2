@@ -3,7 +3,7 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { readProfile } from '../../store/slices/userSlice';
 import { useEventStream, useEventStreamConnection } from '../../hooks/useEventStream';
 import { User, Camera, Save, Key, Server } from 'lucide-react';
-import './Profile.scss';
+import styles from './Profile.module.scss';
 import { contractWrite } from '../../services/api';
 
 const Profile: React.FC = () => {
@@ -144,21 +144,21 @@ const Profile: React.FC = () => {
 
   if (user.loading) {
     return (
-      <div className="profile-container">
-        <div className="loading-message">Loading profile...</div>
+      <div className={styles.container}>
+        <div className={styles.loadingMessage}>Loading profile...</div>
       </div>
     );
   }
 
   if (user.error) {
     return (
-      <div className="profile-container">
-        <div className="error-message">
-          <div className="error-icon">⚠️</div>
-          <div className="error-content">
-            <div className="error-title">Connection Error</div>
-            <div className="error-description">{user.error}</div>
-            <div className="error-help">
+      <div className={styles.container}>
+        <div className={styles.errorMessage}>
+          <div className={styles.errorIcon}>⚠️</div>
+          <div className={styles.errorContent}>
+            <div className={styles.errorTitle}>Connection Error</div>
+            <div className={styles.errorDescription}>{user.error}</div>
+            <div className={styles.errorHelp}>
               Please make sure the server is running and try refreshing the page.
             </div>
           </div>
@@ -168,46 +168,46 @@ const Profile: React.FC = () => {
   }
 
   return (
-    <div className="profile-container">
-      <div className="profile-header">
+    <div className={styles.container}>
+      <div className={styles.header}>
         <h1>Profile</h1>
         <p>Manage your personal information and identity</p>
         {user.profile && (
-          <div className="profile-name">
+          <div className={styles.profileName}>
             {user.profile.firstName} {user.profile.lastName}
           </div>
         )}
-        <div className="event-stream-status">
-          <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+        <div className={styles.eventStreamStatus}>
+          <span className={`${styles.statusIndicator} ${isConnected ? styles.connected : styles.disconnected}`}>
             {isConnected ? '🟢 SSE Connected' : '🔴 SSE Disconnected'}
           </span>
         </div>
       </div>
 
-      <div className="profile-content">
-        <div className="profile-section">
-          <div className="profile-picture-section">
-            <div className="profile-picture">
+      <div className={styles.content}>
+        <div className={styles.profileSection}>
+          <div className={styles.profilePictureSection}>
+            <div className={styles.profilePicture}>
               {imageData ? (
                 <img src={imageData} alt="Profile" />
               ) : (
-                <div className="profile-picture-placeholder">
+                <div className={styles.profilePicturePlaceholder}>
                   <User size={48} />
                 </div>
               )}
               {imageUploadError && (
-                <div className="image-upload-error">
-                  <div className="error-icon">⚠️</div>
-                  <div className="error-content">
-                    <div className="error-title">Upload Error</div>
-                    <div className="error-description">{imageUploadError}</div>
+                <div className={styles.imageUploadError}>
+                  <div className={styles.errorIcon}>⚠️</div>
+                  <div className={styles.errorContent}>
+                    <div className={styles.errorTitle}>Upload Error</div>
+                    <div className={styles.errorDescription}>{imageUploadError}</div>
                   </div>
                 </div>
               )}
               {isEditing && (
                 <button
                   onClick={triggerFileInput}
-                  className="upload-button"
+                  className={styles.uploadButton}
                   title="Upload profile picture"
                 >
                   <Camera size={20} />
@@ -223,7 +223,7 @@ const Profile: React.FC = () => {
             />
           </div>
 
-          <div className="profile-form">
+          <div className={styles.profileForm}>
             <div className="form-group">
               <label htmlFor="firstName">First Name</label>
               <input
@@ -249,11 +249,11 @@ const Profile: React.FC = () => {
             </div>
 
             {saveError && (
-              <div className="error-message">
-                <div className="error-icon">⚠️</div>
-                <div className="error-content">
-                  <div className="error-title">Save Error</div>
-                  <div className="error-description">{saveError}</div>
+              <div className={styles.errorMessage}>
+                <div className={styles.errorIcon}>⚠️</div>
+                <div className={styles.errorContent}>
+                  <div className={styles.errorTitle}>Save Error</div>
+                  <div className={styles.errorDescription}>{saveError}</div>
                 </div>
               </div>
             )}
@@ -294,19 +294,19 @@ const Profile: React.FC = () => {
           </div>
         </div>
 
-        <div className="identity-section">
+        <div className={styles.identitySection}>
           <h3>Identity Information</h3>
-          <div className="identity-info">
-            <div className="info-item">
-              <div className="info-label">
+          <div className={styles.identityInfo}>
+            <div className={styles.infoItem}>
+              <div className={styles.infoLabel}>
                 <Key size={16} />
                 Public Key
               </div>
-              <div className="info-value">
+              <div className={styles.infoValue}>
                 <code>{user?.publicKey}</code>
                 <button
                   onClick={() => navigator.clipboard.writeText(user?.publicKey || '')}
-                  className="copy-button"
+                  className={styles.copyButton}
                   title="Copy to clipboard"
                 >
                   Copy
@@ -314,16 +314,16 @@ const Profile: React.FC = () => {
               </div>
             </div>
 
-            <div className="info-item">
-              <div className="info-label">
+            <div className={styles.infoItem}>
+              <div className={styles.infoLabel}>
                 <Server size={16} />
                 Server URL
               </div>
-              <div className="info-value">
+              <div className={styles.infoValue}>
                 <code>{user?.serverUrl}</code>
                 <button
                   onClick={() => navigator.clipboard.writeText(user?.serverUrl || '')}
-                  className="copy-button"
+                  className={styles.copyButton}
                   title="Copy to clipboard"
                 >
                   Copy

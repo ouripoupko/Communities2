@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Coins, Send, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCommunityCurrency, fetchCurrencyBalances } from '../../store/slices/currencySlice';
-import './Currency.scss';
+import styles from './Currency.module.scss';
 
 interface CurrencyProps {
   communityId: string;
@@ -59,78 +59,78 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   };
 
   return (
-    <div className="currency-container">
-      <div className="currency-header">
+    <div className={styles.container}>
+      <div className={styles.header}>
         <h2>Community Currency</h2>
         <p>Manage your community currency and transactions</p>
       </div>
 
-      <div className="currency-content">
-        <div className="balance-section">
-          <div className="balance-card">
-            <div className="balance-header">
+      <div className={styles.content}>
+        <div className={styles.balanceSection}>
+          <div className={styles.balanceCard}>
+            <div className={styles.balanceHeader}>
               <Coins size={24} />
               <h3>Your Balance</h3>
             </div>
-            <div className="balance-amount">
-              <span className="amount">{userBalance}</span>
-              <span className="currency">{currency?.symbol || 'credits'}</span>
+            <div className={styles.balanceAmount}>
+              <span className={styles.amount}>{userBalance}</span>
+              <span className={styles.currency}>{currency?.symbol || 'credits'}</span>
             </div>
-            <div className="balance-stats">
-              <div className="stat">
-                <span className="label">Community Median:</span>
-                <span className="value">980 credits</span>
+            <div className={styles.balanceStats}>
+              <div className={styles.stat}>
+                <span className={styles.label}>Community Median:</span>
+                <span className={styles.value}>980 credits</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="actions-section">
-          <div className="action-card">
+        <div className={styles.actionsSection}>
+          <div className={styles.actionCard}>
             <h3>Send Payment</h3>
             <button
               onClick={() => setShowPaymentForm(true)}
-              className="action-button"
+              className={styles.actionButton}
             >
               <Send size={20} />
               Send Credits
             </button>
           </div>
 
-          <div className="action-card">
+          <div className={styles.actionCard}>
             <h3>Preferences</h3>
-            <div className="preferences">
-              <div className="preference-item">
+            <div className={styles.preferences}>
+              <div className={styles.preferenceItem}>
                 <label htmlFor="mintPreference">Mint Rate (credits/day)</label>
                 <input
                   id="mintPreference"
                   type="number"
                   value={mintPreference}
                   onChange={(e) => setMintPreference(parseInt(e.target.value) || 0)}
-                  className="input-field"
+                  className={`input-field ${styles.inputField}`}
                   min="0"
                 />
-                <TrendingUp size={16} className="mint-icon" />
+                <TrendingUp size={16} className={styles.mintIcon} />
               </div>
-              <div className="preference-item">
+              <div className={styles.preferenceItem}>
                 <label htmlFor="burnPreference">Burn Rate (credits/day)</label>
                 <input
                   id="burnPreference"
                   type="number"
                   value={burnPreference}
                   onChange={(e) => setBurnPreference(parseInt(e.target.value) || 0)}
-                  className="input-field"
+                  className={`input-field ${styles.inputField}`}
                   min="0"
                 />
-                <TrendingDown size={16} className="burn-icon" />
+                <TrendingDown size={16} className={styles.burnIcon} />
               </div>
             </div>
           </div>
         </div>
 
         {showPaymentForm && (
-          <div className="payment-form-overlay">
-            <div className="payment-form">
+          <div className={styles.paymentFormOverlay}>
+            <div className={styles.paymentForm}>
               <h3>Send Payment</h3>
               <div className="form-group">
                 <label htmlFor="recipient">Recipient (Public Key)</label>
@@ -157,7 +157,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 />
               </div>
               <div className="form-actions">
-                <button onClick={handlePayment} className="send-button">
+                <button onClick={handlePayment} className={`send-button ${styles.sendButton}`}>
                   <Send size={16} />
                   Send Payment
                 </button>

@@ -1,0 +1,240 @@
+// Share.module.scss
+// Hierarchical SCSS structure for Share component
+@use '../../styles/variables' as *;
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+
+  .header {
+    margin-bottom: $spacing-2xl;
+
+    h2 {
+      font-size: $text-2xl;
+      font-weight: $font-bold;
+      color: $gray-800;
+      margin-bottom: $spacing-sm;
+    }
+
+    p {
+      color: $gray-600;
+    }
+  }
+
+  .content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-2xl;
+
+    .qrSection,
+    .communityInfoSection {
+      background: white;
+      border-radius: $radius-lg;
+      padding: $spacing-2xl;
+      box-shadow: $shadow-base;
+      min-width: 0;
+      overflow-x: auto;
+
+      h3 {
+        font-size: $text-xl;
+        font-weight: $font-semibold;
+        color: $gray-800;
+        margin-bottom: $spacing-xl;
+      }
+    }
+
+    .qrSection {
+      .qrCodeContainer {
+        display: flex;
+        justify-content: center;
+        margin-bottom: $spacing-lg;
+
+        .qrCode {
+          border: 1px solid $gray-200;
+          border-radius: $radius-md;
+          padding: $spacing-lg;
+          background: white;
+        }
+      }
+
+      .qrDescription {
+        text-align: center;
+        color: $gray-600;
+        font-size: $text-sm;
+      }
+    }
+
+    .communityInfoSection {
+      .communityDetails {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-lg;
+        min-width: 0;
+        overflow-x: auto;
+
+        .detailItem {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: $spacing-md;
+          background-color: $gray-50;
+          border-radius: $radius-md;
+          border: 1px solid $gray-200;
+
+          .label {
+            font-weight: $font-medium;
+            color: $gray-700;
+            font-size: $text-sm;
+          }
+
+          .value {
+            color: $gray-800;
+            font-weight: $font-semibold;
+            font-size: $text-sm;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+        }
+      }
+    }
+
+    .actionsSection {
+      grid-column: 1 / -1;
+      margin-top: $spacing-2xl;
+
+      .actionButtons {
+        display: flex;
+        gap: $spacing-lg;
+        justify-content: center;
+
+        .actionButton {
+          display: flex;
+          align-items: center;
+          gap: $spacing-sm;
+          padding: $spacing-md $spacing-xl;
+          background-color: $gray-100;
+          color: $gray-700;
+          border: 1px solid $gray-300;
+          border-radius: $radius-md;
+          font-size: $text-sm;
+          font-weight: $font-medium;
+          cursor: pointer;
+          transition: all $transition-base;
+
+          &:hover {
+            background-color: $gray-200;
+            color: $gray-800;
+          }
+        }
+      }
+    }
+  }
+
+  .scrollXNoWrap {
+    white-space: pre;
+    word-break: break-all;
+    width: 100%;
+    max-width: 100vw;
+    min-width: 0;
+    resize: vertical;
+    overflow-x: auto;
+    box-sizing: border-box;
+    font-family: monospace;
+    display: block;
+    padding-bottom: $spacing-sm;
+  }
+}
+
+// Responsive Design
+@media (max-width: $breakpoint-md) {
+  .container {
+    .content {
+      grid-template-columns: 1fr;
+      gap: $spacing-lg;
+
+      .qrSection,
+      .communityInfoSection {
+        padding: $spacing-xl;
+      }
+
+      .actionsSection {
+        .actionButtons {
+          flex-direction: column;
+        }
+      }
+
+      .communityInfoSection .communityDetails .detailItem {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: $spacing-xs;
+
+        .value {
+          max-width: none;
+        }
+      }
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .container {
+    .header {
+      h2 {
+        color: $dark-text;
+      }
+
+      p {
+        color: $dark-text-secondary;
+      }
+    }
+
+    .content {
+      .qrSection,
+      .communityInfoSection {
+        background-color: $dark-bg;
+
+        h3 {
+          color: $dark-text;
+        }
+      }
+
+      .qrSection {
+        .qrCodeContainer .qrCode {
+          background-color: white;
+          border-color: $dark-border;
+        }
+
+        .qrDescription {
+          color: $dark-text-secondary;
+        }
+      }
+
+      .communityInfoSection .communityDetails .detailItem {
+        background-color: $dark-surface;
+        border-color: $dark-border;
+
+        .label {
+          color: $dark-text;
+        }
+
+        .value {
+          color: $dark-text;
+        }
+      }
+
+      .actionsSection .actionButtons .actionButton {
+        background-color: $dark-surface;
+        color: $dark-text;
+        border-color: $dark-border;
+
+        &:hover {
+          background-color: $dark-border;
+        }
+      }
+    }
+  }
+}
+

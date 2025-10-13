@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Camera, CheckCircle, AlertCircle } from 'lucide-react';
-import './JoinCommunity.scss';
+import styles from './JoinCommunity.module.scss';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { stringToUint8Array, uint8ArrayToString, uint8ArrayToHex } from '../../services/encodeDecode';
 
@@ -127,18 +127,18 @@ const JoinCommunity: React.FC = () => {
   };
 
   return (
-    <div className="join-community-container">
-      <div className="join-header">
+    <div className={styles.container}>
+      <div className={styles.header}>
         <h1>Join Community</h1>
         <p>Scan a QR code or manually enter community credentials</p>
       </div>
 
-      <div className="join-content">
-        <div className="scan-section">
+      <div className={styles.content}>
+        <div className={styles.scanSection}>
           <h3>Scan QR Code</h3>
-          <div className="scan-area">
+          <div className={styles.scanArea}>
             {showScanner ? (
-              <div className="scanner-modal">
+              <div className={styles.scannerModal}>
                 <Scanner
                   onScan={handleScanResult}
                   onError={() => {}}
@@ -149,12 +149,12 @@ const JoinCommunity: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="qr-placeholder">
+              <div className={styles.qrPlaceholder}>
                 <QrCode size={64} />
                 <p>QR code scanner placeholder</p>
                 <button
                   onClick={handleScanQR}
-                  className="scan-button"
+                  className={styles.scanButton}
                 >
                   <Camera size={20} />
                   Scan QR Code
@@ -164,7 +164,7 @@ const JoinCommunity: React.FC = () => {
           </div>
         </div>
 
-        <div className="manual-input-section">
+        <div className={styles.manualInputSection}>
           <h3>Manual Input</h3>
           <div className="form-group">
             <label htmlFor="qrData">Community Credentials (JSON)</label>
@@ -173,14 +173,14 @@ const JoinCommunity: React.FC = () => {
               value={decodedData}
               onChange={handleManualInput}
               placeholder="Paste community credentials here as JSON..."
-              className="input-field scroll-x-no-wrap"
+              className={`input-field ${styles.scrollXNoWrap}`}
               rows={6}
             />
           </div>
         </div>
 
         {parsedInvite && (
-          <div className="join-actions">
+          <div className={styles.joinActions}>
             <button
               onClick={handleJoinCommunity}
               disabled={
@@ -191,7 +191,7 @@ const JoinCommunity: React.FC = () => {
                 !parsedInvite.agent ||
                 !parsedInvite.contract
               }
-              className="join-button"
+              className={styles.joinButton}
             >
               {isJoining ? (
                 <>

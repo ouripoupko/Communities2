@@ -1,7 +1,7 @@
 import React from 'react';
 import { Copy, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import './Share.scss';
+import styles from './Share.module.scss';
 import { useAppSelector } from '../../store/hooks';
 
 import { stringToUint8Array, hexToUint8Array, concatUint8Arrays, uint8ArrayToString } from '../../services/encodeDecode';
@@ -53,44 +53,44 @@ const Share: React.FC<ShareProps> = ({ communityId }) => {
   };
 
   return (
-    <div className="share-container">
-      <div className="share-header">
+    <div className={styles.container}>
+      <div className={styles.header}>
         <h2>Share Community</h2>
         <p>Share this community with others via QR code</p>
       </div>
 
-      <div className="share-content">
-        <div className="qr-section">
+      <div className={styles.content}>
+        <div className={styles.qrSection}>
           <h3>Community QR Code</h3>
-          <div className="qr-code-container">
+          <div className={styles.qrCodeContainer}>
             <QRCodeSVG
               value={qrData}
               size={256}
               level="M"
-              className="qr-code"
+              className={styles.qrCode}
             />
           </div>
-          <p className="qr-description">
+          <p className={styles.qrDescription}>
             Scan this QR code to join the community
           </p>
         </div>
 
-        <div className="community-info-section">
+        <div className={styles.communityInfoSection}>
           <h3>Community Credentials</h3>
-          <div className="community-details">
-            <pre className="scroll-x-no-wrap">
+          <div className={styles.communityDetails}>
+            <pre className={styles.scrollXNoWrap}>
               {JSON.stringify(credentials, null, 2)}
             </pre>
           </div>
         </div>
 
-        <div className="actions-section">
-          <div className="action-buttons">
-            <button onClick={handleCopyCredentials} className="action-button">
+        <div className={styles.actionsSection}>
+          <div className={styles.actionButtons}>
+            <button onClick={handleCopyCredentials} className={styles.actionButton}>
               <Copy size={20} />
               Copy Credentials
             </button>
-            <button onClick={handleDownloadQR} className="action-button">
+            <button onClick={handleDownloadQR} className={styles.actionButton}>
               <Download size={20} />
               Download QR Code
             </button>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
-import './Outcome.scss';
+import styles from './Outcome.module.scss';
 import { useAppSelector } from '../../store/hooks';
 
 interface Proposal {
@@ -136,8 +136,8 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
   // Show message when no proposals exist (proposals are already loaded by parent)
   if (proposals.length === 0) {
     return (
-      <div className="outcome-container">
-        <div className="outcome-header">
+      <div className={styles.container}>
+        <div className={styles.header}>
           <h2>Aggregated Ranking</h2>
           <p>No proposals have been submitted for this issue yet.</p>
         </div>
@@ -148,8 +148,8 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
   // Show message when no votes exist yet
   if (!condorcetResult) {
     return (
-      <div className="outcome-container">
-        <div className="outcome-header">
+      <div className={styles.container}>
+        <div className={styles.header}>
           <h2>Aggregated Ranking</h2>
           <p>No votes have been submitted yet. Results will appear here once voting begins.</p>
         </div>
@@ -158,8 +158,8 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
   }
 
   return (
-    <div className="outcome-container">
-      <div className="outcome-header">
+    <div className={styles.container}>
+      <div className={styles.header}>
         <h2>Aggregated Ranking</h2>
         <p>
           This ranking is computed using the Condorcet method. {hasCycles && (
@@ -170,19 +170,19 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
         </p>
       </div>
 
-      <div className="results-section">
-        <div className="results-list">
+      <div className={styles.resultsSection}>
+        <div className={styles.resultsList}>
           {condorcetResult.ranking.map((group: any, index: number) => {
             const key = Array.isArray(group) ? group.join('-') : group;
             const rank = index + 1;
             
             return Array.isArray(group) && group.length > 1 ? (
-              <div key={key} className="cycle-group">
-                <div className="result-rank">#{rank}</div>
+              <div key={key} className={styles.cycleGroup}>
+                <div className={styles.resultRank}>#{rank}</div>
                 {group.map((id, idx) => (
                   <div
                     key={id}
-                    className="result-card cycle-card"
+                    className={`${styles.resultCard} ${styles.cycleCard}`}
                     style={{
                       marginLeft: `${idx * 24}px`,
                       marginTop: idx === 0 ? 0 : '-32px',
@@ -190,19 +190,19 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
                       position: 'relative',
                     }}
                   >
-                    <div className="result-content">
+                    <div className={styles.resultContent}>
                       <h4>{getProposalTitle(id)}</h4>
                       {idx === 0 && (
-                        <span className="cycle-label">Cycle</span>
+                        <span className={styles.cycleLabel}>Cycle</span>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div key={key} className="result-card">
-                <div className="result-rank">#{rank}</div>
-                <div className="result-content">
+              <div key={key} className={styles.resultCard}>
+                <div className={styles.resultRank}>#{rank}</div>
+                <div className={styles.resultContent}>
                   <h4>{getProposalTitle(group)}</h4>
                 </div>
               </div>
@@ -211,8 +211,8 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
         </div>
       </div>
 
-      <div className="scoring-info">
-        <div className="info-card">
+      <div className={styles.scoringInfo}>
+        <div className={styles.infoCard}>
           <BarChart3 size={20} />
           <div>
             <h4>Condorcet Method</h4>

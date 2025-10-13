@@ -4,7 +4,7 @@ import { Plus, X } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { getProposals } from '../../store/slices/issuesSlice';
 import { contractWrite } from '../../services/api';
-import './Proposals.scss';
+import styles from './Proposals.module.scss';
 
 interface Proposal {
   id: string;
@@ -74,18 +74,18 @@ const CreateProposalForm = memo<CreateProposalFormProps>(({ isVisible, onClose, 
 
   return (
     <div 
-      className="create-form-overlay visible"
+      className={`${styles.createFormOverlay} ${styles.visible}`}
       onClick={handleClose}
     >
       <div 
-        className="create-form"
+        className={styles.createForm}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="form-header">
+        <div className={styles.formHeader}>
           <h3>Add New Proposal</h3>
           <button 
             onClick={handleClose}
-            className="close-button"
+            className={styles.closeButton}
             disabled={isSubmitting}
           >
             <X size={20} />
@@ -114,7 +114,7 @@ const CreateProposalForm = memo<CreateProposalFormProps>(({ isVisible, onClose, 
           />
         </div>
         {error && (
-          <div className="error-message">
+          <div className={styles.errorMessage}>
             {error}
           </div>
         )}
@@ -188,21 +188,21 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   // Show message when no proposals exist (proposals are already loaded by parent)
   if (proposals.length === 0) {
     return (
-      <div className="proposals-container">
-        <div className="proposals-header">
+      <div className={styles.container}>
+        <div className={styles.header}>
           <div>
             <h2>Proposals</h2>
             <p>Review and vote on proposed solutions</p>
           </div>
           <button
             onClick={() => setShowCreateForm(true)}
-            className="create-button"
+            className={styles.createButton}
           >
             <Plus size={20} />
             Add Proposal
           </button>
         </div>
-        <div className="no-proposals">
+        <div className={styles.noProposals}>
           <p>No proposals have been submitted for this issue yet.</p>
         </div>
         
@@ -216,15 +216,15 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   }
 
   return (
-    <div className="proposals-container">
-      <div className="proposals-header">
+    <div className={styles.container}>
+      <div className={styles.header}>
         <div>
           <h2>Proposals</h2>
           <p>Review and vote on proposed solutions</p>
         </div>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="create-button"
+          className={styles.createButton}
         >
           <Plus size={20} />
           Add Proposal
@@ -235,20 +235,24 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
         onClose={handleCloseForm}
         onSubmit={handleSubmitProposal}
       />
-      <div className="proposals-list">
+      <div className={styles.list}>
         {proposals.map((proposal) => (
-          <div key={proposal.id} className="proposal-card">
-            <div className="proposal-header">
-              <div className="proposal-title">
+          <div key={proposal.id} className={styles.proposalCard}>
+            <div className={styles.proposalHeader}>
+              <div className={styles.proposalTitle}>
                 <h3>{proposal.title}</h3>
               </div>
-              <div className="proposal-meta">
-                <span className="proposal-author">{proposal.author}</span>
-                <span className="proposal-date">{proposal.createdAt}</span>
+              <div className={styles.proposalMeta}>
+                <span className={styles.author}>{proposal.author}</span>
+                <span className={styles.date}>{proposal.createdAt}</span>
               </div>
             </div>
-            <div className="proposal-description">{proposal.description}</div>
-            <div className="proposal-votes">Votes: {proposal.voteCount}</div>
+            <div className={styles.proposalContent}>
+              <p className={styles.proposalDescription}>{proposal.description}</p>
+            </div>
+            <div className={styles.proposalStats}>
+              <span className={styles.proposalVotes}>Votes: {proposal.voteCount}</span>
+            </div>
           </div>
         ))}
       </div>

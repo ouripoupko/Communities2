@@ -8,8 +8,8 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { usePreview } from 'react-dnd-preview';
 import { getEmptyImage } from 'react-dnd-html5-backend';
+import styles from './Vote.module.scss';
 import { contractWrite } from '../../services/api';
-import './Vote.scss';
 
 // Backend configuration - same as TestDND
 export const HTML5toTouch: MultiBackendOptions = {
@@ -74,7 +74,7 @@ const CustomPreview = ({ width }: { width?: number }) => {
       alignItems: 'center',
     }}>
       <div
-        className="proposal-card one-line preview"
+        className={`${styles.proposalCard} ${styles.preview}`}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -175,7 +175,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, index, moveCard, 
   return (
     <div
       ref={ref}
-      className={`proposal-card one-line ${isDragging ? 'dragging' : ''} ${isOver ? 'over' : ''}`}
+      className={`${styles.proposalCard} ${isDragging ? styles.dragging : ''} ${isOver ? styles.over : ''}`}
       style={{
         opacity: isDragging ? 0.5 : 1,
         touchAction: 'none',
@@ -278,8 +278,8 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
   // Show message when no proposals exist (proposals are already loaded by parent)
   if (proposals.length === 0) {
     return (
-      <div className="vote-container">
-        <div className="no-proposals">
+      <div className={styles.container}>
+        <div className={styles.noProposals}>
           <p>No proposals have been submitted for this issue yet.</p>
         </div>
       </div>
@@ -288,12 +288,12 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
 
   return (
     <DndProvider backend={MultiBackend} options={HTML5toTouch}>
-      <div className="vote-container" style={{ maxWidth: 480, margin: '0 auto', padding: '10px' }}>
-        <div className="vote-header">
+      <div className={styles.container} style={{ maxWidth: 480, margin: '0 auto', padding: '10px' }}>
+        <div className={styles.header}>
           <h2>Vote on Proposals</h2>
         </div>
-        <div className="vote-instructions">
-          <div className="instruction-card">
+        <div className={styles.instructions}>
+          <div className={styles.instructionCard}>
             <ArrowUpDown size={20} />
             <div>
               <h3>How to Vote</h3>
@@ -304,7 +304,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
           </div>
         </div>
 
-        <div className="proposals-list">
+        <div className={styles.proposalsList}>
           {currentOrder.map((id, index) => {
             if (id === ACCEPTANCE_BAR_ID) {
               return (
@@ -333,20 +333,20 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
           })}
         </div>
 
-        <div className="vote-actions">
+        <div className={styles.voteActions}>
           {!hasVoted ? (
             <button
-              className="submit-vote-btn"
+              className={styles.submitVoteBtn}
               onClick={handleSubmitVote}
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Vote'}
             </button>
           ) : (
-            <div className="vote-submitted">
+            <div className={styles.voteSubmitted}>
               <CheckCircle size={20} />
               <span>Vote submitted successfully!</span>
-              <button className="reset-vote-btn" onClick={handleResetVote}>
+              <button className={styles.resetVoteBtn} onClick={handleResetVote}>
                 Change Vote
               </button>
             </div>
