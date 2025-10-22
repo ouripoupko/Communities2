@@ -21,6 +21,7 @@ interface UserState {
   
   // User data
   profile: IProfile | null;
+  profileContractId: string | null;
   
   // Contracts
   contracts: IContract[];
@@ -37,6 +38,7 @@ const initialState: UserState = {
   
   // User data
   profile: null,
+  profileContractId: null,
   
   // Contracts
   contracts: [],
@@ -118,6 +120,8 @@ export const readProfile = createAsyncThunk(
       });
       let profileData = null;
       
+      let profileContractId = null;
+      
       if (profileContract) {
         // Read profile data from existing contract
         const profileResult = await contractRead({
@@ -127,6 +131,7 @@ export const readProfile = createAsyncThunk(
           method: 'get_profile'
         });
         profileData = profileResult;
+        profileContractId = profileContract.id;
       } else {
         // Deploy profile contract - SSE listener will handle updating contracts list
         await deployContract({
@@ -144,9 +149,10 @@ export const readProfile = createAsyncThunk(
           userPhoto: '',
           userBio: ''
         };
+        // Note: profileContractId will be null here, but will be updated when contracts are refreshed
       }
       
-      return { profile: profileData };
+      return { profile: profileData, profileContractId };
     } catch (error) {
       return rejectWithValue(String(error));
     }
@@ -176,6 +182,7 @@ const userSlice = createSlice({
       state.publicKey = null;
       state.serverUrl = null;
       state.profile = null;
+      state.profileContractId = null;
       state.contracts = [];
       state.error = null;
     },
@@ -218,6 +225,7 @@ const userSlice = createSlice({
       .addCase(readProfile.fulfilled, (state, action) => {
         state.loading = false;
         state.profile = action.payload.profile;
+        state.profileContractId = action.payload.profileContractId;
       })
       .addCase(readProfile.rejected, (state, action) => {
         state.loading = false;

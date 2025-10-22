@@ -32,14 +32,19 @@
       gap: $spacing-lg;
       background: white;
       border-radius: $radius-lg;
-      padding: $spacing-xl;
+      padding: $spacing-lg;
       box-shadow: $shadow-base;
       border: 1px solid $gray-200;
+      transition: box-shadow 0.2s ease;
+
+      &:hover {
+        box-shadow: $shadow-lg;
+      }
 
       .memberAvatar {
         position: relative;
-        width: 48px;
-        height: 48px;
+        width: 56px;
+        height: 56px;
         border-radius: $radius-full;
         background-color: $gray-100;
         display: flex;
@@ -47,84 +52,56 @@
         justify-content: center;
         color: $gray-400;
         flex-shrink: 0;
+        overflow: hidden;
 
-        .ownerIcon {
-          position: absolute;
-          bottom: -2px;
-          right: -2px;
-          background-color: #fef3c7;
-          color: #92400e;
+        .avatarImage {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
           border-radius: $radius-full;
-          padding: 2px;
+        }
+
+        .defaultAvatar {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: $gray-100;
+          color: $gray-400;
         }
       }
 
       .memberInfo {
         flex: 1;
-        overflow-x: auto;
-        max-width: 100%;
-        padding: $spacing-xs 0;
+        min-width: 0; // Allow text to truncate properly
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
 
-        h3 {
+        .memberName {
           font-size: $text-lg;
           font-weight: $font-semibold;
           color: $gray-800;
-          margin-bottom: $spacing-xs;
-        }
-
-        .roleBadge {
-          display: inline-block;
-          padding: $spacing-xs $spacing-md;
-          border-radius: $radius-full;
-          font-size: $text-xs;
-          font-weight: $font-medium;
-          text-transform: uppercase;
-
-          &.owner {
-            background-color: #fef3c7;
-            color: #92400e;
-          }
-
-          &.member {
-            background-color: #eff6ff;
-            color: #1e40af;
-          }
+          line-height: 1.4;
+          margin: 0;
+          // Truncate long names
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .publicKey {
-          display: block;
-          font-family: monospace;
-          background: $gray-100;
-          color: $gray-800;
-          padding: $spacing-xs $spacing-sm;
-          border-radius: $radius-sm;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+          font-size: $text-sm;
+          color: $gray-500;
+          line-height: 1.3;
+          margin: 0;
+          // Truncate long keys
+          overflow: hidden;
+          text-overflow: ellipsis;
           white-space: nowrap;
-          overflow-x: auto;
-          max-width: 100%;
-        }
-      }
-
-      .memberStats {
-        display: flex;
-        gap: $spacing-lg;
-        font-size: $text-sm;
-        color: $gray-500;
-
-        .stat {
-          display: flex;
-          flex-direction: column;
-          gap: $spacing-xs;
-
-          .statLabel {
-            font-size: $text-xs;
-            color: $gray-400;
-            font-weight: $font-medium;
-          }
-
-          .statValue {
-            font-weight: $font-semibold;
-            color: $gray-700;
-          }
+          opacity: 0.8;
         }
       }
     }
@@ -136,13 +113,22 @@
   .container {
     .list {
       .memberCard {
-        flex-direction: column;
-        align-items: flex-start;
+        padding: $spacing-md;
         gap: $spacing-md;
 
-        .memberStats {
-          width: 100%;
-          justify-content: space-between;
+        .memberAvatar {
+          width: 48px;
+          height: 48px;
+        }
+
+        .memberInfo {
+          .memberName {
+            font-size: $text-base;
+          }
+
+          .publicKey {
+            font-size: $text-xs;
+          }
         }
       }
     }
@@ -167,22 +153,22 @@
         background-color: $dark-bg;
         border-color: $dark-border;
 
+        .memberAvatar {
+          background-color: $dark-surface;
+
+          .defaultAvatar {
+            background-color: $dark-surface;
+            color: $dark-text-secondary;
+          }
+        }
+
         .memberInfo {
-          h3 {
+          .memberName {
             color: $dark-text;
           }
 
           .publicKey {
-            background-color: $dark-surface;
-            color: $dark-text;
-          }
-        }
-
-        .memberStats {
-          .stat {
-            .statValue {
-              color: $dark-text;
-            }
+            color: $dark-text-secondary;
           }
         }
       }

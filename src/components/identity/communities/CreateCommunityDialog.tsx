@@ -34,7 +34,8 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
         publicKey: user.publicKey,
         name: newCommunityName,
         contract: 'community_contract.py',
-        code: communityContractCode
+        code: communityContractCode,
+        profile: user.profileContractId || undefined
       });
       
       // Set properties: name, description, createdAt

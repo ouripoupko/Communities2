@@ -19,8 +19,8 @@ const Profile: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Find the profile contract
-  const profileContract = user.contracts.find((c: any) => c.name === 'unique-gloki-communities-profile-contract');
+  // Use the profile contract ID from the slice
+  const profileContractId = user.profileContractId;
 
   // Update local state when profile is loaded
   useEffect(() => {
@@ -34,7 +34,7 @@ const Profile: React.FC = () => {
 
   // Listen for profile contract write events
   useEventStream('contract_write', (event) => {
-    if (user && profileContract && event.contract === profileContract.id) {
+    if (user && profileContractId && event.contract === profileContractId) {
       // Dispatch profile read to get updated profile from server
       dispatch(readProfile());
     }
@@ -81,7 +81,7 @@ const Profile: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (user.serverUrl && user.publicKey && profileContract) {
+    if (user.serverUrl && user.publicKey && profileContractId) {
       try {
         setIsSaving(true);
         setSaveError(null);
@@ -89,7 +89,7 @@ const Profile: React.FC = () => {
         await contractWrite({
           serverUrl: user.serverUrl,
           publicKey: user.publicKey,
-          contractId: profileContract.id,
+          contractId: profileContractId,
           method: 'set_values',
           args: {items: { firstName, lastName, userPhoto: imageData }}
         });

@@ -26,3 +26,9 @@ export interface IContract {
     userPhoto: string;
     userBio: string;
   }
+
+  export interface IPartner {
+    address: string;
+    agent: string;
+    profile: string;
+  }

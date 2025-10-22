@@ -65,15 +65,17 @@ export async function deployContract({
   name,
   contract,
   code,
+  profile,
 }: {
   serverUrl: string;
   publicKey: string;
   name: string;
   contract: string;
   code: string;
+  profile?: string;
 }) {
-  // Construct IContract object with defaults
-  const IContract = {
+  // Construct contractData object with defaults
+  const contractData = {
     id: '',
     name,
     contract,
@@ -84,7 +86,7 @@ export async function deployContract({
     address: serverUrl,
     group: [],
     threshold: 0,
-    profile: null,
+    profile: profile || null,
     constructor: {},
   };
   return await fetchWithTimeout(
@@ -92,7 +94,7 @@ export async function deployContract({
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(IContract),
+      body: JSON.stringify(contractData),
     }
   );
 }
