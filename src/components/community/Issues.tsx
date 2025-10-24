@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 
 import { fetchCommunityIssues, fetchIssueDetails } from '../../store/slices/issuesSlice';
-import CreateIssueDialog from './issues/CreateIssueDialog';
+import CreateIssueDialog from './dialogs/CreateIssueDialog';
 import styles from './Issues.module.scss';
 import { eventStreamService } from '../../services/eventStream';
 
@@ -26,11 +26,17 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
   const dispatch = useAppDispatch();
   const communityIssues = useAppSelector((state) => state.issues.communityIssues);
   const user = useAppSelector((state) => state.user);
+  const { communityMembers, membersLoading } = useAppSelector((state) => state.communities);
   const issues: CommunityIssue[] = Array.isArray(communityIssues[communityId]) ? communityIssues[communityId] : [];
   const issueDetails = useAppSelector((state) => state.issues.issueDetails);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isLoadingIssues, setIsLoadingIssues] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
+
+  // Check if user is a member of the community
+  const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+  const isMember = user.publicKey && allMembers.includes(user.publicKey);
+  const isMembersLoading = membersLoading[communityId] || false;
 
   // Memoize the event handler so its reference is stable
   const handleContractWrite = useCallback((event: { contract?: string }) => {
@@ -143,12 +149,24 @@ const Issues: React.FC<IssuesProps> = ({ communityId }) => {
     navigate(issueUrl);
   };
 
-  if (isLoadingIssues) {
+  if (isLoadingIssues || isMembersLoading) {
     return (
       <div className={styles.container}>
         <div className={styles.loadingState}>
           <div className={styles.spinner}></div>
-          <p className={styles.text}>Loading issues...</p>
+          <p className={styles.text}>
+            {isMembersLoading ? 'Loading community members...' : 'Loading issues...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isMember) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loadingState}>
+          <p className={styles.text}>You are not yet a member of this community.</p>
         </div>
       </div>
     );

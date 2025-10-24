@@ -28,11 +28,10 @@ class Community:
     def get_sub_contract(self, name):
         return self.sub_contracts[name]
 
-    def get_all(self):
+    def get_all_people(self):
         return {'tasks': self.get_tasks(),
                 'members': self.get_members(),
-                'nominates': self.get_nominates(),
-                'properties': self.get_properties()}
+                'nominates': self.get_nominates()}
     
     def get_tasks(self):
         reply = {}
@@ -47,8 +46,8 @@ class Community:
         return reply
     
     def get_members(self):
-        # return {key: self.members[key] for key in self.members}
-        return partners()
+        return {key: self.members[key] for key in self.members}
+        # return partners()
 
     def is_member(self, agent):
         return agent in self.members

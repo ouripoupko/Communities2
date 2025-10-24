@@ -96,6 +96,44 @@
       align-items: center;
       gap: $spacing-lg;
 
+      .headerActions {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+
+        .actionButton {
+          display: flex;
+          align-items: center;
+          gap: $spacing-xs;
+          padding: $spacing-sm $spacing-md;
+          background-color: $primary;
+          color: white;
+          border: none;
+          border-radius: $radius-md;
+          font-size: $text-sm;
+          font-weight: $font-medium;
+          cursor: pointer;
+          transition: all $transition-base;
+
+          &:hover {
+            background-color: $primary-dark;
+            transform: translateY(-1px);
+          }
+
+          &:active {
+            transform: translateY(0);
+          }
+
+          svg {
+            flex-shrink: 0;
+          }
+
+          span {
+            white-space: nowrap;
+          }
+        }
+      }
+
       .stat {
         display: flex;
         align-items: center;
@@ -326,8 +364,21 @@
         }
       }
 
-      .headerRight .stat {
-        color: $dark-text-secondary;
+      .headerRight {
+        .headerActions {
+          .actionButton {
+            background-color: $primary;
+            color: white;
+
+            &:hover {
+              background-color: $primary-dark;
+            }
+          }
+        }
+
+        .stat {
+          color: $dark-text-secondary;
+        }
       }
     }
 

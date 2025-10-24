@@ -21,6 +21,17 @@
     }
   }
 
+  .section {
+    margin-bottom: $spacing-2xl;
+
+    h3 {
+      font-size: $text-xl;
+      font-weight: $font-semibold;
+      color: $gray-700;
+      margin-bottom: $spacing-lg;
+    }
+  }
+
   .list {
     display: flex;
     flex-direction: column;
@@ -28,7 +39,7 @@
 
     .memberCard {
       display: flex;
-      align-items: center;
+      align-items: center; // Center both columns vertically
       gap: $spacing-lg;
       background: white;
       border-radius: $radius-lg;
@@ -36,6 +47,7 @@
       box-shadow: $shadow-base;
       border: 1px solid $gray-200;
       transition: box-shadow 0.2s ease;
+      min-height: 80px; // Reduced card height
 
       &:hover {
         box-shadow: $shadow-lg;
@@ -77,14 +89,24 @@
         min-width: 0; // Allow text to truncate properly
         display: flex;
         flex-direction: column;
-        gap: $spacing-xs;
+        gap: $spacing-sm; // Reduced gap - halved from $spacing-lg
+
+        .nameRow {
+          display: flex;
+          align-items: center; // Center name and button vertically
+          justify-content: space-between;
+          gap: $spacing-sm;
+          min-height: 40px; // Reduced height to match smaller card
+        }
 
         .memberName {
-          font-size: $text-lg;
+          font-size: $text-2xl; // Even bigger font for name
           font-weight: $font-semibold;
           color: $gray-800;
-          line-height: 1.4;
+          line-height: 1.2;
           margin: 0;
+          flex: 1;
+          min-width: 0; // Allow text to truncate properly
           // Truncate long names
           overflow: hidden;
           text-overflow: ellipsis;
@@ -103,6 +125,37 @@
           white-space: nowrap;
           opacity: 0.8;
         }
+
+        button {
+          padding: $spacing-md $spacing-xl; // Slightly reduced height, same width
+          border-radius: $radius-lg;
+          font-size: $text-lg; // Much bigger font
+          font-weight: $font-medium;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap; // Prevent button text from wrapping
+          flex-shrink: 0; // Prevent button from shrinking
+
+          &.pendingButton {
+            background-color: $primary;
+            color: white;
+
+            &:hover {
+              background-color: $primary-dark;
+            }
+
+            &:active {
+              background-color: $primary-dark;
+            }
+          }
+
+          &.approvedButton {
+            background-color: $success;
+            color: white;
+            cursor: not-allowed;
+          }
+        }
       }
     }
   }
@@ -115,6 +168,7 @@
       .memberCard {
         padding: $spacing-md;
         gap: $spacing-md;
+        min-height: 75px; // Reduced mobile height
 
         .memberAvatar {
           width: 48px;
@@ -123,11 +177,16 @@
 
         .memberInfo {
           .memberName {
-            font-size: $text-base;
+            font-size: $text-xl; // Still bigger than before
           }
 
           .publicKey {
             font-size: $text-xs;
+          }
+
+          button {
+            padding: $spacing-sm $spacing-md; // Smaller but still bigger than before
+            font-size: $text-base;
           }
         }
       }
@@ -145,6 +204,12 @@
 
       p {
         color: $dark-text-secondary;
+      }
+    }
+
+    .section {
+      h3 {
+        color: $dark-text;
       }
     }
 
@@ -169,6 +234,22 @@
 
           .publicKey {
             color: $dark-text-secondary;
+          }
+
+          button {
+            &.pendingButton {
+              background-color: $primary;
+              color: white;
+
+              &:hover {
+                background-color: $primary-dark;
+              }
+            }
+
+            &.approvedButton {
+              background-color: $success;
+              color: white;
+            }
           }
         }
       }

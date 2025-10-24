@@ -100,3 +100,19 @@ export function hexToUint8Array(hexString: string): Uint8Array {
 
   return bytes;
 }
+
+/**
+ * Encodes community invitation data for QR code generation
+ * @param server - Server address
+ * @param agent - Agent public key
+ * @param contract - Contract ID (hex string)
+ * @returns Encoded string suitable for QR code
+ */
+export function encodeCommunityInvitation(server: string, agent: string, contract: string): string {
+  const s = stringToUint8Array(server || "");
+  const a = stringToUint8Array(agent || "");
+  const c = hexToUint8Array(contract || "");
+  const lengths = new Uint8Array([s.length, a.length, c.length]);
+  const all = concatUint8Arrays([lengths, s, a, c]);
+  return uint8ArrayToString(all, "latin1");
+}

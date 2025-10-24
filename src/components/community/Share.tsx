@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import styles from './Share.module.scss';
 import { useAppSelector } from '../../store/hooks';
 
-import { stringToUint8Array, hexToUint8Array, concatUint8Arrays, uint8ArrayToString } from '../../services/encodeDecode';
+import { encodeCommunityInvitation } from '../../services/encodeDecode';
 
 interface ShareProps {
   communityId: string;
@@ -26,17 +26,7 @@ const Share: React.FC<ShareProps> = ({ communityId }) => {
     contract,
   };
 
-  // Encode invitation as specified
-  const encodeInvitation = () => {
-    const s = stringToUint8Array(server || "");
-    const a = stringToUint8Array(agent || "");
-    const c = hexToUint8Array(contract || "");
-    const lengths = new Uint8Array([s.length, a.length, c.length]);
-    const all = concatUint8Arrays([lengths, s, a, c]);
-    return uint8ArrayToString(all, "latin1");
-  };
-
-  const qrData = encodeInvitation();
+  const qrData = encodeCommunityInvitation(server, agent, contract);
 
   const handleCopyCredentials = () => {
     navigator.clipboard.writeText(JSON.stringify(credentials, null, 2));

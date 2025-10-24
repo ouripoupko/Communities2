@@ -1,4 +1,4 @@
-import { contractRead } from '../api';
+import { contractRead, contractWrite } from '../api';
 
 /**
  * Community contract interface
@@ -9,6 +9,11 @@ export interface CommunityContractArgs {
   serverUrl: string;
   publicKey: string;
   contractId: string;
+}
+
+export interface CommunityContractWriteArgs extends CommunityContractArgs {
+  method: string;
+  args: Record<string, any>;
 }
 
 /**
@@ -40,6 +45,22 @@ export async function getMembers({
     publicKey,
     contractId,
     method: 'get_members'
+  });
+}
+
+/**
+ * Get all people from the community contract (tasks, members, nominates)
+ */
+export async function getAllPeople({
+  serverUrl,
+  publicKey,
+  contractId,
+}: CommunityContractArgs) {
+  return await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: 'get_all_people'
   });
 }
 
@@ -88,5 +109,42 @@ export async function getAccounts({
     publicKey,
     contractId,
     method: 'get_accounts'
+  });
+}
+
+/**
+ * Approve an agent for community membership
+ */
+export async function approveAgent({
+  serverUrl,
+  publicKey,
+  contractId,
+  agentPublicKey,
+}: CommunityContractArgs & { agentPublicKey: string }) {
+  console.log('Approving agent:', agentPublicKey);
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: 'approve',
+    args: { approved: agentPublicKey }
+  });
+}
+
+/**
+ * Disapprove an agent for community membership
+ */
+export async function disapproveAgent({
+  serverUrl,
+  publicKey,
+  contractId,
+  agentPublicKey,
+}: CommunityContractArgs & { agentPublicKey: string }) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: 'disapprove',
+    args: { disapproved: agentPublicKey }
   });
 }

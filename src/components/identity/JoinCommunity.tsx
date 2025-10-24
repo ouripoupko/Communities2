@@ -9,11 +9,11 @@ import { fetchContracts } from '../../store/slices/userSlice';
 import { eventStreamService } from '../../services/eventStream';
 import type { BlockchainEvent } from '../../services/eventStream';
 import { useNavigate } from 'react-router-dom';
-import { joinContract } from '../../services/api';
+import { joinContract, contractWrite } from '../../services/api';
 
 // No longer using CommunityInvite type; use plain object with server, agent, contract
 const JoinCommunity: React.FC = () => {
-  const { publicKey, serverUrl } = useAppSelector(state => state.user);
+  const { publicKey, serverUrl, profileContractId } = useAppSelector(state => state.user);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [scannedData, setScannedData] = useState<string>('');
@@ -29,13 +29,31 @@ const JoinCommunity: React.FC = () => {
   // Register a2a_connect listener on mount and cleanup on unmount
   useEffect(() => {
     const handleA2AConnect = async () => {
-      if (isJoining) {
+      if (isJoining && parsedInvite) {
         setIsResetting(true);
         setIsJoining(false);
-        // Refresh contracts list from server and wait for it to complete
-        if (serverUrl && publicKey) {
-          await dispatch(fetchContracts());
+        
+        try {
+          // Call request_join on the community contract
+          if (serverUrl && publicKey && parsedInvite.contract) {
+            await contractWrite({
+              serverUrl: serverUrl,
+              publicKey: publicKey,
+              contractId: parsedInvite.contract,
+              method: 'request_join',
+              args: {}
+            });
+          }
+          
+          // Refresh contracts list from server and wait for it to complete
+          if (serverUrl && publicKey) {
+            await dispatch(fetchContracts());
+          }
+        } catch (error) {
+          console.error('Failed to call request_join:', error);
+          // Continue with the flow even if request_join fails
         }
+        
         // Reset all fields
         setScannedData('');
         setParsedInvite(null); // This disables the button
@@ -54,7 +72,7 @@ const JoinCommunity: React.FC = () => {
       }
     };
      
-  }, [isJoining, dispatch, navigate, publicKey, serverUrl]);
+  }, [isJoining, parsedInvite, dispatch, navigate, publicKey, serverUrl]);
 
   const handleScanQR = () => {
     setShowScanner(true);
@@ -100,7 +118,7 @@ const JoinCommunity: React.FC = () => {
         address: server,
         agent,
         contract,
-        profile: ''
+        profile: profileContractId || ''
       });
       // Button remains disabled until a2a_connect is received
     } catch (error) {

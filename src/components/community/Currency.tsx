@@ -12,34 +12,48 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   const dispatch = useAppDispatch();
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { communityCurrencies, currencyBalances } = useAppSelector((state) => state.currency);
+  const { communityMembers, membersLoading } = useAppSelector((state) => state.communities);
   
   const currency = communityCurrencies[communityId];
   const balances = currencyBalances[communityId] || {};
   const userBalance = balances[publicKey || ''] || 0;
+
+  // Check if user is a member of the community
+  const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+  const isMember = publicKey && allMembers.includes(publicKey);
+  const isMembersLoading = membersLoading[communityId] || false;
   
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [mintPreference, setMintPreference] = useState(100);
   const [burnPreference, setBurnPreference] = useState(50);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [isLoadingCurrency, setIsLoadingCurrency] = useState(true);
 
   // Fetch currency data when component mounts
   useEffect(() => {
     if (publicKey && serverUrl && communityId) {
+      setIsLoadingCurrency(true);
+      const promises = [];
+      
       if (!currency) {
-        dispatch(fetchCommunityCurrency({
+        promises.push(dispatch(fetchCommunityCurrency({
           serverUrl,
           publicKey,
           contractId: communityId,
-        }));
+        })));
       }
       if (!balances || Object.keys(balances).length === 0) {
-        dispatch(fetchCurrencyBalances({
+        promises.push(dispatch(fetchCurrencyBalances({
           serverUrl,
           publicKey,
           contractId: communityId,
-        }));
+        })));
       }
+      
+      Promise.all(promises).finally(() => {
+        setIsLoadingCurrency(false);
+      });
     }
   }, [communityId, publicKey, serverUrl, currency, balances, dispatch]);
 
@@ -57,6 +71,28 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
     setRecipient('');
     setShowPaymentForm(false);
   };
+
+  if (isLoadingCurrency || isMembersLoading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h2>Community Currency</h2>
+          <p>{isMembersLoading ? 'Loading community members...' : 'Loading currency data...'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isMember) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h2>Community Currency</h2>
+          <p>You are not yet a member of this community.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

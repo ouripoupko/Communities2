@@ -63,6 +63,15 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
           method: 'set_property',
           args: { key: 'createdAt', value: new Date().toISOString() }
         });
+
+        // Call request_join to join the community as the creator
+        await contractWrite({
+          serverUrl: user.serverUrl,
+          publicKey: user.publicKey,
+          contractId: contractId,
+          method: 'request_join',
+          args: {}
+        });
       }
       
       // Reset form and close dialog
