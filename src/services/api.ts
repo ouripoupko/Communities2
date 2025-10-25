@@ -141,7 +141,7 @@ export async function contractWrite({
 }) {
   // Construct IMethod object
   return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method}?action=contract_write`,
+    `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method.name}?action=contract_write`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -163,7 +163,7 @@ export async function contractRead({
   method: IMethod;
 }) {
   return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method}?action=contract_read`,
+    `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method.name}?action=contract_read`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
