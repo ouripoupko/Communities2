@@ -1,5 +1,10 @@
 @use '../../../styles/variables' as *;
 
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .overlay {
   position: fixed;
   top: 0;
@@ -80,9 +85,143 @@
         }
       }
 
+      .validating {
+        text-align: center;
+        padding: $spacing-2xl 0;
+
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid $gray-200;
+          border-top: 4px solid $primary;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto $spacing-lg;
+        }
+
+        p {
+          color: $gray-600;
+          font-size: $text-base;
+        }
+      }
+
+      .result {
+        text-align: center;
+        padding: $spacing-lg 0;
+      }
+
+      .successResult {
+        .successIcon {
+          color: $success;
+          margin-bottom: $spacing-lg;
+        }
+
+        h3 {
+          font-size: $text-lg;
+          font-weight: $font-semibold;
+          color: $gray-800;
+          margin: 0 0 $spacing-lg 0;
+        }
+
+        .memberInfo {
+          display: flex;
+          align-items: center;
+          gap: $spacing-md;
+          background: $gray-50;
+          border-radius: $radius-md;
+          padding: $spacing-lg;
+          margin-bottom: $spacing-lg;
+          text-align: left;
+
+          .memberPhoto {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid $success;
+          }
+
+          .memberDetails {
+            flex: 1;
+
+            h4 {
+              font-size: $text-base;
+              font-weight: $font-semibold;
+              color: $gray-800;
+              margin: 0 0 $spacing-xs 0;
+            }
+
+            .agentKey {
+              font-size: $text-sm;
+              color: $gray-600;
+              margin: 0;
+              font-family: monospace;
+              word-break: break-all;
+            }
+          }
+        }
+      }
+
+      .errorResult {
+        .errorIcon {
+          color: $error;
+          margin-bottom: $spacing-lg;
+        }
+
+        h3 {
+          font-size: $text-lg;
+          font-weight: $font-semibold;
+          color: $gray-800;
+          margin: 0 0 $spacing-md 0;
+        }
+
+        p {
+          color: $gray-600;
+          margin: 0 0 $spacing-lg 0;
+          line-height: 1.5;
+        }
+
+        .details {
+          background: $gray-50;
+          border-radius: $radius-md;
+          padding: $spacing-md;
+          margin-bottom: $spacing-lg;
+          text-align: left;
+
+          p {
+            font-size: $text-sm;
+            color: $gray-600;
+            margin: 0 0 $spacing-xs 0;
+            font-family: monospace;
+            word-break: break-all;
+
+            &:last-child {
+              margin: 0;
+            }
+          }
+        }
+      }
+
       .actions {
         display: flex;
+        gap: $spacing-md;
         justify-content: center;
+
+        .scanAgainButton {
+          padding: $spacing-md $spacing-xl;
+          background: $primary;
+          color: white;
+          border: none;
+          border-radius: $radius-md;
+          font-size: $text-base;
+          font-weight: $font-medium;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &:hover {
+            background: $primary-dark;
+          }
+        }
 
         .closeButton {
           padding: $spacing-md $spacing-xl;
@@ -138,7 +277,56 @@
           }
         }
 
+        .validating p {
+          color: $dark-text-secondary;
+        }
+
+        .successResult {
+          h3 {
+            color: $dark-text;
+          }
+
+          .memberInfo {
+            background: $dark-surface;
+
+            h4 {
+              color: $dark-text;
+            }
+
+            .agentKey {
+              color: $dark-text-secondary;
+            }
+          }
+        }
+
+        .errorResult {
+          h3 {
+            color: $dark-text;
+          }
+
+          p {
+            color: $dark-text-secondary;
+          }
+
+          .details {
+            background: $dark-surface;
+
+            p {
+              color: $dark-text-secondary;
+            }
+          }
+        }
+
         .actions {
+          .scanAgainButton {
+            background: $primary;
+            color: white;
+
+            &:hover {
+              background: $primary-dark;
+            }
+          }
+
           .closeButton {
             background: $dark-border;
             color: $dark-text;

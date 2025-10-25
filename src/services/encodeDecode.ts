@@ -116,3 +116,23 @@ export function encodeCommunityInvitation(server: string, agent: string, contrac
   const all = concatUint8Arrays([lengths, s, a, c]);
   return uint8ArrayToString(all, "latin1");
 }
+
+/**
+ * Decodes community invitation data from QR code
+ * @param qrData - Encoded string from QR code
+ * @returns Decoded object with server, agent, and contract fields
+ */
+export function decodeCommunityInvitation(qrData: string): { server: string; agent: string; contract: string } | null {
+  try {
+    const data = stringToUint8Array(qrData, "latin1");
+    const lengths = data.slice(0, 3);
+    const indexes = Array.from(lengths).reduce((acc, curr) => [...acc, acc[acc.length - 1] + curr], [3]);
+    const server = uint8ArrayToString(data.slice(indexes[0], indexes[1]), "ascii");
+    const agent = uint8ArrayToString(data.slice(indexes[1], indexes[2]), "ascii");
+    const contract = uint8ArrayToHex(data.slice(indexes[2], indexes[3]));
+    return { server, agent, contract };
+  } catch (error) {
+    console.error('Error decoding QR code:', error);
+    return null;
+  }
+}

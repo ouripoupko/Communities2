@@ -187,6 +187,7 @@ const CommunityView: React.FC = () => {
       <QRScannerDialog
         isOpen={showQRScanner}
         onClose={() => setShowQRScanner(false)}
+        communityId={communityId!}
       />
     </div>
   );

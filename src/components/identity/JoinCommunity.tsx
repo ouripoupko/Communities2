@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Camera, CheckCircle, AlertCircle } from 'lucide-react';
 import styles from './JoinCommunity.module.scss';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { stringToUint8Array, uint8ArrayToString, uint8ArrayToHex } from '../../services/encodeDecode';
+import { decodeCommunityInvitation } from '../../services/encodeDecode';
 
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
@@ -82,18 +82,13 @@ const JoinCommunity: React.FC = () => {
     if (codes && codes.length > 0 && codes[0].rawValue) {
       const result = codes[0].rawValue;
       setShowScanner(false);
-      try {
-        // Decode using the provided logic
-        const data = stringToUint8Array(result, "latin1");
-        const lengths = data.slice(0, 3);
-        const indexes = Array.from(lengths).reduce((acc, curr) => [...acc, acc[acc.length - 1] + curr], [3]);
-        const server = uint8ArrayToString(data.slice(indexes[0], indexes[1]), "ascii");
-        const agent = uint8ArrayToString(data.slice(indexes[1], indexes[2]), "ascii");
-        const contract = uint8ArrayToHex(data.slice(indexes[2], indexes[3]));
-        const decoded = { server, agent, contract };
+      
+      // Use the shared decoding function
+      const decoded = decodeCommunityInvitation(result);
+      if (decoded) {
         setParsedInvite(decoded);
         setDecodedData(JSON.stringify(decoded, null, 2));
-      } catch (error) {
+      } else {
         setParsedInvite(null);
         setDecodedData('');
       }
