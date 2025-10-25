@@ -75,6 +75,11 @@
           justify-content: center;
           gap: $spacing-2xl;
 
+          .statRow {
+            display: flex;
+            gap: $spacing-2xl;
+          }
+
           .stat {
             display: flex;
             flex-direction: column;
@@ -156,6 +161,70 @@
             }
           }
         }
+
+        .preferenceActions {
+          display: flex;
+          gap: $spacing-md;
+          margin-top: $spacing-lg;
+          padding-top: $spacing-lg;
+          border-top: 1px solid $gray-200;
+
+          .updateButton {
+            flex: 1;
+            padding: $spacing-sm $spacing-lg;
+            background-color: $primary;
+            color: white;
+            border: none;
+            border-radius: $radius-md;
+            font-size: $text-sm;
+            font-weight: $font-medium;
+            cursor: pointer;
+            transition: all $transition-base;
+
+            &:hover:not(.disabled) {
+              background-color: $primary-dark;
+              transform: translateY(-1px);
+            }
+
+            &:active:not(.disabled) {
+              transform: translateY(0);
+            }
+
+            &.disabled {
+              background-color: $gray-300;
+              color: $gray-500;
+              cursor: not-allowed;
+              opacity: 0.6;
+            }
+          }
+
+          .revertButton {
+            flex: 1;
+            padding: $spacing-sm $spacing-lg;
+            background-color: transparent;
+            color: $gray-600;
+            border: 1px solid $gray-300;
+            border-radius: $radius-md;
+            font-size: $text-sm;
+            font-weight: $font-medium;
+            cursor: pointer;
+            transition: all $transition-base;
+
+            &:hover:not(.disabled) {
+              background-color: $gray-100;
+              color: $gray-800;
+              border-color: $gray-400;
+            }
+
+            &.disabled {
+              background-color: $gray-100;
+              color: $gray-400;
+              border-color: $gray-200;
+              cursor: not-allowed;
+              opacity: 0.6;
+            }
+          }
+        }
       }
     }
   }
@@ -199,6 +268,13 @@
       .sendButton {
         width: 100%;
         justify-content: center;
+      }
+
+      .balanceInfo {
+        margin-top: $spacing-sm;
+        font-size: $text-sm;
+        color: $gray-500;
+        text-align: right;
       }
     }
   }

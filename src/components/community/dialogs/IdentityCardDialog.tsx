@@ -1,8 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { pdf } from '@react-pdf/renderer';
-import IdentityCardPDF from './IdentityCardPDF';
 import styles from './IdentityCardDialog.module.scss';
 import { useAppSelector } from '../../../store/hooks';
 import { encodeCommunityInvitation } from '../../../services/encodeDecode';
@@ -21,6 +19,7 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
   const { contracts, publicKey } = useAppSelector(state => state.user);
   const { profiles } = useAppSelector(state => state.communities);
   const cardRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Get community contract info
   const communityContract = contracts.find((c: any) => c.name === communityName);
@@ -98,7 +97,14 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
 
   const handleDownloadCard = async () => {
     try {
+      setIsGeneratingPDF(true);
       console.log('Starting PDF download...');
+      
+      // Lazy load PDF dependencies only when needednpm run dev
+      const [{ pdf }, { default: IdentityCardPDF }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('./IdentityCardPDF')
+      ]);
       
       const memberName = userProfile.firstName && userProfile.lastName 
         ? `${userProfile.firstName} ${userProfile.lastName}` 
@@ -142,6 +148,8 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error generating PDF: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -217,9 +225,13 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
           </div>
           
           <div className={styles.actions}>
-            <button className={styles.downloadButton} onClick={handleDownloadCard}>
+            <button 
+              className={styles.downloadButton} 
+              onClick={handleDownloadCard}
+              disabled={isGeneratingPDF}
+            >
               <Download size={18} />
-              Download Card
+              {isGeneratingPDF ? 'Generating...' : 'Download Card'}
             </button>
             <button className={styles.closeDialogButton} onClick={onClose}>
               Close

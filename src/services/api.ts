@@ -1,5 +1,7 @@
 // Real API utility for contract and server calls
 
+import type { IMethod } from "./interfaces";
+
 async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 10000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -131,26 +133,19 @@ export async function contractWrite({
   publicKey,
   contractId,
   method,
-  args = {},
 }: {
   serverUrl: string;
   publicKey: string;
   contractId: string;
-  method: string;
-  args?: Record<string, unknown>;
+  method: IMethod;
 }) {
   // Construct IMethod object
-  const IMethod = {
-    name: method,
-    arguments: Object.keys(args),
-    values: args,
-  };
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method}?action=contract_write`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(IMethod),
+      body: JSON.stringify(method),
     }
   );
 }
@@ -161,26 +156,18 @@ export async function contractRead({
   publicKey,
   contractId,
   method,
-  args = {},
 }: {
   serverUrl: string;
   publicKey: string;
   contractId: string;
-  method: string;
-  args?: Record<string, unknown>;
+  method: IMethod;
 }) {
-  // Construct IMethod object
-  const IMethod = {
-    name: method,
-    arguments: Object.keys(args),
-    values: args,
-  };
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method}?action=contract_read`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(IMethod),
+      body: JSON.stringify(method),
     }
   );
 }

@@ -1,13 +1,15 @@
-import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Users, Coins, Share2, IdCard, QrCode } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import Issues from '../components/community/Issues';
-import Members from '../components/community/Members';
-import Currency from '../components/community/Currency';
-import Share from '../components/community/Share';
-import IdentityCardDialog from '../components/community/dialogs/IdentityCardDialog';
-import QRScannerDialog from '../components/community/dialogs/QRScannerDialog';
+
+// Lazy load components to reduce initial bundle size
+const Issues = lazy(() => import('../components/community/Issues'));
+const Members = lazy(() => import('../components/community/Members'));
+const Currency = lazy(() => import('../components/community/Currency'));
+const Share = lazy(() => import('../components/community/Share'));
+const IdentityCardDialog = lazy(() => import('../components/community/dialogs/IdentityCardDialog'));
+const QRScannerDialog = lazy(() => import('../components/community/dialogs/QRScannerDialog'));
 import styles from './Container.module.scss';
 import { fetchCommunityProperties, fetchCommunityMembers } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
@@ -24,6 +26,21 @@ const CommunityView: React.FC = () => {
   const [showIdentityCard, setShowIdentityCard] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const dispatch = useAppDispatch();
+
+  // Early return if communityId is missing
+  if (!communityId) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.errorState}>
+          <h2>Invalid Community</h2>
+          <p>No community ID provided in the URL.</p>
+          <button onClick={() => navigate('/identity/communities')} className="back-button">
+            Back to Communities
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Find the contract for this community
   const contract = useMemo(() => contracts.find((c: any) => c.id === communityId), [contracts, communityId]);
@@ -116,17 +133,11 @@ const CommunityView: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <div className={styles.headerLeft}>
+        <div className={styles.headerTop}>
           <button onClick={() => navigate('/identity/communities')} className={styles.backButton}>
             <ArrowLeft size={16} />
             Back
           </button>
-          <div className={styles.info}>
-            <h1>{props.name}</h1>
-            <p>{props.description}</p>
-          </div>
-        </div>
-        <div className={styles.headerRight}>
           <div className={styles.headerActions}>
             <button 
               className={styles.actionButton}
@@ -145,10 +156,18 @@ const CommunityView: React.FC = () => {
               <span>Scan</span>
             </button>
           </div>
-          <span className={styles.stat}>
-            <Users size={16} />
-            {Array.isArray(props.members) ? props.members.length : '-'} members
-          </span>
+        </div>
+        <div className={styles.headerBottom}>
+          <div className={styles.info}>
+            <div className={styles.titleRow}>
+              <h1>{props.name}</h1>
+              <span className={styles.stat}>
+                <Users size={16} />
+                {Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : '-'} members
+              </span>
+            </div>
+            <p>{props.description}</p>
+          </div>
         </div>
       </div>
 
@@ -167,28 +186,32 @@ const CommunityView: React.FC = () => {
         </nav>
 
         <div className={styles.main}>
-          <Routes>
-            <Route path="issues" element={<Issues communityId={communityId!} />} />
-            <Route path="members" element={<Members communityId={communityId!} />} />
-            <Route path="currency" element={<Currency communityId={communityId!} />} />
-            <Route path="share" element={<Share communityId={communityId!} />} />
-            <Route path="*" element={<Issues communityId={communityId!} />} />
-          </Routes>
+          <Suspense fallback={<div className={styles.loadingState}>Loading...</div>}>
+            <Routes>
+              <Route path="issues" element={<Issues communityId={communityId!} />} />
+              <Route path="members" element={<Members communityId={communityId!} />} />
+              <Route path="currency" element={<Currency communityId={communityId!} />} />
+              <Route path="share" element={<Share communityId={communityId!} />} />
+              <Route path="*" element={<Issues communityId={communityId!} />} />
+            </Routes>
+          </Suspense>
         </div>
       </div>
 
       {/* Dialogs */}
-      <IdentityCardDialog
-        isOpen={showIdentityCard}
-        onClose={() => setShowIdentityCard(false)}
-        communityName={props.name || 'Community'}
-      />
-      
-      <QRScannerDialog
-        isOpen={showQRScanner}
-        onClose={() => setShowQRScanner(false)}
-        communityId={communityId!}
-      />
+      <Suspense fallback={null}>
+        <IdentityCardDialog
+          isOpen={showIdentityCard}
+          onClose={() => setShowIdentityCard(false)}
+          communityName={props.name || 'Community'}
+        />
+        
+        <QRScannerDialog
+          isOpen={showQRScanner}
+          onClose={() => setShowQRScanner(false)}
+          communityId={communityId!}
+        />
+      </Suspense>
     </div>
   );
 };

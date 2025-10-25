@@ -26,12 +26,12 @@ const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
     if (!publicKey || !serverUrl) return;
     
     try {
-      await approveAgent({
+      await approveAgent(
         serverUrl,
         publicKey,
-        contractId: communityId,
-        agentPublicKey
-      });
+        communityId,
+        agentPublicKey,
+      );
       console.log('Agent approved or at least request sent to approve');
       onClose();
     } catch (error) {
@@ -43,12 +43,12 @@ const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
     if (!publicKey || !serverUrl) return;
     
     try {
-      await disapproveAgent({
+      await disapproveAgent(
         serverUrl,
         publicKey,
-        contractId: communityId,
+        communityId,
         agentPublicKey
-      });
+      );
       onClose();
     } catch (error) {
       console.error('Failed to disapprove agent:', error);

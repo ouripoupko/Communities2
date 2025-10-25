@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { fetchContracts } from '../../../store/slices/userSlice';
-import { deployContract, contractWrite } from '../../../services/api';
-import communityContractCode from '../../../assets/contracts/community_contract.py?raw';
 import styles from './CreateCommunityDialog.module.scss';
+import { createCommunity } from '../../../services/contracts/community';
 
 interface CreateCommunityDialogProps {
   isVisible: boolean;
@@ -28,51 +27,13 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
     setError(null);
 
     try {
-      // Deploy the community contract
-      const contractId = await deployContract({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        name: newCommunityName,
-        contract: 'community_contract.py',
-        code: communityContractCode,
-        profile: user.profileContractId || undefined
-      });
-      
-      // Set properties: name, description, createdAt
-      if (contractId) {
-        await contractWrite({
-          serverUrl: user.serverUrl,
-          publicKey: user.publicKey,
-          contractId: contractId,
-          method: 'set_property',
-          args: { key: 'name', value: newCommunityName }
-        });
-        
-        await contractWrite({
-          serverUrl: user.serverUrl,
-          publicKey: user.publicKey,
-          contractId: contractId,
-          method: 'set_property',
-          args: { key: 'description', value: newCommunityDescription }
-        });
-        
-        await contractWrite({
-          serverUrl: user.serverUrl,
-          publicKey: user.publicKey,
-          contractId: contractId,
-          method: 'set_property',
-          args: { key: 'createdAt', value: new Date().toISOString() }
-        });
-
-        // Call request_join to join the community as the creator
-        await contractWrite({
-          serverUrl: user.serverUrl,
-          publicKey: user.publicKey,
-          contractId: contractId,
-          method: 'request_join',
-          args: {}
-        });
-      }
+      await createCommunity(
+        user.serverUrl,
+        user.publicKey,
+        newCommunityName,
+        newCommunityDescription,
+        user.profileContractId,
+      )
       
       // Reset form and close dialog
       setNewCommunityName('');

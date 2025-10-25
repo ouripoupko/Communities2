@@ -61,12 +61,16 @@ class Community:
     def get_properties(self):
         return self.properties.get_dict()
 
+    def become_member(self, key, value):
+        self.members[key] = value
+        self.accounts[key] = {'balanceOf':1000, 'creationTime': timestamp(), 'elapsedDays': 0}
+
     def request_join(self):
         requester = master()
         if requester in self.members or requester in self.nominates:
             return False
         if len(self.members) == 0:
-            self.members[requester] = []
+            self.become_member(requester, [])
         elif len(self.members) < 5:
             if len(self.nominates) == 0:
                 self.nominates[requester] = [member for member in self.members]
@@ -115,7 +119,7 @@ class Community:
                         previous.remove(order[i+1-2*(i % 2)])
                     previous.append(nominate)
                     self.members[order[i]] = previous
-                self.members[nominate] = order
+                self.become_member(nominate, order)
                 del self.nominates[nominate]
 
     def disapprove(self, disapproved):
@@ -135,10 +139,6 @@ class Community:
                             self.approvals[member] = approvals
                         else:
                             del self.approvals[member]
-
-    # recommended mint=100, burn=0.0003
-    def create_account(self):
-        self.accounts[master()] = {'balanceOf':1000, 'creationTime': timestamp(), 'elapsedDays': 0}
 
     def check_balance(self, account, update = False):
         account_data = self.accounts[account].get_dict()

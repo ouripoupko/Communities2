@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom';
 import { MessageSquare, Edit, Save, ChevronDown, ChevronRight, Reply } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { getComments } from '../../store/slices/issuesSlice';
-import { contractWrite } from '../../services/api';
 import styles from './Discussion.module.scss';
+import { addComment, setDescriptionToServer } from '../../services/contracts/issue';
 
 interface Comment {
   id: string;
@@ -82,13 +82,12 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
     if (!issueId || !issueHostServer || !issueHostAgent) return;
 
     try {
-      await contractWrite({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-        method: 'set_description',
-        args: { text: description },
-      });
+      await setDescriptionToServer(
+        issueHostServer,
+        issueHostAgent,
+        issueId,
+        description,
+      );
       
       setIsEditingDescription(false);
     } catch (error) {
@@ -109,13 +108,12 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         parentId: null, // Top-level comment
       };
 
-      await contractWrite({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-        method: 'add_comment',
-        args: { comment: comment },
-      });
+      await addComment(
+        issueHostServer,
+        issueHostAgent,
+        issueId,
+        comment,
+      );
 
       // Reload comments to get the updated list
       await dispatch(getComments({
@@ -143,13 +141,12 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         parentId: commentId,
       };
 
-      await contractWrite({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-        method: 'add_comment',
-        args: { comment: reply },
-      });
+      await addComment(
+        issueHostServer,
+        issueHostAgent,
+        issueId,
+        reply,
+      );
 
       // Reload comments to get the updated list
       await dispatch(getComments({

@@ -9,7 +9,8 @@ import { fetchContracts } from '../../store/slices/userSlice';
 import { eventStreamService } from '../../services/eventStream';
 import type { BlockchainEvent } from '../../services/eventStream';
 import { useNavigate } from 'react-router-dom';
-import { joinContract, contractWrite } from '../../services/api';
+import { joinContract } from '../../services/api';
+import { requestJoin } from '../../services/contracts/community';
 
 // No longer using CommunityInvite type; use plain object with server, agent, contract
 const JoinCommunity: React.FC = () => {
@@ -34,17 +35,10 @@ const JoinCommunity: React.FC = () => {
         setIsJoining(false);
         
         try {
-          // Call request_join on the community contract
           if (serverUrl && publicKey && parsedInvite.contract) {
-            await contractWrite({
-              serverUrl: serverUrl,
-              publicKey: publicKey,
-              contractId: parsedInvite.contract,
-              method: 'request_join',
-              args: {}
-            });
+            await requestJoin(serverUrl, publicKey, parsedInvite.contract);
           }
-          
+
           // Refresh contracts list from server and wait for it to complete
           if (serverUrl && publicKey) {
             await dispatch(fetchContracts());

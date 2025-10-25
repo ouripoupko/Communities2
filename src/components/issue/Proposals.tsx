@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { getProposals } from '../../store/slices/issuesSlice';
-import { contractWrite } from '../../services/api';
 import styles from './Proposals.module.scss';
+import { addProposal } from '../../services/contracts/issue';
 
 interface Proposal {
   id: string;
@@ -167,13 +167,12 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
       voteCount: 0,
     };
     
-    await contractWrite({
-      serverUrl: issueHostServer,
-      publicKey: issueHostAgent,
-      contractId: issueId,
-      method: 'add_proposal',
-      args: { proposal: proposal },
-    });
+    await addProposal(
+      issueHostServer,
+      issueHostAgent,
+      issueId,
+      proposal,
+    );
     
     // Refresh proposals using the centralized loading mechanism
     await dispatch(getProposals({

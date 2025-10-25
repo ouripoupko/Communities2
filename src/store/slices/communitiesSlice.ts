@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getPartners, getAllPeople, getProperties } from '../../services/contracts/community';
-import { getMemberProfile } from '../../services/contracts/gloki';
 import type { IProfile, IPartner } from '../../services/interfaces';
+import { getProfile } from '../../services/contracts/gloki';
 
 // Define Community interface
 interface Community {
@@ -39,11 +39,11 @@ const initialState: CommunitiesState = {
 export const fetchCommunityProperties = createAsyncThunk(
   'communities/fetchCommunityProperties',
   async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await getProperties({
-      serverUrl: args.serverUrl,
-      publicKey: args.publicKey,
-      contractId: args.contractId,
-    });
+    const result = await getProperties(
+      args.serverUrl,
+      args.publicKey,
+      args.contractId,
+    );
     return { contractId: args.contractId, properties: result };
   }
 );
@@ -53,11 +53,11 @@ export const fetchMemberProfile = createAsyncThunk(
   async (args: { memberServerUrl: string; memberPublicKey: string; memberContractId: string; memberAgent: string }) => {
     const { memberServerUrl, memberPublicKey, memberContractId, memberAgent } = args;
     
-    const profile = await getMemberProfile({
+    const profile = await getProfile(
       memberServerUrl,
       memberPublicKey,
       memberContractId,
-    });
+    );
     
     return { memberAgent, profile: profile as IProfile };
   }
@@ -73,8 +73,8 @@ export const fetchCommunityMembers = createAsyncThunk(
     try {
       // Step 1 & 2: Call get_partners and get_all_people in parallel
       const [partnersResult, allPeopleResult] = await Promise.all([
-        getPartners({ serverUrl, publicKey, contractId }),
-        getAllPeople({ serverUrl, publicKey, contractId })
+        getPartners(serverUrl, publicKey, contractId ),
+        getAllPeople(serverUrl, publicKey, contractId )
       ]);
 
       const partners = partnersResult as IPartner[];

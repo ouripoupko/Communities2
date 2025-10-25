@@ -4,7 +4,7 @@ import { readProfile } from '../../store/slices/userSlice';
 import { useEventStream, useEventStreamConnection } from '../../hooks/useEventStream';
 import { User, Camera, Save, Key, Server } from 'lucide-react';
 import styles from './Profile.module.scss';
-import { contractWrite } from '../../services/api';
+import { setValues } from '../../services/contracts/gloki';
 
 const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
@@ -86,13 +86,14 @@ const Profile: React.FC = () => {
         setIsSaving(true);
         setSaveError(null);
         
-        await contractWrite({
-          serverUrl: user.serverUrl,
-          publicKey: user.publicKey,
-          contractId: profileContractId,
-          method: 'set_values',
-          args: {items: { firstName, lastName, userPhoto: imageData }}
-        });
+        await setValues(
+          user.serverUrl,
+          user.publicKey,
+          profileContractId,
+          firstName,
+          lastName,
+          imageData,
+        )
         
         // Profile data will be refreshed automatically via SSE event
         setIsEditing(false);

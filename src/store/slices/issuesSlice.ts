@@ -1,9 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import {
-  contractRead,
-} from '../../services/api';
-
+import { getIssues } from '../../services/contracts/community';
+import { getCommentsFromServer, getIssue, getProposalsFromServer } from '../../services/contracts/issue';
 
 // Define Proposal and CommunityIssue interfaces
 interface Proposal {
@@ -98,12 +96,11 @@ export const deleteIssue = createAsyncThunk(
 export const fetchCommunityIssues = createAsyncThunk(
   'issues/fetchCommunityIssues',
   async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await contractRead({
-      serverUrl: args.serverUrl,
-      publicKey: args.publicKey,
-      contractId: args.contractId,
-      method: 'get_issues'
-    });
+    const result = await getIssues(
+      args.serverUrl,
+      args.publicKey,
+      args.contractId,
+    );
     return { contractId: args.contractId, issues: result };
   }
 );
@@ -111,12 +108,11 @@ export const fetchCommunityIssues = createAsyncThunk(
 export const fetchIssueDetails = createAsyncThunk(
   'issues/fetchIssueDetails',
   async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await contractRead({
-      serverUrl: args.serverUrl,
-      publicKey: args.publicKey,
-      contractId: args.contractId,
-      method: 'get_issue'
-    });
+    const result = await getIssue(
+      args.serverUrl,
+      args.publicKey,
+      args.contractId,
+    );
     return { contractId: args.contractId, issueDetails: result };
   }
 );
@@ -124,13 +120,11 @@ export const fetchIssueDetails = createAsyncThunk(
 export const getComments = createAsyncThunk(
   'issues/getComments',
   async ({ serverUrl, publicKey, contractId }: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const response = await contractRead({
+    const response = await getCommentsFromServer(
       serverUrl,
       publicKey,
       contractId,
-      method: 'get_comments',
-      args: {},
-    });
+    );
     return { contractId, comments: response };
   }
 );
@@ -139,13 +133,11 @@ export const getComments = createAsyncThunk(
 export const getProposals = createAsyncThunk(
   'issues/getProposals',
   async ({ serverUrl, publicKey, contractId }: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const response = await contractRead({
+    const response = await getProposalsFromServer(
       serverUrl,
       publicKey,
       contractId,
-      method: 'get_proposals',
-      args: {},
-    });
+    );
     return { contractId, proposals: response };
   }
 );

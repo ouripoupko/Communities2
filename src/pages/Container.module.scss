@@ -11,93 +11,24 @@
 
   .header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: $spacing-md;
     margin-bottom: $spacing-lg;
     padding: $spacing-xl;
     background-color: white;
     border-bottom: 1px solid $gray-200;
     box-shadow: $shadow-sm;
 
-    .headerLeft {
-      display: flex;
-      align-items: center;
-      gap: $spacing-lg;
-
-      .backButton {
-        display: flex;
-        align-items: center;
-        gap: $spacing-sm;
-        padding: $spacing-sm $spacing-lg;
-        background-color: transparent;
-        color: $gray-500;
-        border: 1px solid $gray-300;
-        border-radius: $radius-md;
-        font-size: $text-sm;
-        cursor: pointer;
-        transition: all $transition-base;
-
-        &:hover {
-          background-color: $gray-100;
-          color: $gray-700;
-        }
-      }
-
-      .info {
-        h1 {
-          font-size: $text-2xl;
-          font-weight: $font-bold;
-          color: $gray-800;
-          margin: 0 0 $spacing-xs 0;
-        }
-
-        p {
-          color: $gray-600;
-          margin: 0;
-          font-size: $text-sm;
-        }
-
-        .titleRow {
-          display: flex;
-          align-items: center;
-          gap: $spacing-lg;
-
-          h1 {
-            margin: 0;
-          }
-
-          .logoutButton {
-            display: flex;
-            align-items: center;
-            gap: $spacing-sm;
-            padding: $spacing-sm $spacing-md;
-            background-color: #fee2e2;
-            color: $error;
-            border: 1px solid #fca5a5;
-            border-radius: $radius-md;
-            font-size: $text-sm;
-            font-weight: $font-medium;
-            cursor: pointer;
-            transition: all $transition-base;
-
-            &:hover {
-              background-color: $error;
-              color: white;
-              border-color: #b91c1c;
-              transform: translateY(-1px);
-            }
-          }
-        }
-      }
-    }
-
-    .headerRight {
-      display: flex;
-      align-items: center;
-      gap: $spacing-lg;
+    .headerTop {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      width: 100% !important;
+      flex-wrap: nowrap !important;
+      flex-direction: row !important;
 
       .headerActions {
-        display: flex;
+        display: flex !important;
         align-items: center;
         gap: $spacing-sm;
 
@@ -114,6 +45,8 @@
           font-weight: $font-medium;
           cursor: pointer;
           transition: all $transition-base;
+          flex-shrink: 0;
+          white-space: nowrap;
 
           &:hover {
             background-color: $primary-dark;
@@ -134,12 +67,68 @@
         }
       }
 
-      .stat {
+      .backButton {
         display: flex;
         align-items: center;
         gap: $spacing-sm;
-        color: $gray-600;
+        padding: $spacing-sm $spacing-lg;
+        background-color: transparent;
+        color: $gray-500;
+        border: 1px solid $gray-300;
+        border-radius: $radius-md;
         font-size: $text-sm;
+        cursor: pointer;
+        transition: all $transition-base;
+        flex-shrink: 0;
+        white-space: nowrap;
+
+        &:hover {
+          background-color: $gray-100;
+          color: $gray-700;
+        }
+      }
+
+    }
+
+    .headerBottom {
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-start;
+
+      .info {
+        width: 100%;
+
+        .titleRow {
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          margin-bottom: $spacing-xs;
+          flex-direction: row !important;
+
+          h1 {
+            font-size: $text-xl;
+            font-weight: $font-bold;
+            color: $gray-800;
+            margin: 0;
+            flex-shrink: 0;
+          }
+
+          .stat {
+            display: flex !important;
+            align-items: center;
+            gap: $spacing-sm;
+            color: $gray-600;
+            font-size: $text-sm;
+            flex-shrink: 0;
+            white-space: nowrap;
+          }
+        }
+
+        p {
+          color: $gray-600;
+          margin: 0;
+          font-size: $text-sm;
+        }
       }
     }
   }
@@ -283,22 +272,24 @@
 }
 
 // Responsive design
-@media (max-width: $breakpoint-md) {
+@media (max-width: $breakpoint-sm) {
   .container {
     .header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: $spacing-lg;
-
-      .headerLeft {
+      .headerTop {
         flex-direction: column;
         align-items: flex-start;
+        gap: $spacing-md;
         width: 100%;
       }
 
-      .headerRight {
-        width: 100%;
-        justify-content: space-between;
+      .headerBottom {
+        .info {
+          .titleRow {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: $spacing-sm;
+          }
+        }
       }
     }
 
@@ -342,29 +333,17 @@
     }
 
     .header {
-      .headerLeft {
-        .info h1 {
-          color: $dark-text;
-        }
-
-        .info p {
+      .headerTop {
+        .backButton {
           color: $dark-text-secondary;
-        }
-
-        .info .titleRow .logoutButton {
-          background-color: $dark-surface;
-          color: $dark-text;
           border-color: $dark-border;
 
           &:hover {
-            background-color: #7f1d1d;
-            color: white;
-            border-color: #991b1b;
+            background-color: $dark-border;
+            color: $dark-text;
           }
         }
-      }
 
-      .headerRight {
         .headerActions {
           .actionButton {
             background-color: $primary;
@@ -372,6 +351,30 @@
 
             &:hover {
               background-color: $primary-dark;
+            }
+          }
+        }
+      }
+
+      .headerBottom {
+        .info {
+          h1 {
+            color: $dark-text;
+          }
+
+          p {
+            color: $dark-text-secondary;
+          }
+
+          .titleRow .logoutButton {
+            background-color: $dark-surface;
+            color: $dark-text;
+            border-color: $dark-border;
+
+            &:hover {
+              background-color: #7f1d1d;
+              color: white;
+              border-color: #991b1b;
             }
           }
         }

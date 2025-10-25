@@ -9,7 +9,7 @@ import { TouchBackend } from 'react-dnd-touch-backend';
 import { usePreview } from 'react-dnd-preview';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import styles from './Vote.module.scss';
-import { contractWrite } from '../../services/api';
+import { addVote } from '../../services/contracts/issue';
 
 // Backend configuration - same as TestDND
 export const HTML5toTouch: MultiBackendOptions = {
@@ -255,13 +255,14 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
     setIsSubmitting(true);
     try {
       const vote = { order: currentOrder };
-      await contractWrite({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-        method: 'add_vote',
-        args: { voter: issueHostAgent, vote }
-      });
+      await addVote(
+        issueHostServer,
+        issueHostAgent,
+        issueId,
+        issueHostAgent,
+        vote,
+      );
+
       setHasVoted(true);
     } catch (error) {
       console.error('Error submitting vote:', error);

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Coins, Send, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchCommunityCurrency, fetchCurrencyBalances } from '../../store/slices/currencySlice';
+import { fetchUserBalance } from '../../store/slices/currencySlice';
 import styles from './Currency.module.scss';
+import { transfer } from '../../services/contracts/community';
 
 interface CurrencyProps {
   communityId: string;
@@ -11,73 +12,90 @@ interface CurrencyProps {
 const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   const dispatch = useAppDispatch();
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
-  const { communityCurrencies, currencyBalances } = useAppSelector((state) => state.currency);
   const { communityMembers, membersLoading } = useAppSelector((state) => state.communities);
+  const { userBalance, loading: balanceLoading } = useAppSelector((state) => state.currency);
   
-  const currency = communityCurrencies[communityId];
-  const balances = currencyBalances[communityId] || {};
-  const userBalance = balances[publicKey || ''] || 0;
+  // Hardcoded mock data for other values
+  const currency = {
+    id: communityId,
+    name: 'Community Credits',
+    symbol: 'credits',
+    totalSupply: 1000000,
+    circulatingSupply: 750000,
+    decimals: 2
+  };
+  
+  const mintRate = 120; // Mock mint rate
+  const burnRate = 85; // Mock burn rate
 
   // Check if user is a member of the community
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
   const isMember = publicKey && allMembers.includes(publicKey);
   const isMembersLoading = membersLoading[communityId] || false;
   
-  const [recipient, setRecipient] = useState('');
+  const [selectedMember, setSelectedMember] = useState('');
   const [amount, setAmount] = useState('');
   const [mintPreference, setMintPreference] = useState(100);
   const [burnPreference, setBurnPreference] = useState(50);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [isLoadingCurrency, setIsLoadingCurrency] = useState(true);
+  
+  // Stored preferences (mock data for now)
+  const storedMintPreference = 100;
+  const storedBurnPreference = 50;
+  
+  // Check if preferences have changed
+  const hasChanges = mintPreference !== storedMintPreference || burnPreference !== storedBurnPreference;
 
-  // Fetch currency data when component mounts
+  // Fetch user balance on component mount
   useEffect(() => {
     if (publicKey && serverUrl && communityId) {
-      setIsLoadingCurrency(true);
-      const promises = [];
-      
-      if (!currency) {
-        promises.push(dispatch(fetchCommunityCurrency({
-          serverUrl,
-          publicKey,
-          contractId: communityId,
-        })));
-      }
-      if (!balances || Object.keys(balances).length === 0) {
-        promises.push(dispatch(fetchCurrencyBalances({
-          serverUrl,
-          publicKey,
-          contractId: communityId,
-        })));
-      }
-      
-      Promise.all(promises).finally(() => {
-        setIsLoadingCurrency(false);
-      });
+      dispatch(fetchUserBalance({
+        serverUrl,
+        publicKey,
+        contractId: communityId,
+      }));
     }
-  }, [communityId, publicKey, serverUrl, currency, balances, dispatch]);
+  }, [communityId, publicKey, serverUrl, dispatch]);
 
   const handlePayment = async () => {
-    if (!recipient || !amount || parseFloat(amount) <= 0) return;
+    if (!selectedMember || !amount || parseFloat(amount) <= 0) return;
     
     const paymentAmount = parseFloat(amount);
-    if (paymentAmount > userBalance) {
+    if (userBalance !== null && paymentAmount > userBalance) {
       alert('Insufficient balance');
       return;
     }
 
-    // TODO: Implement actual payment logic
+    if(serverUrl && publicKey && communityId) {
+      await transfer(
+        serverUrl,
+        publicKey,
+        communityId,
+        selectedMember,
+        paymentAmount,
+      );
+    }
+
     setAmount('');
-    setRecipient('');
-    setShowPaymentForm(false);
+    setSelectedMember('');
   };
 
-  if (isLoadingCurrency || isMembersLoading) {
+  const handleUpdatePreferences = () => {
+    // TODO: Implement actual preference update logic
+    console.log('Updating preferences:', { mintPreference, burnPreference });
+    alert('Preferences updated successfully!');
+  };
+
+  const handleRevertPreferences = () => {
+    setMintPreference(storedMintPreference);
+    setBurnPreference(storedBurnPreference);
+  };
+
+  if (isMembersLoading || balanceLoading) {
     return (
       <div className={styles.container}>
         <div className={styles.header}>
           <h2>Community Currency</h2>
-          <p>{isMembersLoading ? 'Loading community members...' : 'Loading currency data...'}</p>
+          <p>{isMembersLoading ? 'Loading community members...' : 'Loading balance...'}</p>
         </div>
       </div>
     );
@@ -109,13 +127,19 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
               <h3>Your Balance</h3>
             </div>
             <div className={styles.balanceAmount}>
-              <span className={styles.amount}>{userBalance}</span>
-              <span className={styles.currency}>{currency?.symbol || 'credits'}</span>
+              <span className={styles.amount}>{userBalance !== null ? userBalance : '-'}</span>
+              <span className={styles.currency}>{currency.symbol}</span>
             </div>
             <div className={styles.balanceStats}>
-              <div className={styles.stat}>
-                <span className={styles.label}>Community Median:</span>
-                <span className={styles.value}>980 credits</span>
+              <div className={styles.statRow}>
+                <div className={styles.stat}>
+                  <span className={styles.label}>Mint Rate:</span>
+                  <span className={styles.value}>{mintRate} credits/day</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.label}>Burn Rate:</span>
+                  <span className={styles.value}>{burnRate} credits/day</span>
+                </div>
               </div>
             </div>
           </div>
@@ -124,17 +148,52 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
         <div className={styles.actionsSection}>
           <div className={styles.actionCard}>
             <h3>Send Payment</h3>
-            <button
-              onClick={() => setShowPaymentForm(true)}
-              className={styles.actionButton}
-            >
-              <Send size={20} />
-              Send Credits
-            </button>
+            <div className={styles.paymentForm}>
+              <div className="form-group">
+                <label htmlFor="memberSelect">Select Member</label>
+                <select
+                  id="memberSelect"
+                  value={selectedMember}
+                  onChange={(e) => setSelectedMember(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">Choose a member...</option>
+                  {allMembers
+                    .filter(member => member !== publicKey) // Exclude current user
+                    .map((member, index) => (
+                      <option key={member} value={member}>
+                        Member {index + 1} ({member.slice(0, 8)}...)
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="paymentAmount">Amount (credits)</label>
+                <input
+                  id="paymentAmount"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="input-field"
+                  min="1"
+                  max={userBalance || undefined}
+                />
+                <div className={styles.balanceInfo}>
+                  <span>Available: {userBalance !== null ? userBalance : '-'} credits</span>
+                </div>
+              </div>
+              <div className="form-actions">
+                <button onClick={handlePayment} className={`send-button ${styles.sendButton}`}>
+                  <Send size={16} />
+                  Send Payment
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className={styles.actionCard}>
-            <h3>Preferences</h3>
+            <h3>Your Preferences</h3>
             <div className={styles.preferences}>
               <div className={styles.preferenceItem}>
                 <label htmlFor="mintPreference">Mint Rate (credits/day)</label>
@@ -161,52 +220,25 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 <TrendingDown size={16} className={styles.burnIcon} />
               </div>
             </div>
+            <div className={styles.preferenceActions}>
+              <button
+                onClick={handleUpdatePreferences}
+                disabled={!hasChanges}
+                className={`${styles.updateButton} ${!hasChanges ? styles.disabled : ''}`}
+              >
+                Update Preferences
+              </button>
+              <button
+                onClick={handleRevertPreferences}
+                disabled={!hasChanges}
+                className={`${styles.revertButton} ${!hasChanges ? styles.disabled : ''}`}
+              >
+                Revert Changes
+              </button>
+            </div>
           </div>
         </div>
 
-        {showPaymentForm && (
-          <div className={styles.paymentFormOverlay}>
-            <div className={styles.paymentForm}>
-              <h3>Send Payment</h3>
-              <div className="form-group">
-                <label htmlFor="recipient">Recipient (Public Key)</label>
-                <input
-                  id="recipient"
-                  type="text"
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  placeholder="Enter recipient's public key"
-                  className="input-field"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="paymentAmount">Amount (credits)</label>
-                <input
-                  id="paymentAmount"
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="input-field"
-                  min="1"
-                  max={userBalance}
-                />
-              </div>
-              <div className="form-actions">
-                <button onClick={handlePayment} className={`send-button ${styles.sendButton}`}>
-                  <Send size={16} />
-                  Send Payment
-                </button>
-                <button
-                  onClick={() => setShowPaymentForm(false)}
-                  className="cancel-button"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

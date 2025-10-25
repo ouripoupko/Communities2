@@ -1,9 +1,10 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { isExistAgent, registerAgent, getContracts, deployContract, contractRead } from '../../services/api';
+import { isExistAgent, registerAgent, getContracts, deployContract } from '../../services/api';
 import type { IContract, IProfile } from '../../services/interfaces';
 import type { RootState } from '../index';
 import profileContractCode from '../../assets/contracts/gloki_contract.py?raw';
+import { getProfile } from '../../services/contracts/gloki';
 
 // Interfaces from contractsSlice
 
@@ -124,12 +125,11 @@ export const readProfile = createAsyncThunk(
       
       if (profileContract) {
         // Read profile data from existing contract
-        const profileResult = await contractRead({
-          serverUrl: serverUrl,
-          publicKey: publicKey,
-          contractId: profileContract.id,
-          method: 'get_profile'
-        });
+        const profileResult = await getProfile(
+          serverUrl,
+          publicKey,
+          profileContract.id,
+        );
         profileData = profileResult;
         profileContractId = profileContract.id;
       } else {

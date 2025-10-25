@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { fetchCommunityIssues } from '../../../store/slices/issuesSlice';
-import { deployContract, contractWrite } from '../../../services/api';
-import issueContractCode from '../../../assets/contracts/issue_contract.py?raw';
 import styles from './CreateIssueDialog.module.scss';
+import { createIssue } from '../../../services/contracts/community';
 
 interface CreateIssueDialogProps {
   isVisible: boolean;
@@ -29,49 +28,16 @@ const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({ isVisible, onClos
     setError(null);
 
     try {
-      // 1. Deploy the issue contract with the issue title as the name
-      const fileName = 'issue_contract.py';
-      const response = await deployContract({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        name: newIssueTitle,
-        contract: fileName,
-        code: issueContractCode,
-      });
-      const contractId = response.id || response;
-      
-      // 2. Set the issue properties (name and description)
-      await contractWrite({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: contractId,
-        method: 'set_name',
-        args: { name: newIssueTitle },
-      });
-      
-      await contractWrite({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: contractId,
-        method: 'set_description',
-        args: { text: newIssueDescription },
-      });
-      
-      // 3. Add the issue to the community contract
-      await contractWrite({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: communityId,
-        method: 'add_issue',
-        args: {
-          issue: {
-            server: user.serverUrl,
-            agent: user.publicKey,
-            contract: contractId,
-          },
+      await createIssue(
+        user.serverUrl,
+        user.publicKey,
+        communityId,
+        {
+          title: newIssueTitle,
+          description: newIssueDescription,
         },
-      });
-      
+      );
+
       // 4. Fetch the updated issues list
       await dispatch(fetchCommunityIssues({
         serverUrl: user.serverUrl,

@@ -1,54 +1,39 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { getBalance, getParameters } from '../../services/contracts/community';
 
-import { contractRead } from '../../services/api';
-
-// Define Currency interface
-interface Currency {
-  id: string;
-  name: string;
-  symbol: string;
-  totalSupply: number;
-  circulatingSupply: number;
-  decimals: number;
-}
-
-// Currency state
+// Currency state interface
 interface CurrencyState {
+  userBalance: number | null;
+  loading: boolean;
   error: string | null;
-  communityCurrencies: Record<string, Currency>;
-  currencyBalances: Record<string, Record<string, number>>; // contractId -> publicKey -> balance
 }
 
 const initialState: CurrencyState = {
+  userBalance: null,
+  loading: false,
   error: null,
-  communityCurrencies: {},
-  currencyBalances: {},
 };
 
-// Async thunks for currency data
-export const fetchCommunityCurrency = createAsyncThunk(
-  'currency/fetchCommunityCurrency',
+// Async thunk to fetch user balance
+export const fetchUserBalance = createAsyncThunk(
+  'currency/fetchUserBalance',
   async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await contractRead({
-      serverUrl: args.serverUrl,
-      publicKey: args.publicKey,
-      contractId: args.contractId,
-      method: 'get_currency_info'
-    });
-    return { contractId: args.contractId, currency: result };
-  }
-);
+    const balance = await getBalance(
+      args.serverUrl,
+      args.publicKey,
+      args.contractId,
+    );
 
-export const fetchCurrencyBalances = createAsyncThunk(
-  'currency/fetchCurrencyBalances',
-  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await contractRead({
-      serverUrl: args.serverUrl,
-      publicKey: args.publicKey,
-      contractId: args.contractId,
-      method: 'get_balances'
-    });
-    return { contractId: args.contractId, balances: result };
+    const parameters = await getParameters(
+      args.serverUrl,
+      args.publicKey,
+      args.contractId,
+    );
+
+    console.log('Contract balance:', balance);
+    console.log('Contract parameters:', parameters);
+    
+    return balance;
   }
 );
 
@@ -61,22 +46,18 @@ const currencySlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Fetch community currency
     builder
-      .addCase(fetchCommunityCurrency.fulfilled, (state, action) => {
-        state.communityCurrencies[action.payload.contractId] = action.payload.currency;
+      .addCase(fetchUserBalance.pending, (state) => {
+        state.loading = true;
+        state.error = null;
       })
-      .addCase(fetchCommunityCurrency.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to fetch community currency';
-      });
-
-    // Fetch currency balances
-    builder
-      .addCase(fetchCurrencyBalances.fulfilled, (state, action) => {
-        state.currencyBalances[action.payload.contractId] = action.payload.balances;
+      .addCase(fetchUserBalance.fulfilled, (state, action) => {
+        state.loading = false;
+        state.userBalance = action.payload;
       })
-      .addCase(fetchCurrencyBalances.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to fetch currency balances';
+      .addCase(fetchUserBalance.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch user balance';
       });
   },
 });
