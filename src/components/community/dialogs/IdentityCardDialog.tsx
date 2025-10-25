@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { X, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import jsPDF from 'jspdf';
+import { pdf } from '@react-pdf/renderer';
+import IdentityCardPDF from './IdentityCardPDF';
 import styles from './IdentityCardDialog.module.scss';
 import { useAppSelector } from '../../../store/hooks';
 import { encodeCommunityInvitation } from '../../../services/encodeDecode';
@@ -32,43 +33,119 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
 
   const qrData = encodeCommunityInvitation(server, agent, contract);
 
-  const handleDownloadCard = () => {
-    if (!cardRef.current) return;
-
-    // Get the card element and convert to canvas first
-    const cardElement = cardRef.current;
-    
-    // Use html2canvas to convert the card to an image
-    import('html2canvas').then(html2canvas => {
-      html2canvas.default(cardElement, {
-        scale: 3, // Higher scale for better quality
-        backgroundColor: '#ffffff',
-        width: 856, // 85.6mm at 10px/mm
-        height: 540, // 54mm at 10px/mm
-        useCORS: true,
-        allowTaint: true
-      }).then(canvas => {
-        const imgData = canvas.toDataURL('image/png', 1.0);
+  // Function to generate QR code as SVG paths for vector rendering
+  const generateQRCodePaths = async (value: string): Promise<Array<{key: number, d: string, fill: string}>> => {
+    try {
+      console.log('Creating temporary DOM element for QR code...');
+      // Create a temporary div to render the QR code
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      document.body.appendChild(tempDiv);
+      
+      console.log('Rendering QR code to temporary element...');
+      // Render QR code to temporary element
+      const { createRoot } = await import('react-dom/client');
+      const root = createRoot(tempDiv);
+      
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          console.error('QR code generation timeout');
+          root.unmount();
+          document.body.removeChild(tempDiv);
+          resolve([]);
+        }, 5000); // 5 second timeout
         
-        // Create PDF with exact card dimensions
-        // Convert mm to points (1mm = 2.834645669 points)
-        const cardWidthPt = 85.6 * 2.834645669;
-        const cardHeightPt = 54 * 2.834645669;
+        root.render(
+          <QRCodeSVG value={value} size={80} level="M" />
+        );
         
-        const pdf = new jsPDF({
-          orientation: cardWidthPt > cardHeightPt ? 'landscape' : 'portrait',
-          unit: 'pt',
-          format: [cardWidthPt, cardHeightPt]
-        });
+        // Use polling to wait for the SVG to be rendered
+        const checkForSVG = () => {
+          const svgElement = tempDiv.querySelector('svg');
+          if (svgElement) {
+            console.log('QR code loaded, extracting paths...');
+            clearTimeout(timeout);
+            
+            const paths = svgElement.querySelectorAll('path');
+            const pathData = Array.from(paths).map((path, index) => ({
+              key: index,
+              d: path.getAttribute('d') || '',
+              fill: path.getAttribute('fill') || 'black'
+            }));
+            
+            console.log('Extracted', pathData.length, 'paths from QR code');
+            
+            // Cleanup
+            root.unmount();
+            document.body.removeChild(tempDiv);
+            resolve(pathData);
+          } else {
+            // Check again in 100ms
+            setTimeout(checkForSVG, 100);
+          }
+        };
         
-        // Add the card image to fill the entire PDF page
-        pdf.addImage(imgData, 'PNG', 0, 0, cardWidthPt, cardHeightPt);
-        
-        // Download the PDF
-        pdf.save(`identity-card-${communityName.replace(/\s+/g, '-').toLowerCase()}.pdf`);
+        // Start checking for the SVG element
+        setTimeout(checkForSVG, 100);
       });
-    });
+    } catch (error) {
+      console.error('Error generating QR code paths:', error);
+      return [];
+    }
   };
+
+  const handleDownloadCard = async () => {
+    try {
+      console.log('Starting PDF download...');
+      
+      const memberName = userProfile.firstName && userProfile.lastName 
+        ? `${userProfile.firstName} ${userProfile.lastName}` 
+        : 'Unknown Member';
+      
+      const memberInitial = userProfile.firstName ? userProfile.firstName.charAt(0).toUpperCase() : '?';
+      
+      console.log('Generating QR code paths...');
+      // Generate QR code paths for vector rendering
+      const qrPaths = await generateQRCodePaths(qrData);
+      console.log('QR code paths generated:', qrPaths.length, 'paths');
+      
+      console.log('Creating PDF document with vector QR code...');
+      // Create PDF using react-pdf with vector QR code
+      const pdfDoc = (
+        <IdentityCardPDF
+          communityName={communityName}
+          memberName={memberName}
+          memberInitial={memberInitial}
+          memberPhoto={userProfile.userPhoto}
+          qrPaths={qrPaths}
+          agentId={agent || 'Unknown'}
+        />
+      );
+      
+      console.log('Generating PDF blob...');
+      // Generate and download PDF
+      const pdfBlob = await pdf(pdfDoc).toBlob();
+      console.log('PDF blob generated, size:', pdfBlob.size);
+      
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `identity-card-${communityName.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('PDF download completed');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF: ' + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+
 
   if (!isOpen) return null;
 
