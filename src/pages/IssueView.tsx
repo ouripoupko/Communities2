@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
+import { MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchIssueDetails, getProposals } from '../store/slices/issuesSlice';
 import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
@@ -9,6 +9,7 @@ import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
 import Outcome from '../components/issue/Outcome';
+import PageHeader from '../components/PageHeader';
 import styles from './Container.module.scss';
 
 const IssueView: React.FC = () => {
@@ -150,17 +151,13 @@ const IssueView: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <button onClick={() => navigate(`/community/${communityId}`)} className={styles.backButton}>
-            <ArrowLeft size={16} />
-            Back to Community
-          </button>
-          <div className={styles.info}>
-            <h1>{issueName}</h1>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        showBackButton={true}
+        backButtonText="Back to Community"
+        onBackClick={() => navigate(`/community/${communityId}`)}
+        title={issueName}
+        layout="two-row"
+      />
 
       <div className={styles.content}>
         <nav className={styles.nav}>

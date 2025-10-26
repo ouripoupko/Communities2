@@ -5,6 +5,7 @@ import { User, Users, QrCode, LogOut } from 'lucide-react';
 import Profile from '../components/identity/Profile';
 import Communities from '../components/identity/Communities';
 import JoinCommunity from '../components/identity/JoinCommunity';
+import PageHeader from '../components/PageHeader';
 import styles from './Container.module.scss';
 
 const IdentityView: React.FC = () => {
@@ -23,21 +24,22 @@ const IdentityView: React.FC = () => {
     { path: 'join', label: 'Join Community', icon: QrCode },
   ];
 
+  const actionButtons = [
+    {
+      icon: LogOut,
+      label: 'Logout',
+      onClick: handleLogout,
+      variant: 'logout' as const
+    }
+  ];
+
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <div className={styles.info}>
-            <div className={styles.titleRow}>
-              <h1>My Identity</h1>
-              <button onClick={handleLogout} className={styles.logoutButton}>
-                <LogOut size={16} />
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="My Identity"
+        actionButtons={actionButtons}
+        layout="single-row"
+      />
 
       <div className={styles.content}>
         <nav className={styles.nav}>

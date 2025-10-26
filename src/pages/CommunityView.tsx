@@ -1,7 +1,8 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Users, Coins, Share2, IdCard, QrCode } from 'lucide-react';
+import { MessageSquare, Users, Coins, Share2, IdCard, QrCode } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
+import PageHeader from '../components/PageHeader';
 
 // Lazy load components to reduce initial bundle size
 const Issues = lazy(() => import('../components/community/Issues'));
@@ -130,46 +131,40 @@ const CommunityView: React.FC = () => {
     );
   }
 
+  const actionButtons = [
+    {
+      icon: IdCard,
+      label: 'ID Card',
+      onClick: () => setShowIdentityCard(true),
+      title: 'Show Identity Card'
+    },
+    {
+      icon: QrCode,
+      label: 'Scan',
+      onClick: () => setShowQRScanner(true),
+      title: 'Scan QR Code'
+    }
+  ];
+
+  const rightLabel = (
+    <span className={styles.stat}>
+      <Users size={16} />
+      {Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : '-'} members
+    </span>
+  );
+
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerTop}>
-          <button onClick={() => navigate('/identity/communities')} className={styles.backButton}>
-            <ArrowLeft size={16} />
-            Back
-          </button>
-          <div className={styles.headerActions}>
-            <button 
-              className={styles.actionButton}
-              onClick={() => setShowIdentityCard(true)}
-              title="Show Identity Card"
-            >
-              <IdCard size={18} />
-              <span>ID Card</span>
-            </button>
-            <button 
-              className={styles.actionButton}
-              onClick={() => setShowQRScanner(true)}
-              title="Scan QR Code"
-            >
-              <QrCode size={18} />
-              <span>Scan</span>
-            </button>
-          </div>
-        </div>
-        <div className={styles.headerBottom}>
-          <div className={styles.info}>
-            <div className={styles.titleRow}>
-              <h1>{props.name}</h1>
-              <span className={styles.stat}>
-                <Users size={16} />
-                {Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : '-'} members
-              </span>
-            </div>
-            <p>{props.description}</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        showBackButton={true}
+        backButtonText="Back"
+        onBackClick={() => navigate('/identity/communities')}
+        actionButtons={actionButtons}
+        title={props.name}
+        subtitle={props.description}
+        rightLabel={rightLabel}
+        layout="two-row"
+      />
 
       <div className={styles.content}>
         <nav className={styles.nav}>
