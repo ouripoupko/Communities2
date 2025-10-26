@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { X, Download } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import styles from './IdentityCardDialog.module.scss';
 import { useAppSelector } from '../../../store/hooks';
 import { encodeCommunityInvitation } from '../../../services/encodeDecode';
+import IdentityCardSVG from './IdentityCardSVG';
+import { generateIdentityCardPDF } from './IdentityCardPDFGenerator';
 
 interface IdentityCardDialogProps {
   isOpen: boolean;
@@ -32,79 +33,10 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
 
   const qrData = encodeCommunityInvitation(server, agent, contract);
 
-  // Function to generate QR code as SVG paths for vector rendering
-  const generateQRCodePaths = async (value: string): Promise<Array<{key: number, d: string, fill: string}>> => {
-    try {
-      console.log('Creating temporary DOM element for QR code...');
-      // Create a temporary div to render the QR code
-      const tempDiv = document.createElement('div');
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.top = '-9999px';
-      document.body.appendChild(tempDiv);
-      
-      console.log('Rendering QR code to temporary element...');
-      // Render QR code to temporary element
-      const { createRoot } = await import('react-dom/client');
-      const root = createRoot(tempDiv);
-      
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          console.error('QR code generation timeout');
-          root.unmount();
-          document.body.removeChild(tempDiv);
-          resolve([]);
-        }, 5000); // 5 second timeout
-        
-        root.render(
-          <QRCodeSVG value={value} size={80} level="M" />
-        );
-        
-        // Use polling to wait for the SVG to be rendered
-        const checkForSVG = () => {
-          const svgElement = tempDiv.querySelector('svg');
-          if (svgElement) {
-            console.log('QR code loaded, extracting paths...');
-            clearTimeout(timeout);
-            
-            const paths = svgElement.querySelectorAll('path');
-            const pathData = Array.from(paths).map((path, index) => ({
-              key: index,
-              d: path.getAttribute('d') || '',
-              fill: path.getAttribute('fill') || 'black'
-            }));
-            
-            console.log('Extracted', pathData.length, 'paths from QR code');
-            
-            // Cleanup
-            root.unmount();
-            document.body.removeChild(tempDiv);
-            resolve(pathData);
-          } else {
-            // Check again in 100ms
-            setTimeout(checkForSVG, 100);
-          }
-        };
-        
-        // Start checking for the SVG element
-        setTimeout(checkForSVG, 100);
-      });
-    } catch (error) {
-      console.error('Error generating QR code paths:', error);
-      return [];
-    }
-  };
-
   const handleDownloadCard = async () => {
     try {
       setIsGeneratingPDF(true);
       console.log('Starting PDF download...');
-      
-      // Lazy load PDF dependencies only when needednpm run dev
-      const [{ pdf }, { default: IdentityCardPDF }] = await Promise.all([
-        import('@react-pdf/renderer'),
-        import('./IdentityCardPDF')
-      ]);
       
       const memberName = userProfile.firstName && userProfile.lastName 
         ? `${userProfile.firstName} ${userProfile.lastName}` 
@@ -112,27 +44,17 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
       
       const memberInitial = userProfile.firstName ? userProfile.firstName.charAt(0).toUpperCase() : '?';
       
-      console.log('Generating QR code paths...');
-      // Generate QR code paths for vector rendering
-      const qrPaths = await generateQRCodePaths(qrData);
-      console.log('QR code paths generated:', qrPaths.length, 'paths');
+      console.log('Generating PDF from SVG...');
+      // Generate PDF directly from SVG using svg2pdf
+      const pdfBlob = await generateIdentityCardPDF({
+        communityName,
+        memberName,
+        memberInitial,
+        memberPhoto: userProfile.userPhoto,
+        agentId: agent || 'Unknown',
+        qrData,
+      });
       
-      console.log('Creating PDF document with vector QR code...');
-      // Create PDF using react-pdf with vector QR code
-      const pdfDoc = (
-        <IdentityCardPDF
-          communityName={communityName}
-          memberName={memberName}
-          memberInitial={memberInitial}
-          memberPhoto={userProfile.userPhoto}
-          qrPaths={qrPaths}
-          agentId={agent || 'Unknown'}
-        />
-      );
-      
-      console.log('Generating PDF blob...');
-      // Generate and download PDF
-      const pdfBlob = await pdf(pdfDoc).toBlob();
       console.log('PDF blob generated, size:', pdfBlob.size);
       
       const url = URL.createObjectURL(pdfBlob);
@@ -169,58 +91,19 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
         
         <div className={styles.content}>
           <div className={styles.cardContainer}>
-            <div className={styles.identityCard} ref={cardRef}>
-              <div className={styles.cardHeader}>
-                <div className={styles.logo}>
-                  <div className={styles.logoIcon}>ID</div>
-                </div>
-                <div className={styles.title}>
-                  <h3>AUTHENTICATED IDENTITY CARD</h3>
-                  <p>{communityName} Community</p>
-                </div>
-              </div>
-              
-              <div className={styles.cardBody}>
-                <div className={styles.memberInfo}>
-                  <div className={styles.memberPhoto}>
-                    {userProfile.userPhoto ? (
-                      <img src={userProfile.userPhoto} alt="Member Photo" />
-                    ) : (
-                      <div className={styles.photoPlaceholder}>
-                        {userProfile.firstName ? userProfile.firstName.charAt(0).toUpperCase() : '?'}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className={styles.memberDetails}>
-                    <div className={styles.memberName}>
-                      {userProfile.firstName && userProfile.lastName 
-                        ? `${userProfile.firstName} ${userProfile.lastName}` 
-                        : 'Unknown Member'}
-                    </div>
-                    <div className={styles.memberStatement}>
-                      This certifies that <strong>{userProfile.firstName && userProfile.lastName 
-                        ? `${userProfile.firstName} ${userProfile.lastName}` 
-                        : 'this agent'}</strong> is an authenticated member of the <strong>{communityName}</strong> community.
-                    </div>
-                  </div>
-                </div>
-                
-                <div className={styles.qrSection}>
-                  <QRCodeSVG
-                    value={qrData}
-                    size={120}
-                    level="M"
-                    className={styles.qrCode}
-                  />
-                </div>
-              </div>
-              
-              <div className={styles.cardFooter}>
-                <div className={styles.memberIdFull}>
-                  ID: {agent || 'Unknown'}
-                </div>
-              </div>
+            <div ref={cardRef}>
+              <IdentityCardSVG
+                communityName={communityName}
+                memberName={userProfile.firstName && userProfile.lastName 
+                  ? `${userProfile.firstName} ${userProfile.lastName}` 
+                  : 'Unknown Member'}
+                memberInitial={userProfile.firstName ? userProfile.firstName.charAt(0).toUpperCase() : '?'}
+                memberPhoto={userProfile.userPhoto}
+                agentId={agent || 'Unknown'}
+                qrData={qrData}
+                width={428}
+                height={270}
+              />
             </div>
           </div>
           

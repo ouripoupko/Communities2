@@ -12,12 +12,12 @@
     "preview:prod": "vite preview --mode production"
   },
   "dependencies": {
-    "@react-pdf/renderer": "^4.3.1",
     "@reduxjs/toolkit": "^2.8.2",
     "@types/react-router-dom": "^5.3.3",
     "@yudiel/react-qr-scanner": "^2.3.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "jspdf": "^3.0.3",
     "lucide-react": "^0.525.0",
     "pako": "^2.1.0",
     "qrcode.react": "^4.2.0",
@@ -29,7 +29,8 @@
     "react-dnd-touch-backend": "^16.0.1",
     "react-dom": "^19.1.0",
     "react-redux": "^9.2.0",
-    "react-router-dom": "^7.6.3"
+    "react-router-dom": "^7.6.3",
+    "svg2pdf.js": "^2.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
