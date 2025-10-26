@@ -8,6 +8,17 @@ import issueContractCode from '../../assets/contracts/issue_contract.py?raw';
  * Handles all community-specific contract calls
  */
 
+export interface IParameters {
+  medians: {
+    mint: number;
+    burn: number;
+  };
+  parameters: {
+    mint: number;
+    burn: number;
+  };
+}
+
 export async function createCommunity(
   serverUrl: string,
   publicKey: string,
@@ -327,7 +338,7 @@ export async function getParameters(
   publicKey: string,
   contractId: string
 ) {
-  return await contractRead({
+  const parameters: IParameters = await contractRead({
     serverUrl,
     publicKey,
     contractId,
@@ -336,4 +347,11 @@ export async function getParameters(
       values: {},
     } as IMethod,
   });
+  
+  if (!parameters.parameters || Object.keys(parameters.parameters).length === 0) {
+    console.log('No parameters found, setting default values');
+    setParameters(serverUrl, publicKey, contractId, 100, 0.0003);
+  }
+
+  return parameters;
 }

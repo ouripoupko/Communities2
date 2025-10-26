@@ -1,20 +1,23 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { getBalance, getParameters } from '../../services/contracts/community';
+import type { IParameters } from '../../services/contracts/community';
 
 // Currency state interface
 interface CurrencyState {
   userBalance: number | null;
+  parameters: IParameters | null;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: CurrencyState = {
   userBalance: null,
+  parameters: null,
   loading: false,
   error: null,
 };
 
-// Async thunk to fetch user balance
+// Async thunk to fetch user balance and parameters
 export const fetchUserBalance = createAsyncThunk(
   'currency/fetchUserBalance',
   async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
@@ -33,7 +36,7 @@ export const fetchUserBalance = createAsyncThunk(
     console.log('Contract balance:', balance);
     console.log('Contract parameters:', parameters);
     
-    return balance;
+    return { balance, parameters };
   }
 );
 
@@ -53,7 +56,8 @@ const currencySlice = createSlice({
       })
       .addCase(fetchUserBalance.fulfilled, (state, action) => {
         state.loading = false;
-        state.userBalance = action.payload;
+        state.userBalance = Math.round((action.payload.balance as number) * 100) / 100;
+        state.parameters = action.payload.parameters;
       })
       .addCase(fetchUserBalance.rejected, (state, action) => {
         state.loading = false;

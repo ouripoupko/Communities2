@@ -3,7 +3,7 @@ import { Coins, Send, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchUserBalance } from '../../store/slices/currencySlice';
 import styles from './Currency.module.scss';
-import { transfer } from '../../services/contracts/community';
+import { transfer, setParameters } from '../../services/contracts/community';
 
 interface CurrencyProps {
   communityId: string;
@@ -13,9 +13,9 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   const dispatch = useAppDispatch();
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { communityMembers, membersLoading } = useAppSelector((state) => state.communities);
-  const { userBalance, loading: balanceLoading } = useAppSelector((state) => state.currency);
+  const { userBalance, parameters, loading: balanceLoading } = useAppSelector((state) => state.currency);
   
-  // Hardcoded mock data for other values
+  // Currency info
   const currency = {
     id: communityId,
     name: 'Community Credits',
@@ -25,8 +25,13 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
     decimals: 2
   };
   
-  const mintRate = 120; // Mock mint rate
-  const burnRate = 85; // Mock burn rate
+  // Get median values for display (top card)
+  const medianMintRate = parameters?.medians?.mint || 0;
+  const medianBurnRate = parameters?.medians?.burn || 0;
+  
+  // Get user's stored parameters (bottom card)
+  const userMintPreference = parameters?.parameters?.mint || 0;
+  const userBurnPreference = parameters?.parameters?.burn || 0;
 
   // Check if user is a member of the community
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
@@ -35,15 +40,22 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   
   const [selectedMember, setSelectedMember] = useState('');
   const [amount, setAmount] = useState('');
-  const [mintPreference, setMintPreference] = useState(100);
-  const [burnPreference, setBurnPreference] = useState(50);
+  const [mintPreference, setMintPreference] = useState('');
+  const [burnPreference, setBurnPreference] = useState('');
+  const [mintFocused, setMintFocused] = useState(false);
+  const [burnFocused, setBurnFocused] = useState(false);
   
-  // Stored preferences (mock data for now)
-  const storedMintPreference = 100;
-  const storedBurnPreference = 50;
+  // Update local state when parameters change
+  useEffect(() => {
+    if (parameters) {
+      setMintPreference('');
+      setBurnPreference('');
+    }
+  }, [parameters]);
   
   // Check if preferences have changed
-  const hasChanges = mintPreference !== storedMintPreference || burnPreference !== storedBurnPreference;
+  const hasChanges = (mintPreference !== '' && mintPreference !== userMintPreference.toString()) || 
+                     (burnPreference !== '' && burnPreference !== userBurnPreference.toString());
 
   // Fetch user balance on component mount
   useEffect(() => {
@@ -79,15 +91,45 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
     setSelectedMember('');
   };
 
-  const handleUpdatePreferences = () => {
-    // TODO: Implement actual preference update logic
-    console.log('Updating preferences:', { mintPreference, burnPreference });
-    alert('Preferences updated successfully!');
+  const handleUpdatePreferences = async () => {
+    if (!serverUrl || !publicKey || !communityId) return;
+    
+    // Use current values or fall back to stored values if input is empty
+    const mintValue = mintPreference !== '' ? parseFloat(mintPreference) : userMintPreference;
+    const burnValue = burnPreference !== '' ? parseFloat(burnPreference) : userBurnPreference;
+    
+    // Validate that the parsed values are valid numbers
+    if (isNaN(mintValue) || isNaN(burnValue)) {
+      alert('Please enter valid numbers for mint and burn rates.');
+      return;
+    }
+    
+    try {
+      await setParameters(
+        serverUrl,
+        publicKey,
+        communityId,
+        mintValue,
+        burnValue
+      );
+      
+      // Refresh the data to get updated parameters
+      dispatch(fetchUserBalance({
+        serverUrl,
+        publicKey,
+        contractId: communityId,
+      }));
+    } catch (error) {
+      console.error('Failed to update parameters:', error);
+      alert('Failed to update parameters. Please try again.');
+    }
   };
 
   const handleRevertPreferences = () => {
-    setMintPreference(storedMintPreference);
-    setBurnPreference(storedBurnPreference);
+    setMintPreference('');
+    setBurnPreference('');
+    setMintFocused(false);
+    setBurnFocused(false);
   };
 
   if (isMembersLoading || balanceLoading) {
@@ -133,12 +175,12 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
             <div className={styles.balanceStats}>
               <div className={styles.statRow}>
                 <div className={styles.stat}>
-                  <span className={styles.label}>Mint Rate:</span>
-                  <span className={styles.value}>{mintRate} credits/day</span>
+                  <span className={styles.label}>Median Mint Rate:</span>
+                  <span className={styles.value}>{medianMintRate} credits/day</span>
                 </div>
                 <div className={styles.stat}>
-                  <span className={styles.label}>Burn Rate:</span>
-                  <span className={styles.value}>{burnRate} credits/day</span>
+                  <span className={styles.label}>Median Burn Rate:</span>
+                  <span className={styles.value}>{medianBurnRate} credits/day</span>
                 </div>
               </div>
             </div>
@@ -193,7 +235,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
           </div>
 
           <div className={styles.actionCard}>
-            <h3>Your Preferences</h3>
+            <h3>Your Stored Parameters</h3>
             <div className={styles.preferences}>
               <div className={styles.preferenceItem}>
                 <label htmlFor="mintPreference">Mint Rate (credits/day)</label>
@@ -201,9 +243,24 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                   id="mintPreference"
                   type="number"
                   value={mintPreference}
-                  onChange={(e) => setMintPreference(parseInt(e.target.value) || 0)}
+                  onChange={(e) => {
+                    console.log('Mint input changed:', e.target.value);
+                    setMintPreference(e.target.value);
+                  }}
+                  onFocus={() => {
+                    setMintFocused(true);
+                    if (mintPreference === '') {
+                      setMintPreference('');
+                    }
+                  }}
+                  onBlur={() => {
+                    console.log('Mint input blurred, value:', mintPreference);
+                    setMintFocused(false);
+                  }}
+                  placeholder={!mintFocused && mintPreference === '' ? userMintPreference.toString() : ''}
                   className={`input-field ${styles.inputField}`}
                   min="0"
+                  step="any"
                 />
                 <TrendingUp size={16} className={styles.mintIcon} />
               </div>
@@ -213,9 +270,24 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                   id="burnPreference"
                   type="number"
                   value={burnPreference}
-                  onChange={(e) => setBurnPreference(parseInt(e.target.value) || 0)}
+                  onChange={(e) => {
+                    console.log('Burn input changed:', e.target.value);
+                    setBurnPreference(e.target.value);
+                  }}
+                  onFocus={() => {
+                    setBurnFocused(true);
+                    if (burnPreference === '') {
+                      setBurnPreference('');
+                    }
+                  }}
+                  onBlur={() => {
+                    console.log('Burn input blurred, value:', burnPreference);
+                    setBurnFocused(false);
+                  }}
+                  placeholder={!burnFocused && burnPreference === '' ? userBurnPreference.toString() : ''}
                   className={`input-field ${styles.inputField}`}
                   min="0"
+                  step="any"
                 />
                 <TrendingDown size={16} className={styles.burnIcon} />
               </div>
@@ -226,7 +298,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 disabled={!hasChanges}
                 className={`${styles.updateButton} ${!hasChanges ? styles.disabled : ''}`}
               >
-                Update Preferences
+                Update Parameters
               </button>
               <button
                 onClick={handleRevertPreferences}
