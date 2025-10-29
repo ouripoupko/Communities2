@@ -73,7 +73,7 @@ export const generateIdentityCardPDF = async ({
       format: [85.6, 54], // ID card dimensions in mm
     });
 
-    // Convert SVG to PDF
+    // Convert SVG to PDF (the SVG already contains the text as images)
     await pdf.svg(svgElement, {
       x: 0,
       y: 0,
