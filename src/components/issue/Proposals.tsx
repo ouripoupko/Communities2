@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { getProposals } from '../../store/slices/issuesSlice';
 import styles from './Proposals.module.scss';
 import { addProposal } from '../../services/contracts/issue';
+import CreateProposal from './dialogs/CreateProposal';
 
 interface Proposal {
   id: string;
@@ -19,127 +20,6 @@ interface ProposalsProps {
   issueId: string;
 }
 
-interface CreateProposalFormProps {
-  isVisible: boolean;
-  onClose: () => void;
-  onSubmit: (title: string, description: string) => Promise<void>;
-}
-
-// Separate memoized form component to prevent re-renders
-const CreateProposalForm = memo<CreateProposalFormProps>(({ isVisible, onClose, onSubmit }) => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = useCallback(async () => {
-    if (!title.trim()) return;
-    
-    setIsSubmitting(true);
-    setError('');
-    
-    try {
-      await onSubmit(title, description);
-      setTitle('');
-      setDescription('');
-    } catch (err) {
-      setError('Failed to create proposal. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [title, description, onSubmit]);
-
-  const handleClose = useCallback(() => {
-    setTitle('');
-    setDescription('');
-    setError('');
-    onClose();
-  }, [onClose]);
-
-  // Handle Escape key
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isVisible) {
-        handleClose();
-      }
-    };
-
-    if (isVisible) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isVisible, handleClose]);
-
-  if (!isVisible) return null;
-
-  return (
-    <div 
-      className={`${styles.createFormOverlay} ${styles.visible}`}
-      onClick={handleClose}
-    >
-      <div 
-        className={styles.createForm}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={styles.formHeader}>
-          <h3>Add New Proposal</h3>
-          <button 
-            onClick={handleClose}
-            className={styles.closeButton}
-            disabled={isSubmitting}
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="form-group">
-          <label htmlFor="proposalTitle">Proposal Title</label>
-          <input
-            id="proposalTitle"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter proposal title"
-            className="input-field"
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="proposalDescription">Description</label>
-          <textarea
-            id="proposalDescription"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe your proposal..."
-            className="input-field"
-            rows={4}
-          />
-        </div>
-        {error && (
-          <div className={styles.errorMessage}>
-            {error}
-          </div>
-        )}
-        <div className="form-actions">
-          <button 
-            onClick={handleSubmit} 
-            className="save-button" 
-            disabled={!title.trim() || isSubmitting}
-          >
-            {isSubmitting ? 'Adding...' : 'Add Proposal'}
-          </button>
-          <button 
-            onClick={handleClose}
-            className="cancel-button"
-            disabled={isSubmitting}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-CreateProposalForm.displayName = 'CreateProposalForm';
 
 const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
@@ -147,9 +27,34 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   const issueProposals = useAppSelector((state) => state.issues.issueProposals);
   const proposals: Proposal[] = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const user = useAppSelector((state) => state.user);
+  const profiles = useAppSelector((state) => state.communities.profiles);
 
   // Decode the issue host server URL
   const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
+  
+  // Helper function to get display name for a proposal author
+  const getAuthorDisplayName = (authorPublicKey: string): string => {
+    // If it's the current user, show "You"
+    if (user.publicKey && authorPublicKey === user.publicKey) {
+      return 'You';
+    }
+    
+    // If we have a profile for this author, show their full name
+    const profile = profiles[authorPublicKey];
+    if (profile) {
+      const fullName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+      if (fullName) {
+        return fullName;
+      }
+    }
+    
+    // Otherwise, show truncated public key with ellipsis
+    if (authorPublicKey.length > 20) {
+      return `${authorPublicKey.substring(0, 20)}...`;
+    }
+    return authorPublicKey;
+  };
 
   const handleCloseForm = useCallback(() => {
     setShowCreateForm(false);
@@ -162,7 +67,7 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
       id: Date.now().toString(),
       title,
       description,
-      author: 'You',
+      author: user.publicKey || 'Unknown',
       createdAt: new Date().toISOString(),
       voteCount: 0,
     };
@@ -182,7 +87,7 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
     }));
     
     setShowCreateForm(false);
-  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
+  }, [issueId, issueHostServer, issueHostAgent, dispatch, user.publicKey]);
 
   // Show message when no proposals exist (proposals are already loaded by parent)
   if (proposals.length === 0) {
@@ -205,7 +110,7 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
           <p>No proposals have been submitted for this issue yet.</p>
         </div>
         
-        <CreateProposalForm 
+        <CreateProposal 
           isVisible={showCreateForm}
           onClose={handleCloseForm}
           onSubmit={handleSubmitProposal}
@@ -229,7 +134,7 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
           Add Proposal
         </button>
       </div>
-      <CreateProposalForm 
+      <CreateProposal 
         isVisible={showCreateForm}
         onClose={handleCloseForm}
         onSubmit={handleSubmitProposal}
@@ -242,7 +147,7 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
                 <h3>{proposal.title}</h3>
               </div>
               <div className={styles.proposalMeta}>
-                <span className={styles.author}>{proposal.author}</span>
+                <span className={styles.author}>{getAuthorDisplayName(proposal.author)}</span>
                 <span className={styles.date}>{proposal.createdAt}</span>
               </div>
             </div>

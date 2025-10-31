@@ -138,6 +138,7 @@ export const getProposals = createAsyncThunk(
       publicKey,
       contractId,
     );
+    console.log('getProposals response', response);
     return { contractId, proposals: response };
   }
 );
