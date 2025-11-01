@@ -204,6 +204,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
 
   const proposals = useAppSelector((state) => state.issues.issueProposals[issueId] || []);
   const issueDetails = useAppSelector((state) => state.issues.issueDetails[issueId] || {});
+  const user = useAppSelector((state) => state.user);
   
   // Add acceptance bar to the order state
   const [currentOrder, setCurrentOrder] = useState<string[]>([ACCEPTANCE_BAR_ID]);
@@ -224,8 +225,8 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
     }
 
     let userOrder: string[] | undefined;
-    if (issueDetails.votes && issueHostAgent && issueDetails.votes[issueHostAgent]) {
-      userOrder = issueDetails.votes[issueHostAgent].order;
+    if (issueDetails.votes && user.publicKey && issueDetails.votes[user.publicKey]) {
+      userOrder = issueDetails.votes[user.publicKey].order;
     }
     
     if (userOrder && Array.isArray(userOrder) && userOrder.length > 0) {
@@ -238,7 +239,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
       setCurrentOrder(order);
       setHasVoted(false);
     }
-  }, [proposals, issueDetails.votes, issueHostAgent]);
+  }, [proposals, issueDetails.votes, user.publicKey]);
 
   const moveCard = useCallback((fromIndex: number, toIndex: number) => {
     setCurrentOrder(prevOrder => {
@@ -250,7 +251,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
   }, []);
 
   const handleSubmitVote = async () => {
-    if (!issueHostServer || !issueHostAgent) return;
+    if (!issueHostServer || !issueHostAgent || !user.publicKey) return;
     
     setIsSubmitting(true);
     try {
@@ -259,7 +260,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
         issueHostServer,
         issueHostAgent,
         issueId,
-        issueHostAgent,
+        user.publicKey,
         vote,
       );
 
