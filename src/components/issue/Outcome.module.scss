@@ -245,26 +245,82 @@
     align-items: flex-start;
     position: relative;
     margin-bottom: $spacing-xl;
+  }
 
-    .cycleCard {
-      box-shadow: 0 2px 8px 0 rgba(255, 153, 0, 0.12);
-      border: 2px solid #fbbf24;
-      background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%);
-      min-width: 180px;
-      transition: box-shadow $transition-base, border-color $transition-base;
+  .cycleCard {
+    box-shadow: 0 2px 8px 0 rgba(255, 153, 0, 0.12);
+    border: 2px solid #fbbf24;
+    background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%);
+    min-width: 180px;
+    transition: box-shadow $transition-base, border-color $transition-base;
+  }
+
+  .cycleLabel {
+    display: inline-block;
+    background: #fbbf24;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: $font-semibold;
+    border-radius: $radius-md;
+    padding: 0.1rem 0.7rem;
+    margin-left: $spacing-sm;
+    margin-top: 0.2rem;
+  }
+
+  .acceptanceBarWrapper {
+    margin-top: -24px;
+    position: relative;
+  }
+
+  .acceptanceBar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 14px;
+    border-radius: $radius-md;
+    background: linear-gradient(90deg, #fbbf24 0%, #f59e42 100%);
+    border: 2px solid #f59e42;
+    font-weight: 700;
+    font-size: 1rem;
+    min-height: 36px;
+    box-shadow: 0 4px 12px rgba(251,191,36,0.10);
+    color: #7c4700;
+    user-select: none;
+    width: 100%;
+
+    .barLine {
+      flex: 1;
+      height: 3px;
+      background: #e67c00;
+      border-radius: 2px;
+
+      &.left {
+        margin-right: 12px;
+        min-width: 16px;
+      }
+
+      &.right {
+        margin-left: 12px;
+        min-width: 16px;
+      }
     }
 
-    .cycleLabel {
-      display: inline-block;
-      background: #fbbf24;
-      color: white;
-      font-size: 0.85rem;
-      font-weight: $font-semibold;
-      border-radius: $radius-md;
-      padding: 0.1rem 0.7rem;
-      margin-left: $spacing-sm;
-      margin-top: 0.2rem;
+    .barText {
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+      letter-spacing: 1px;
+      color: #fff;
     }
+  }
+
+  .overlappingCard {
+    margin-top: -12px;
+    position: relative;
+  }
+
+  .stackedContent {
+    align-items: flex-start;
   }
 }
 
