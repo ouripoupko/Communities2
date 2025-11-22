@@ -32,7 +32,6 @@ const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
         communityId,
         agentPublicKey,
       );
-      console.log('Agent approved or at least request sent to approve');
       onClose();
     } catch (error) {
       console.error('Failed to approve agent:', error);

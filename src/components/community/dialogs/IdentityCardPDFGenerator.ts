@@ -52,7 +52,6 @@ export const generateIdentityCardPDF = async ({
           width: 428,
           height: 270,
           onRenderComplete: () => {
-            console.log('SVG render complete via callback');
             clearTimeout(timeout);
             resolve();
           }

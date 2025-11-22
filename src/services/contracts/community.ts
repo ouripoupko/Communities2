@@ -229,7 +229,7 @@ export async function requestJoin(
   contractId: string,
 ) {
   // Call request_join on the community contract
-  await contractWrite({
+  const response = await contractWrite({
     serverUrl,
     publicKey,
     contractId,
@@ -238,6 +238,7 @@ export async function requestJoin(
       values: {},
     } as IMethod,
   });
+  return response;
 }
 
 /**

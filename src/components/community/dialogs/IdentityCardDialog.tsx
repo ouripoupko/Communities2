@@ -36,7 +36,6 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
   const handleDownloadCard = async () => {
     try {
       setIsGeneratingPDF(true);
-      console.log('Starting PDF download...');
       
       const memberName = userProfile.firstName && userProfile.lastName 
         ? `${userProfile.firstName} ${userProfile.lastName}` 
@@ -44,7 +43,6 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
       
       const memberInitial = userProfile.firstName ? userProfile.firstName.charAt(0).toUpperCase() : '?';
       
-      console.log('Generating PDF from SVG...');
       // Generate PDF directly from SVG using svg2pdf
       const pdfBlob = await generateIdentityCardPDF({
         communityName,
@@ -55,8 +53,6 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
         qrData,
       });
       
-      console.log('PDF blob generated, size:', pdfBlob.size);
-      
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
@@ -66,7 +62,6 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      console.log('PDF download completed');
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error generating PDF: ' + (error instanceof Error ? error.message : String(error)));

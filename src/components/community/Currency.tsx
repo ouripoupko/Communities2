@@ -112,13 +112,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
         mintValue,
         burnValue
       );
-      
-      // Refresh the data to get updated parameters
-      dispatch(fetchUserBalance({
-        serverUrl,
-        publicKey,
-        contractId: communityId,
-      }));
+
     } catch (error) {
       console.error('Failed to update parameters:', error);
       alert('Failed to update parameters. Please try again.');

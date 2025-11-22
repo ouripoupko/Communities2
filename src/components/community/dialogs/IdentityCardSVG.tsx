@@ -65,7 +65,6 @@ const IdentityCardSVG: React.FC<IdentityCardSVGProps> = ({
     const padding = fontSize; // Add some padding - fontsize/3*3
     canvas.width = textWidth + padding * 2;
     canvas.height = textHeight + padding * 2;
-    console.log('canvas', canvas.width, canvas.height, padding);
 
     // Set font and render text at known coordinates (with padding offset)
     ctx.font = `${fontWeight} ${fontSize * 3}px ${fontFamily}`;
@@ -109,7 +108,6 @@ const IdentityCardSVG: React.FC<IdentityCardSVGProps> = ({
         const observer = new MutationObserver(() => {
           const svgElement = tempDiv.querySelector('svg');
           if (svgElement) {
-            console.log('SVG element 1 found via MutationObserver');
             clearTimeout(timeout);
             observer.disconnect();
             

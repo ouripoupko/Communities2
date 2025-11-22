@@ -10,7 +10,6 @@ import { eventStreamService } from '../../services/eventStream';
 import type { BlockchainEvent } from '../../services/eventStream';
 import { useNavigate } from 'react-router-dom';
 import { joinContract } from '../../services/api';
-import { requestJoin } from '../../services/contracts/community';
 
 // No longer using CommunityInvite type; use plain object with server, agent, contract
 const JoinCommunity: React.FC = () => {
@@ -35,17 +34,13 @@ const JoinCommunity: React.FC = () => {
         setIsJoining(false);
         
         try {
-          if (serverUrl && publicKey && parsedInvite.contract) {
-            await requestJoin(serverUrl, publicKey, parsedInvite.contract);
-          }
-
           // Refresh contracts list from server and wait for it to complete
           if (serverUrl && publicKey) {
             await dispatch(fetchContracts());
           }
         } catch (error) {
-          console.error('Failed to call request_join:', error);
-          // Continue with the flow even if request_join fails
+          console.error('Failed to refresh contracts:', error);
+          // Continue with the flow even if refresh fails
         }
         
         // Reset all fields

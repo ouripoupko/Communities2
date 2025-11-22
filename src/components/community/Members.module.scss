@@ -21,6 +21,37 @@
     }
   }
 
+  .joinSection {
+    margin-bottom: $spacing-2xl;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .joinButton {
+    padding: $spacing-md $spacing-xl;
+    border-radius: $radius-lg;
+    font-size: $text-lg;
+    font-weight: $font-medium;
+    background-color: $primary;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background-color: $primary-dark;
+    }
+
+    &:active:not(:disabled) {
+      background-color: $primary-dark;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
   .section {
     margin-bottom: $spacing-2xl;
 

@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppSelector } from '../../store/hooks';
 import ApprovalDialog from './dialogs/ApprovalDialog';
+import MessageDialog from './dialogs/MessageDialog';
 import styles from './Members.module.scss';
+import { requestJoin } from '../../services/contracts/community';
+import { eventStreamService } from '../../services/eventStream';
+import type { BlockchainEvent } from '../../services/eventStream';
 
 interface MemberItemProps {
   publicKey: string;
@@ -63,10 +67,20 @@ interface MembersProps {
 }
 
 const Members: React.FC<MembersProps> = ({ communityId }) => {
-  const { communityMembers, communityTasks, profiles } = useAppSelector((state) => state.communities);
+  const { communityMembers, communityTasks, communityNominates, profiles } = useAppSelector((state) => state.communities);
+  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
   const tasks: Record<string, boolean> = communityTasks[communityId] || {};
   const taskAgents: string[] = Object.keys(tasks);
+  const nominates: string[] = Array.isArray(communityNominates[communityId]) ? communityNominates[communityId] : [];
+  const [isJoining, setIsJoining] = useState(false);
+  const [messageDialog, setMessageDialog] = useState<{
+    isOpen: boolean;
+    message: string;
+  }>({
+    isOpen: false,
+    message: ''
+  });
   
   // Filter out task agents who are already members to avoid duplicates in display
   const members: string[] = allMembers.filter(member => !taskAgents.includes(member));
@@ -125,6 +139,76 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
     }))
   ];
 
+  // Check if current user is already a member or has requested to join (in nominates)
+  const currentUserInList = publicKey && (
+    allMembers.includes(publicKey) || 
+    nominates.includes(publicKey)
+  );
+
+  const joinRequestResponseRef = useRef<any>(null);
+  const contractWriteListenerRef = useRef<((event: BlockchainEvent) => void) | null>(null);
+
+  const cleanupJoinListener = useCallback(() => {
+    if (contractWriteListenerRef.current) {
+      eventStreamService.removeEventListener('contract_write', contractWriteListenerRef.current);
+      contractWriteListenerRef.current = null;
+    }
+    joinRequestResponseRef.current = null;
+    setIsJoining(false);
+  }, []);
+
+  // Cleanup on unmount (user navigated away)
+  useEffect(() => {
+    return () => {
+      cleanupJoinListener();
+    };
+  }, [cleanupJoinListener]);
+
+  const handleJoinCommunity = async () => {
+    if (!serverUrl || !publicKey || !communityId) return;
+    
+    setIsJoining(true);
+    
+    // Register event listener before making the request
+    const handleContractWrite = (event: BlockchainEvent) => {
+      // Check if this event is for our community and matches our request
+      if (event.contract === communityId && joinRequestResponseRef.current) {
+        // Check if the 'request' field matches our response
+        if (event.request === joinRequestResponseRef.current) {
+          // Check the 'reply' field
+          if (event.reply === false) {
+            setMessageDialog({
+              isOpen: true,
+              message: 'There are currently too many nominates in the community. Please try again later.'
+            });
+          }
+          
+          // Clean up listener and state once we found the matching event
+          cleanupJoinListener();
+        }
+      }
+    };
+    
+    // Store the listener reference for cleanup
+    contractWriteListenerRef.current = handleContractWrite;
+    
+    // Register the event listener BEFORE making the request
+    eventStreamService.addEventListener('contract_write', handleContractWrite);
+    
+    try {
+      const response = await requestJoin(serverUrl, publicKey, communityId);
+      // Store the response to match against the event
+      // The listener will handle cleanup when the event arrives
+      joinRequestResponseRef.current = response;
+      // Don't set isJoining to false here - wait for the event
+    } catch (error) {
+      console.error('Failed to join community:', error);
+      alert('Failed to join community. Please try again.');
+      // Clean up listener on error - the request failed so no event will come
+      cleanupJoinListener();
+    }
+  };
+
   return (
     <>
       <div className={styles.container}>
@@ -132,6 +216,18 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
           <h2>Members</h2>
           <p>{allMembers.length} community members</p>
         </div>
+        
+        {!currentUserInList && publicKey && (
+          <div className={styles.joinSection}>
+            <button
+              onClick={handleJoinCommunity}
+              disabled={isJoining}
+              className={styles.joinButton}
+            >
+              {isJoining ? 'Joining...' : 'Join Community'}
+            </button>
+          </div>
+        )}
         
         <div className={styles.list}>
           {allPeople.length === 0 ? (
@@ -160,6 +256,12 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
         agentName={approvalDialog.agentName}
         agentProfileImage={approvalDialog.agentProfileImage}
         communityId={communityId}
+      />
+
+      <MessageDialog
+        isOpen={messageDialog.isOpen}
+        message={messageDialog.message}
+        onClose={() => setMessageDialog({ isOpen: false, message: '' })}
       />
     </>
   );

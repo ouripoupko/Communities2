@@ -19,6 +19,7 @@ interface CommunitiesState {
   communityProperties: Record<string, any>;
   communityMembers: Record<string, string[]>; // contractId -> array of member public keys
   communityTasks: Record<string, Record<string, boolean>>; // contractId -> agentId -> approval status
+  communityNominates: Record<string, string[]>; // contractId -> array of candidate public keys
   profiles: Record<string, IProfile>; // memberPublicKey -> IProfile (across all communities)
   loading: boolean;
   membersLoading: Record<string, boolean>; // contractId -> loading status for members
@@ -30,6 +31,7 @@ const initialState: CommunitiesState = {
   communityProperties: {},
   communityMembers: {},
   communityTasks: {},
+  communityNominates: {},
   profiles: {},
   loading: false,
   membersLoading: {},
@@ -81,6 +83,7 @@ export const fetchCommunityMembers = createAsyncThunk(
       const allPeople = allPeopleResult as { tasks: any; members: any; nominates: any };
       const members = Object.keys(allPeople.members) as string[];
       const taskAgents = Object.keys(allPeople.tasks) as string[];
+      const nominates = Array.isArray(allPeople.nominates) ? allPeople.nominates : [];
       
       // Step 3: For each member and task agent, fetch their profile in parallel
       // Create a map of agent to partner info for quick lookup
@@ -89,7 +92,7 @@ export const fetchCommunityMembers = createAsyncThunk(
         partnerMap.set(partner.agent, partner);
       });
 
-      // Combine members and task agents for profile fetching
+      // Combine members and task agents for profile fetching (nominates don't need profiles - they're just used to check if user has requested to join)
       const allAgents = [...members, ...taskAgents];
 
       // Return members data immediately, don't wait for profiles
@@ -97,6 +100,7 @@ export const fetchCommunityMembers = createAsyncThunk(
         contractId, 
         members: members, // Just the array of member public keys
         tasks: allPeople.tasks, // Tasks dictionary
+        nominates: nominates, // Array of candidate public keys
         newProfiles: {} // No profiles yet, they'll be loaded individually
       };
 
@@ -154,6 +158,7 @@ const communitiesSlice = createSlice({
       delete state.communityProperties[contractId];
       delete state.communityMembers[contractId];
       delete state.communityTasks[contractId];
+      delete state.communityNominates[contractId];
       delete state.membersLoading[contractId];
       // Note: We don't delete from profiles as they might be used by other communities
     },
@@ -188,6 +193,8 @@ const communitiesSlice = createSlice({
         state.communityMembers[action.payload.contractId] = action.payload.members;
         // Store the tasks dictionary for this community
         state.communityTasks[action.payload.contractId] = action.payload.tasks;
+        // Store the array of candidate public keys for this community
+        state.communityNominates[action.payload.contractId] = action.payload.nominates;
         // Merge new profiles into the global profiles dictionary
         Object.assign(state.profiles, action.payload.newProfiles);
       })

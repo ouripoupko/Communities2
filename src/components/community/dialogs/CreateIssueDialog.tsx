@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { fetchCommunityIssues } from '../../../store/slices/issuesSlice';
+import { useAppSelector } from '../../../store/hooks';
 import styles from './CreateIssueDialog.module.scss';
 import { createIssue } from '../../../services/contracts/community';
 
@@ -11,7 +10,6 @@ interface CreateIssueDialogProps {
 }
 
 const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({ isVisible, onClose, communityId }) => {
-  const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user);
   const [newIssueTitle, setNewIssueTitle] = useState('');
   const [newIssueDescription, setNewIssueDescription] = useState('');
@@ -38,13 +36,6 @@ const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({ isVisible, onClos
         },
       );
 
-      // 4. Fetch the updated issues list
-      await dispatch(fetchCommunityIssues({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: communityId,
-      }));
-      
       // Reset form and close dialog
       setNewIssueTitle('');
       setNewIssueDescription('');

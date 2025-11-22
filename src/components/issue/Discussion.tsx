@@ -115,13 +115,6 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         comment,
       );
 
-      // Reload comments to get the updated list
-      await dispatch(getComments({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-      }));
-
       setNewComment('');
     } catch (error) {
       console.error('Failed to add comment:', error);
@@ -147,13 +140,6 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
         issueId,
         reply,
       );
-
-      // Reload comments to get the updated list
-      await dispatch(getComments({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-      }));
 
       setReplyContent('');
       setReplyingTo(null);

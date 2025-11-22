@@ -47,6 +47,13 @@ const CommunityView: React.FC = () => {
   const contract = useMemo(() => contracts.find((c: any) => c.id === communityId), [contracts, communityId]);
   const props = contract ? communityProperties[contract.id] || {} : null;
 
+  // Check if current user is a member of the community
+  const isCurrentUserMember = useMemo(() => {
+    if (!publicKey || !communityMembers[communityId]) return false;
+    const members = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+    return members.includes(publicKey);
+  }, [publicKey, communityId, communityMembers]);
+
   // Memoize the event handler for members
   const handleContractWrite = useCallback((event: BlockchainEvent) => {
     if (event.contract === communityId && publicKey && serverUrl && communityId) {
@@ -131,7 +138,7 @@ const CommunityView: React.FC = () => {
     );
   }
 
-  const actionButtons = [
+  const actionButtons = isCurrentUserMember ? [
     {
       icon: IdCard,
       label: 'ID Card',
@@ -144,7 +151,7 @@ const CommunityView: React.FC = () => {
       onClick: () => setShowQRScanner(true),
       title: 'Scan QR Code'
     }
-  ];
+  ] : [];
 
   const rightLabel = (
     <span className={styles.stat}>

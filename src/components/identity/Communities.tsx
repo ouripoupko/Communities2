@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -20,12 +20,20 @@ const Communities: React.FC = () => {
     (contract) => contract.contract === 'community_contract.py'
   );
 
-  // Listen for contract deployment events
-  useEventStream('deploy_contract', () => {
+  // Memoize the event handler to prevent unnecessary re-registrations
+  const handleDeployContract = useCallback(() => {
     if (user.publicKey && user.serverUrl) {
       dispatch(fetchContracts());
     }
-  });
+  }, [user.publicKey, user.serverUrl, dispatch]);
+
+  // Listen for contract deployment events
+  useEventStream('deploy_contract', handleDeployContract);
+
+  // Memoize the close handler to prevent dialog re-renders
+  const handleCloseDialog = useCallback(() => {
+    setShowCreateForm(false);
+  }, []);
 
   // Note: Community details will be fetched when navigating to specific community pages
 
@@ -64,7 +72,7 @@ const Communities: React.FC = () => {
 
       <CreateCommunityDialog 
         isVisible={showCreateForm} 
-        onClose={() => setShowCreateForm(false)} 
+        onClose={handleCloseDialog} 
       />
 
       <div className={styles.grid}>

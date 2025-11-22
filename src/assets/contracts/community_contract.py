@@ -141,6 +141,8 @@ class Community:
                             del self.approvals[member]
 
     def check_balance(self, account, update = False):
+        if account not in self.accounts:
+            return 0
         account_data = self.accounts[account].get_dict()
         # to count days divide by 86400. for testing, divide by 60
         time_passed = elapsed_time(account_data['creationTime'], timestamp()) / 600
@@ -160,6 +162,8 @@ class Community:
 
     def transfer(self, to, value):
         sender = master()
+        if sender not in self.accounts or to not in self.accounts:
+            return False
         self.check_balance(sender, True)
         self.check_balance(to, True)
 

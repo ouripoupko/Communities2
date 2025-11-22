@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { getProposals } from '../../store/slices/issuesSlice';
 import styles from './Proposals.module.scss';
 import { addProposal } from '../../services/contracts/issue';
 import CreateProposal from './dialogs/CreateProposal';
@@ -78,13 +77,6 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
       issueId,
       proposal,
     );
-    
-    // Refresh proposals using the centralized loading mechanism
-    await dispatch(getProposals({
-      serverUrl: issueHostServer,
-      publicKey: issueHostAgent,
-      contractId: issueId,
-    }));
     
     setShowCreateForm(false);
   }, [issueId, issueHostServer, issueHostAgent, dispatch, user.publicKey]);

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import { fetchContracts } from '../../../store/slices/userSlice';
+import { useAppSelector } from '../../../store/hooks';
 import styles from './CreateCommunityDialog.module.scss';
 import { createCommunity } from '../../../services/contracts/community';
 
@@ -10,7 +9,6 @@ interface CreateCommunityDialogProps {
 }
 
 const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible, onClose }) => {
-  const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [newCommunityDescription, setNewCommunityDescription] = useState('');
@@ -33,26 +31,27 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
         newCommunityName,
         newCommunityDescription,
         user.profileContractId,
-      )
+      );
       
-      // Reset form and close dialog
+      // Close dialog first, before resetting form
+      onClose();
+      
+      // Reset form after closing
       setNewCommunityName('');
       setNewCommunityDescription('');
       setError(null);
-      onClose();
-      
-      // Refresh contracts list
-      dispatch(fetchContracts());
+      setIsSubmitting(false);
       
     } catch (error) {
       console.error('Failed to create community:', error);
       setError('Failed to create community. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
+    if (isSubmitting) return; // Prevent closing during submission
+    
     setNewCommunityName('');
     setNewCommunityDescription('');
     setError(null);

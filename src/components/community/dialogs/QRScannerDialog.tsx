@@ -34,15 +34,6 @@ const QRScannerDialog: React.FC<QRScannerDialogProps> = ({
 
   const { communityMembers, profiles } = useAppSelector(state => state.communities);
   const { contracts } = useAppSelector(state => state.user);
-  // Debug logging when dialog opens
-  React.useEffect(() => {
-    if (isOpen) {
-      console.log('QR Scanner Dialog opened');
-      console.log('QR Scanner Dialog - isOpen:', isOpen);
-    } else {
-      console.log('QR Scanner Dialog closed');
-    }
-  }, [isOpen]);
   const handleScanResult = async (codes: { rawValue: string }[]) => {
     if (codes && codes.length > 0 && codes[0].rawValue) {
       const qrData = codes[0].rawValue;
