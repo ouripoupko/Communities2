@@ -69,6 +69,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   }, [communityId, publicKey, serverUrl, dispatch]);
 
   const handlePayment = async () => {
+    console.log('handlePayment', selectedMember, amount);
     if (!selectedMember || !amount || parseFloat(amount) <= 0) return;
     
     const paymentAmount = parseFloat(amount);

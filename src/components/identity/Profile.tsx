@@ -12,6 +12,7 @@ const Profile: React.FC = () => {
   const { isConnected } = useEventStreamConnection();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
@@ -28,6 +29,7 @@ const Profile: React.FC = () => {
       setFirstName(user.profile.firstName || '');
       setLastName(user.profile.lastName || '');
       setImageData(user.profile.userPhoto || null);
+      setOpenaiApiKey(user.profile.openaiApiKey || '');
       setImageUploadError(null); // Clear any previous image upload errors
     }
   }, [user.profile]);
@@ -93,7 +95,8 @@ const Profile: React.FC = () => {
           firstName,
           lastName,
           imageData,
-        )
+          openaiApiKey,
+        );
         
         // Profile data will be refreshed automatically via SSE event
         setIsEditing(false);
@@ -249,6 +252,19 @@ const Profile: React.FC = () => {
               />
             </div>
 
+            <div className="form-group">
+              <label htmlFor="openaiApiKey">OpenAI API Key</label>
+              <input
+                id="openaiApiKey"
+                type="password"
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+                disabled={!isEditing}
+                className="input-field"
+                placeholder="Enter your OpenAI API key"
+              />
+            </div>
+
             {saveError && (
               <div className={styles.errorMessage}>
                 <div className={styles.errorIcon}>⚠️</div>
@@ -276,6 +292,7 @@ const Profile: React.FC = () => {
                       setFirstName(user.profile?.firstName || '');
                       setLastName(user.profile?.lastName || '');
                       setImageData(user.profile?.userPhoto || null);
+                      setOpenaiApiKey(user.profile?.openaiApiKey || '');
                       setSaveError(null);
                     }}
                     className="cancel-button"

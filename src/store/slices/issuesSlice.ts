@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getIssues } from '../../services/contracts/community';
-import { getCommentsFromServer, getIssue, getProposalsFromServer } from '../../services/contracts/issue';
+import { getAiFeedback, getCommentsFromServer, getIssue, getProposalsFromServer } from '../../services/contracts/issue';
 
 // Define Proposal and CommunityIssue interfaces
 interface Proposal {
@@ -108,12 +108,24 @@ export const fetchCommunityIssues = createAsyncThunk(
 export const fetchIssueDetails = createAsyncThunk(
   'issues/fetchIssueDetails',
   async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await getIssue(
-      args.serverUrl,
-      args.publicKey,
-      args.contractId,
-    );
-    return { contractId: args.contractId, issueDetails: result };
+    const [issueResult, aiFeedbackRaw] = await Promise.all([
+      getIssue(args.serverUrl, args.publicKey, args.contractId),
+      getAiFeedback(args.serverUrl, args.publicKey, args.contractId).catch(
+        () => null,
+      ),
+    ]);
+    const aiFeedback =
+      typeof aiFeedbackRaw === 'string'
+        ? aiFeedbackRaw
+        : aiFeedbackRaw != null &&
+            typeof (aiFeedbackRaw as { value?: string }).value === 'string'
+          ? (aiFeedbackRaw as { value: string }).value
+          : '';
+    const issueDetails =
+      typeof issueResult === 'object' && issueResult !== null
+        ? { ...issueResult, ai_feedback: aiFeedback }
+        : { ...issueResult, ai_feedback: aiFeedback };
+    return { contractId: args.contractId, issueDetails };
   }
 );
 
@@ -151,6 +163,16 @@ const issuesSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    /** Update only ai_feedback for an issue (avoids full refetch and UI flicker) */
+    setIssueAiFeedback: (
+      state,
+      action: PayloadAction<{ contractId: string; aiFeedback: string }>,
+    ) => {
+      const { contractId, aiFeedback } = action.payload;
+      if (state.issueDetails[contractId]) {
+        state.issueDetails[contractId].ai_feedback = aiFeedback;
+      }
     },
   },
   extraReducers: (builder) => {
@@ -295,5 +317,5 @@ const issuesSlice = createSlice({
   },
 });
 
-export const { setCurrentIssue, clearError } = issuesSlice.actions;
+export const { setCurrentIssue, clearError, setIssueAiFeedback } = issuesSlice.actions;
 export default issuesSlice.reducer; 

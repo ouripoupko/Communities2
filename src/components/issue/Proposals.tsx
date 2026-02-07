@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { Plus, Sparkles } from 'lucide-react';
+import { useAppSelector } from '../../store/hooks';
 import styles from './Proposals.module.scss';
-import { addProposal } from '../../services/contracts/issue';
+import { addProposal, setAiFeedback } from '../../services/contracts/issue';
+import { fetchIssueSummary } from '../../services/openai';
 import CreateProposal from './dialogs/CreateProposal';
+import AIFeedbackDialog from './dialogs/AIFeedbackDialog';
 
 interface Proposal {
   id: string;
@@ -22,12 +24,21 @@ interface ProposalsProps {
 
 const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
-  const dispatch = useAppDispatch();
   const issueProposals = useAppSelector((state) => state.issues.issueProposals);
+  const issueDetails = useAppSelector((state) => state.issues.issueDetails);
+  const issueComments = useAppSelector((state) => state.issues.issueComments);
   const proposals: Proposal[] = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showAIFeedback, setShowAIFeedback] = useState(false);
   const user = useAppSelector((state) => state.user);
   const profiles = useAppSelector((state) => state.communities.profiles);
+
+  const currentIssueDetails = issueId ? issueDetails[issueId] : null;
+  const comments = Array.isArray(issueComments[issueId]) ? issueComments[issueId] : [];
+  const storedAiFeedback =
+    currentIssueDetails?.ai_feedback != null && currentIssueDetails.ai_feedback !== ''
+      ? String(currentIssueDetails.ai_feedback)
+      : null;
 
   // Decode the issue host server URL
   const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
@@ -61,7 +72,7 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
 
   const handleSubmitProposal = useCallback(async (title: string, description: string) => {
     if (!issueId || !issueHostServer || !issueHostAgent) throw new Error('Missing required parameters');
-    
+
     const proposal: Proposal = {
       id: Date.now().toString(),
       title,
@@ -70,16 +81,50 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
       createdAt: new Date().toISOString(),
       voteCount: 0,
     };
-    
+
     await addProposal(
       issueHostServer,
       issueHostAgent,
       issueId,
       proposal,
     );
-    
+
     setShowCreateForm(false);
-  }, [issueId, issueHostServer, issueHostAgent, dispatch, user.publicKey]);
+
+    const apiKey = user.profile?.openaiApiKey?.trim();
+    if (apiKey) {
+      try {
+        const proposalsWithNew = [...proposals, proposal];
+        const summary = await fetchIssueSummary(apiKey, {
+          issueName: currentIssueDetails?.name,
+          issueDescription: currentIssueDetails?.description,
+          comments: comments.map((c: { author?: string; content: string }) => ({
+            author: c.author,
+            content: c.content ?? '',
+          })),
+          proposals: proposalsWithNew.map((p) => ({
+            title: p.title,
+            description: p.description,
+            author: p.author,
+          })),
+          votes: currentIssueDetails?.votes,
+        });
+        await setAiFeedback(issueHostServer, issueHostAgent, issueId, summary);
+        // Do not update store here. New ai_feedback will appear when SSE contract_write triggers a refetch.
+      } catch (err) {
+        console.error('AI feedback update failed:', err);
+      }
+    }
+  }, [
+    issueId,
+    issueHostServer,
+    issueHostAgent,
+    user.publicKey,
+    user.profile?.openaiApiKey,
+    proposals,
+    currentIssueDetails,
+    comments,
+  ]);
 
   // Show message when no proposals exist (proposals are already loaded by parent)
   if (proposals.length === 0) {
@@ -90,22 +135,38 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
             <h2>Proposals</h2>
             <p>Review and vote on proposed solutions</p>
           </div>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className={styles.createButton}
-          >
-            <Plus size={20} />
-            Add Proposal
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              onClick={() => setShowAIFeedback(true)}
+              className={styles.aiFeedbackButton}
+              type="button"
+              title="View AI summary of community opinions"
+            >
+              <Sparkles size={18} />
+              AI feedback
+            </button>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className={styles.createButton}
+            >
+              <Plus size={20} />
+              Add Proposal
+            </button>
+          </div>
         </div>
         <div className={styles.noProposals}>
           <p>No proposals have been submitted for this issue yet.</p>
         </div>
-        
+
         <CreateProposal 
           isVisible={showCreateForm}
           onClose={handleCloseForm}
           onSubmit={handleSubmitProposal}
+        />
+        <AIFeedbackDialog
+          isVisible={showAIFeedback}
+          onClose={() => setShowAIFeedback(false)}
+          aiFeedback={storedAiFeedback}
         />
       </div>
     );
@@ -118,18 +179,34 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
           <h2>Proposals</h2>
           <p>Review and vote on proposed solutions</p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className={styles.createButton}
-        >
-          <Plus size={20} />
-          Add Proposal
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            onClick={() => setShowAIFeedback(true)}
+            className={styles.aiFeedbackButton}
+            type="button"
+            title="View AI summary of community opinions"
+          >
+            <Sparkles size={18} />
+            AI feedback
+          </button>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className={styles.createButton}
+          >
+            <Plus size={20} />
+            Add Proposal
+          </button>
+        </div>
       </div>
       <CreateProposal 
         isVisible={showCreateForm}
         onClose={handleCloseForm}
         onSubmit={handleSubmitProposal}
+      />
+      <AIFeedbackDialog
+        isVisible={showAIFeedback}
+        onClose={() => setShowAIFeedback(false)}
+        aiFeedback={storedAiFeedback}
       />
       <div className={styles.list}>
         {proposals.map((proposal) => (

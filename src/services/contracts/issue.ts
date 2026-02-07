@@ -131,3 +131,43 @@ export async function addVote(
     } as IMethod,
   });
 }
+
+/**
+ * Get stored AI feedback for the issue.
+ * Backend may return a string or a wrapped object (e.g. { value: string }).
+ */
+export async function getAiFeedback(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+): Promise<unknown> {
+  return await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'get_ai_feedback',
+      values: {},
+    } as IMethod,
+  });
+}
+
+/**
+ * Store AI feedback on the issue contract
+ */
+export async function setAiFeedback(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  feedback: string,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'set_ai_feedback',
+      values: { feedback },
+    } as IMethod,
+  });
+}

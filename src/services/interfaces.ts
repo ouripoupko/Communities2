@@ -25,6 +25,9 @@ export interface IContract {
     lastName: string;
     userPhoto: string;
     userBio: string;
+    // Optional field for storing per-user AI configuration (e.g. OpenAI API key)
+    // This is read from the gloki/profile contract as a simple key-value.
+    openaiApiKey?: string;
   }
 
   export interface IPartner {

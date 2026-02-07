@@ -216,19 +216,18 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
   // Decode the issue host server URL
   const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
 
-
-
-  // Initialize order from user's vote or default
+  // Sync order from server when data updates. While the user has unsaved changes (dragging, not submitted), do not overwrite.
   useEffect(() => {
-    if (proposals.length === 0) {
-      return;
-    }
+    if (proposals.length === 0) return;
+    const hasUnsavedOrder =
+      !hasVoted && JSON.stringify(currentOrder) !== JSON.stringify(originalOrder);
+    if (hasUnsavedOrder) return;
 
     let userOrder: string[] | undefined;
     if (issueDetails.votes && user.publicKey && issueDetails.votes[user.publicKey]) {
       userOrder = issueDetails.votes[user.publicKey].order;
     }
-    
+
     if (userOrder && Array.isArray(userOrder) && userOrder.length > 0) {
       setOriginalOrder(userOrder);
       setCurrentOrder(userOrder);
@@ -239,7 +238,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
       setCurrentOrder(order);
       setHasVoted(false);
     }
-  }, [proposals, issueDetails.votes, user.publicKey]);
+  }, [issueId, proposals, issueDetails.votes, user.publicKey, hasVoted, currentOrder, originalOrder]);
 
   const moveCard = useCallback((fromIndex: number, toIndex: number) => {
     setCurrentOrder(prevOrder => {
@@ -265,6 +264,7 @@ const Vote: React.FC<VoteProps> = ({ issueId }) => {
       );
 
       setHasVoted(true);
+      setOriginalOrder(currentOrder);
     } catch (error) {
       console.error('Error submitting vote:', error);
     } finally {

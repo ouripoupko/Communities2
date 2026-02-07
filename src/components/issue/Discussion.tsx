@@ -24,12 +24,24 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
   const { issueHostServer: encodedIssueHostServer, issueHostAgent } = useParams<{ issueHostServer: string; issueHostAgent: string }>();
   const dispatch = useAppDispatch();
   const { issueDetails, issueComments, issueProposals } = useAppSelector((state) => state.issues);
+  const profiles = useAppSelector((state) => state.communities.profiles);
   const currentIssue = issueDetails[issueId];
   const comments = Array.isArray(issueComments[issueId]) ? issueComments[issueId] : [];
   const proposals = Array.isArray(issueProposals[issueId]) ? issueProposals[issueId] : [];
   
   // Decode the issue host server URL
   const issueHostServer = encodedIssueHostServer ? decodeURIComponent(encodedIssueHostServer) : '';
+
+  const getAuthorDisplayName = (authorKey: string): string => {
+    if (userPublicKey && authorKey === userPublicKey) return 'You';
+    const profile = profiles[authorKey];
+    if (profile) {
+      const fullName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+      if (fullName) return fullName;
+    }
+    if (authorKey.length > 20) return `${authorKey.substring(0, 20)}...`;
+    return authorKey;
+  };
   
   // Get description from real issue data
   const getIssueDescription = () => {
@@ -99,10 +111,10 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
     if (!newComment.trim() || !issueId || !issueHostServer || !issueHostAgent) return;
 
     try {
-      // Create comment object with tree structure
+      // Create comment object with tree structure (store public key so "You" is shown only for current user)
       const comment = {
         id: Date.now().toString(),
-        author: 'You', // This could be enhanced to get real user info
+        author: userPublicKey ?? '',
         content: newComment,
         createdAt: new Date().toISOString(),
         parentId: null, // Top-level comment
@@ -125,10 +137,10 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
     if (!replyContent.trim() || !issueId || !issueHostServer || !issueHostAgent) return;
 
     try {
-      // Create reply comment object
+      // Create reply comment object (store public key so "You" is shown only for current user)
       const reply = {
         id: Date.now().toString(),
-        author: 'You', // This could be enhanced to get real user info
+        author: userPublicKey ?? '',
         content: replyContent,
         createdAt: new Date().toISOString(),
         parentId: commentId,
@@ -207,7 +219,7 @@ const Discussion: React.FC<DiscussionProps> = ({ issueId }) => {
       <div key={comment.id} className={`${styles.comment} ${isReply ? styles.reply : ''}`}>
         <div className={styles.commentHeader}>
           <div className={styles.commentAuthor}>
-            <strong>{comment.author}</strong>
+            <strong>{getAuthorDisplayName(comment.author)}</strong>
             <span className={styles.commentDate}>
               {new Date(comment.createdAt).toLocaleDateString()}
             </span>

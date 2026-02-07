@@ -132,8 +132,10 @@ const IssueView: React.FC = () => {
     { path: 'outcome', label: 'Outcome', icon: BarChart3 },
   ];
 
-  // Show loading state while essential data is being fetched
-  if (!currentIssue || isProposalsLoading) {
+  // Show full-page loading only on initial load, not when refetching (e.g. after SSE).
+  // This keeps the dialog open and avoids flicker when proposals or issue details update.
+  const isInitialProposalsLoad = isProposalsLoading && currentProposals.length === 0;
+  if (!currentIssue || isInitialProposalsLoad) {
     return (
       <div className={styles.container}>
         <div className={styles.loadingState}>

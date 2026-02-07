@@ -130,14 +130,9 @@ const JoinCommunity: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Join Community</h1>
-        <p>Scan a QR code or manually enter community credentials</p>
-      </div>
-
       <div className={styles.content}>
+        <p className={styles.introLine}>Scan a QR code or manually enter community credentials.</p>
         <div className={styles.scanSection}>
-          <h3>Scan QR Code</h3>
           <div className={styles.scanArea}>
             {showScanner ? (
               <div className={styles.scannerModal}>
@@ -166,6 +161,38 @@ const JoinCommunity: React.FC = () => {
           </div>
         </div>
 
+        <div className={styles.joinActions}>
+          <button
+            onClick={handleJoinCommunity}
+            disabled={
+              isJoining ||
+              isResetting ||
+              !parsedInvite ||
+              !parsedInvite?.server ||
+              !parsedInvite?.agent ||
+              !parsedInvite?.contract
+            }
+            className={styles.joinButton}
+          >
+            {isJoining ? (
+              <>
+                <div className={styles.loadingSpinnerSmall}></div>
+                Joining... Waiting for confirmation
+              </>
+            ) : isResetting ? (
+              <>
+                <div className={styles.loadingSpinnerSmall}></div>
+                Resetting...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={16} />
+                Join Community
+              </>
+            )}
+          </button>
+        </div>
+
         <div className={styles.manualInputSection}>
           <h3>Manual Input</h3>
           <div className="form-group">
@@ -181,42 +208,8 @@ const JoinCommunity: React.FC = () => {
           </div>
         </div>
 
-        {parsedInvite && (
-          <div className={styles.joinActions}>
-            <button
-              onClick={handleJoinCommunity}
-              disabled={
-                isJoining ||
-                isResetting ||
-                !parsedInvite ||
-                !parsedInvite.server ||
-                !parsedInvite.agent ||
-                !parsedInvite.contract
-              }
-              className={styles.joinButton}
-            >
-              {isJoining ? (
-                <>
-                  <div className="loading-spinner-small"></div>
-                  Joining... Waiting for confirmation
-                </>
-              ) : isResetting ? (
-                <>
-                  <div className="loading-spinner-small"></div>
-                  Resetting...
-                </>
-              ) : (
-                <>
-                  <CheckCircle size={16} />
-                  Join Community
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
         {joinSuccess && (
-          <div className="success-message">
+          <div className={styles.successMessage}>
             <CheckCircle size={24} />
             <h4>Successfully joined community!</h4>
             <p>You can now access the community from your Communities page.</p>
@@ -224,7 +217,7 @@ const JoinCommunity: React.FC = () => {
         )}
 
         {scannedData && !parsedInvite && (
-          <div className="error-message">
+          <div className={styles.errorMessage}>
             <AlertCircle size={24} />
             <h4>Invalid QR Code Data</h4>
             <p>The scanned data doesn't contain valid community credentials.</p>
