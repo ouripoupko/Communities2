@@ -86,3 +86,117 @@ export async function fetchIssueSummary(
   if (content == null) throw new Error('Empty response from OpenAI');
   return content;
 }
+
+// Roadmap synthesis for initiative vision
+const ROADMAP_SYNTHESIS_SYSTEM_PROMPT = `You are a social mediator for a community initiative. Below is a list of roadmap segments contributed by different people. Some might overlap, contradict, or be redundant. Your task is to:
+
+1. Synthesize these points into a coherent, poetic, and professional roadmap.
+2. Ensure NO individual intent is lost, but the phrasing is unified.
+3. Output the result as a list of 'Refined Segments' – one segment per line, numbered (1., 2., 3., etc.).
+4. Each refined segment should be a complete sentence or short paragraph.
+5. Do not add commentary – only output the refined segments.`;
+
+export async function fetchRoadmapSynthesis(
+  apiKey: string,
+  segments: Array<{ author?: string; text: string }>,
+): Promise<string> {
+  const segmentList = segments
+    .map((s) => `- ${s.text}`)
+    .join('\n');
+  const userMessage = segmentList || 'No segments yet.';
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: ROADMAP_SYNTHESIS_SYSTEM_PROMPT },
+        { role: 'user', content: userMessage },
+      ],
+      max_tokens: 1500,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(err || `OpenAI API error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content?.trim();
+  if (content == null) throw new Error('Empty response from OpenAI');
+  return content;
+}
+
+// Related wishes - find potential collaborations
+const RELATED_WISHES_SYSTEM_PROMPT = `You are helping a community connect related wishes. Given a focal wish and a list of other community wishes, identify which ones have high collaboration potential—themes that align, complement, or could be pursued together.
+
+Respond with a JSON array of wish IDs only, in order of relevance (most relevant first). Example: ["id3", "id1", "id7"]
+Include only wishes that genuinely have collaboration potential. If none match well, return [].`;
+
+export interface RelatedWishInput {
+  currentWish: { id: string; title: string; dreamNeed?: string };
+  communityWishes: Array<{ id: string; title: string; dreamNeed?: string; author?: string }>;
+}
+
+export async function fetchRelatedWishMatches(
+  apiKey: string,
+  input: RelatedWishInput,
+): Promise<string[]> {
+  const wishList = input.communityWishes
+    .filter((w) => w.id !== input.currentWish.id)
+    .map(
+      (w) =>
+        `- id="${w.id}" title="${w.title}" ${w.dreamNeed ? `dreamNeed="${w.dreamNeed.slice(0, 200)}"` : ''}`,
+    )
+    .join('\n');
+
+  const userMessage = `## Focal wish
+id="${input.currentWish.id}" title="${input.currentWish.title}"
+dreamNeed: ${input.currentWish.dreamNeed || '(none)'}
+
+## Other community wishes
+${wishList || 'No other wishes.'}
+
+Return a JSON array of IDs with high collaboration potential.`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: RELATED_WISHES_SYSTEM_PROMPT },
+        { role: 'user', content: userMessage },
+      ],
+      max_tokens: 500,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(err || `OpenAI API error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content?.trim();
+  if (content == null) throw new Error('Empty response from OpenAI');
+
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}

@@ -7,6 +7,7 @@ class Community:
         self.approvals = self.db['approvals']
         self.properties = self.db['properties']
         self.sub_contracts = self.db['sub_contracts']
+        self.collaborations = Storage('collaborations')
         self.issues = Storage('issues')
         self.accounts = Storage('accounts')
         if 'centralAccount' not in self.accounts:
@@ -18,6 +19,12 @@ class Community:
 
     def get_issues(self):
         return [self.issues[key].get_dict() for key in self.issues]
+
+    def add_collaboration(self, collaboration):
+        self.collaborations.append(collaboration)
+
+    def get_collaborations(self):
+        return [self.collaborations[key].get_dict() for key in self.collaborations]
 
     def set_instructions(self, instructions):
         self.properties['instructions'] = instructions

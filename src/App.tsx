@@ -14,6 +14,8 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
 const IssueView = lazy(() => import('./pages/IssueView'));
+const InitiativeView = lazy(() => import('./pages/InitiativeView'));
+const WishView = lazy(() => import('./pages/WishView'));
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +45,8 @@ function AppContent() {
           <Route path="/identity/*" element={<IdentityView />} />
           <Route path="/community/:communityId/*" element={<CommunityView />} />
           <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
+          <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />
+          <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
         </Routes>
       </Suspense>
     </Router>

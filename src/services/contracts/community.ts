@@ -2,6 +2,7 @@ import { contractRead, contractWrite, deployContract } from '../api';
 import type { IMethod } from '../interfaces';
 import communityContractCode from '../../assets/contracts/community_contract.py?raw';
 import issueContractCode from '../../assets/contracts/issue_contract.py?raw';
+import initiativeContractCode from '../../assets/contracts/initiative_contract.py?raw';
 
 /**
  * Community contract interface
@@ -218,6 +219,115 @@ export async function getIssues(
     contractId,
     method: {
       name: 'get_issues',
+      values: {},
+    } as IMethod,
+  });
+}
+
+export interface Collaboration {
+  id: string;
+  type: 'initiative' | 'wish' | 'agreement';
+  title: string;
+  description?: string;
+  dreamNeed?: string;
+  rule?: string;
+  protection?: string;
+  currencyGathered?: number;
+  currencyGoal?: number;
+  consensusStatus?: string;
+  createdAt: number;
+  activityCount?: number;
+  hostServer?: string;
+  hostAgent?: string;
+  author?: string;
+}
+
+/**
+ * Create an initiative (deploy contract + add to community)
+ */
+export async function createInitiative(
+  serverUrl: string,
+  publicKey: string,
+  communityId: string,
+  initiative: { title: string; description?: string },
+) {
+  const response = await deployContract({
+    serverUrl,
+    publicKey,
+    name: initiative.title,
+    contract: 'initiative_contract.py',
+    code: initiativeContractCode,
+  });
+  const initiativeId = (response as { id?: string }).id || (response as string);
+
+  const details = {
+    title: initiative.title,
+    description: initiative.description || '',
+    createdAt: Date.now(),
+    currencyGoal: 100,
+    currencyGathered: 0,
+    activityCount: 0,
+  };
+  await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId: initiativeId,
+    method: {
+      name: 'set_details',
+      values: { details },
+    } as IMethod,
+  });
+
+  const collaboration: Collaboration = {
+    id: initiativeId,
+    type: 'initiative',
+    title: initiative.title,
+    description: initiative.description,
+    currencyGathered: 0,
+    currencyGoal: 100,
+    createdAt: Date.now(),
+    activityCount: 0,
+    hostServer: serverUrl,
+    hostAgent: publicKey,
+  };
+  await addCollaboration(serverUrl, publicKey, communityId, collaboration);
+  return initiativeId;
+}
+
+/**
+ * Add a collaboration (initiative, wish, or agreement) to the community
+ */
+export async function addCollaboration(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  collaboration: Collaboration,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'add_collaboration',
+      values: { collaboration },
+    } as IMethod,
+  });
+}
+
+/**
+ * Get all collaborations from the community
+ */
+export async function getCollaborations(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  return await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'get_collaborations',
       values: {},
     } as IMethod,
   });

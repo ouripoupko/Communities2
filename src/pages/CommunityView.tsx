@@ -1,18 +1,18 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
-import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, Users, Coins, Share2, IdCard, QrCode } from 'lucide-react';
+import { Routes, Route, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Handshake, Users, Coins, Share2, IdCard, QrCode } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import PageHeader from '../components/PageHeader';
 
 // Lazy load components to reduce initial bundle size
-const Issues = lazy(() => import('../components/community/Issues'));
+const Collaborations = lazy(() => import('../components/community/Collaborations'));
 const Members = lazy(() => import('../components/community/Members'));
 const Currency = lazy(() => import('../components/community/Currency'));
 const Share = lazy(() => import('../components/community/Share'));
 const IdentityCardDialog = lazy(() => import('../components/community/dialogs/IdentityCardDialog'));
 const QRScannerDialog = lazy(() => import('../components/community/dialogs/QRScannerDialog'));
 import styles from './Container.module.scss';
-import { fetchCommunityProperties, fetchCommunityMembers } from '../store/slices/communitiesSlice';
+import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
 import type { BlockchainEvent } from '../services/eventStream';
 
@@ -54,10 +54,15 @@ const CommunityView: React.FC = () => {
     return members.includes(publicKey);
   }, [publicKey, communityId, communityMembers]);
 
-  // Memoize the event handler for members
+  // Memoize the event handler - store updates only from SSE (decentralized: reacts to other devices)
   const handleContractWrite = useCallback((event: BlockchainEvent) => {
     if (event.contract === communityId && publicKey && serverUrl && communityId) {
       dispatch(fetchCommunityMembers({
+        serverUrl: serverUrl,
+        publicKey: publicKey,
+        contractId: communityId,
+      }));
+      dispatch(fetchCollaborations({
         serverUrl: serverUrl,
         publicKey: publicKey,
         contractId: communityId,
@@ -107,7 +112,7 @@ const CommunityView: React.FC = () => {
   }, [communityId, props, dispatch, publicKey, serverUrl, communityMembers, handleContractWrite]);
 
   const navItems = [
-    { path: 'issues', label: 'Issues', icon: MessageSquare },
+    { path: 'collaborations', label: 'Collaborations', icon: Handshake },
     { path: 'members', label: 'Members', icon: Users },
     { path: 'currency', label: 'Currency', icon: Coins },
     { path: 'share', label: 'Share', icon: Share2 },
@@ -190,11 +195,12 @@ const CommunityView: React.FC = () => {
         <div className={styles.main}>
           <Suspense fallback={<div className={styles.loadingState}>Loading...</div>}>
             <Routes>
-              <Route path="issues" element={<Issues communityId={communityId!} />} />
+              <Route path="issues" element={<Navigate to={`/community/${communityId}/collaborations`} replace />} />
+              <Route path="collaborations" element={<Collaborations communityId={communityId!} />} />
               <Route path="members" element={<Members communityId={communityId!} />} />
               <Route path="currency" element={<Currency communityId={communityId!} />} />
               <Route path="share" element={<Share communityId={communityId!} />} />
-              <Route path="*" element={<Issues communityId={communityId!} />} />
+              <Route path="*" element={<Collaborations communityId={communityId!} />} />
             </Routes>
           </Suspense>
         </div>

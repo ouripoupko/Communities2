@@ -1,6 +1,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { getPartners, getAllPeople, getProperties } from '../../services/contracts/community';
+import {
+  getPartners,
+  getAllPeople,
+  getProperties,
+  getCollaborations,
+  type Collaboration,
+} from '../../services/contracts/community';
 import type { IProfile, IPartner } from '../../services/interfaces';
 import { getProfile } from '../../services/contracts/gloki';
 
@@ -20,9 +26,11 @@ interface CommunitiesState {
   communityMembers: Record<string, string[]>; // contractId -> array of member public keys
   communityTasks: Record<string, Record<string, boolean>>; // contractId -> agentId -> approval status
   communityNominates: Record<string, string[]>; // contractId -> array of candidate public keys
+  communityCollaborations: Record<string, Collaboration[]>; // contractId -> collaborations list
   profiles: Record<string, IProfile>; // memberPublicKey -> IProfile (across all communities)
   loading: boolean;
   membersLoading: Record<string, boolean>; // contractId -> loading status for members
+  collaborationsLoading: Record<string, boolean>; // contractId -> loading status for collaborations
 }
 
 const initialState: CommunitiesState = {
@@ -32,9 +40,11 @@ const initialState: CommunitiesState = {
   communityMembers: {},
   communityTasks: {},
   communityNominates: {},
+  communityCollaborations: {},
   profiles: {},
   loading: false,
   membersLoading: {},
+  collaborationsLoading: {},
 };
 
 // Async thunks for community data (will be used in community pages)
@@ -63,6 +73,19 @@ export const fetchMemberProfile = createAsyncThunk(
     
     return { memberAgent, profile: profile as IProfile };
   }
+);
+
+export const fetchCollaborations = createAsyncThunk(
+  'communities/fetchCollaborations',
+  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
+    const result = await getCollaborations(
+      args.serverUrl,
+      args.publicKey,
+      args.contractId,
+    );
+    const collaborations = Array.isArray(result) ? result : [];
+    return { contractId: args.contractId, collaborations };
+  },
 );
 
 export const fetchCommunityMembers = createAsyncThunk(
@@ -159,7 +182,9 @@ const communitiesSlice = createSlice({
       delete state.communityMembers[contractId];
       delete state.communityTasks[contractId];
       delete state.communityNominates[contractId];
+      delete state.communityCollaborations[contractId];
       delete state.membersLoading[contractId];
+      delete state.collaborationsLoading[contractId];
       // Note: We don't delete from profiles as they might be used by other communities
     },
     updateMemberProfile: (state, action: PayloadAction<{ memberAgent: string; profile: IProfile }>) => {
@@ -204,6 +229,22 @@ const communitiesSlice = createSlice({
         // Clear loading flag for this specific community on error
         if (action.meta.arg) {
           state.membersLoading[action.meta.arg.contractId] = false;
+        }
+      });
+
+    // Fetch collaborations
+    builder
+      .addCase(fetchCollaborations.pending, (state, action) => {
+        state.collaborationsLoading[action.meta.arg.contractId] = true;
+      })
+      .addCase(fetchCollaborations.fulfilled, (state, action) => {
+        state.collaborationsLoading[action.payload.contractId] = false;
+        state.communityCollaborations[action.payload.contractId] =
+          action.payload.collaborations;
+      })
+      .addCase(fetchCollaborations.rejected, (state, action) => {
+        if (action.meta.arg) {
+          state.collaborationsLoading[action.meta.arg.contractId] = false;
         }
       });
 
