@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  base: mode === 'production' ? '/communities/' : '/',
+  base: mode === 'production' ? '/Communities2/' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
