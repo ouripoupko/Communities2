@@ -99,7 +99,7 @@ const LoginPage: React.FC = () => {
           <div className={styles.inputGroup}>
             <label htmlFor="publicKey">
               <Key size={20} />
-              Public Key
+              Gloki Public Key
             </label>
             <div className={styles.inputWithButton}>
               <input
