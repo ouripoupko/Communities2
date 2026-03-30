@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Plus, Sparkles } from 'lucide-react';
 import { useAppSelector } from '../../store/hooks';
@@ -7,6 +7,7 @@ import { addProposal, setAiFeedback } from '../../services/contracts/issue';
 import { fetchIssueSummary } from '../../services/openai';
 import CreateProposal from './dialogs/CreateProposal';
 import AIFeedbackDialog from './dialogs/AIFeedbackDialog';
+import { getCountryByCode, type CountryInfo } from '../../utils/countries';
 
 interface Proposal {
   id: string;
@@ -66,6 +67,32 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
     return authorPublicKey;
   };
 
+  const getAuthorCountry = (authorPublicKey: string): CountryInfo | null => {
+    const profile = profiles[authorPublicKey];
+    if (profile?.country) {
+      return getCountryByCode(profile.country);
+    }
+    return null;
+  };
+
+  // Compute country participation summary across all proposals
+  const countryStats = useMemo(() => {
+    const counts = new Map<string, { country: CountryInfo; count: number }>();
+    for (const proposal of proposals) {
+      const country = getAuthorCountry(proposal.author);
+      if (country) {
+        const existing = counts.get(country.code);
+        if (existing) {
+          existing.count++;
+        } else {
+          counts.set(country.code, { country, count: 1 });
+        }
+      }
+    }
+    return Array.from(counts.values());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposals, profiles]);
+
   const handleCloseForm = useCallback(() => {
     setShowCreateForm(false);
   }, []);
@@ -73,13 +100,12 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
   const handleSubmitProposal = useCallback(async (title: string, description: string) => {
     if (!issueId || !issueHostServer || !issueHostAgent) throw new Error('Missing required parameters');
 
-    const proposal: Proposal = {
+    const proposal = {
       id: Date.now().toString(),
       title,
       description,
-      author: user.publicKey || 'Unknown',
-      createdAt: new Date().toISOString(),
       voteCount: 0,
+      // author and createdAt are stamped by the contract via master() and timestamp()
     };
 
     await addProposal(
@@ -94,7 +120,8 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
     const apiKey = user.profile?.openaiApiKey?.trim();
     if (apiKey) {
       try {
-        const proposalsWithNew = [...proposals, proposal];
+        const newProposalForAI = { ...proposal, author: user.publicKey || 'Unknown' };
+        const proposalsWithNew = [...proposals, newProposalForAI];
         const summary = await fetchIssueSummary(apiKey, {
           issueName: currentIssueDetails?.name,
           issueDescription: currentIssueDetails?.description,
@@ -208,26 +235,43 @@ const Proposals: React.FC<ProposalsProps> = ({ issueId }) => {
         onClose={() => setShowAIFeedback(false)}
         aiFeedback={storedAiFeedback}
       />
+      {countryStats.length > 0 && (
+        <div className={styles.countrySummary}>
+          {countryStats.map(({ country, count }) => (
+            <span key={country.code} className={styles.countryStat}>
+              {country.flag} {country.name} <strong>{count}</strong>
+            </span>
+          ))}
+        </div>
+      )}
       <div className={styles.list}>
-        {proposals.map((proposal) => (
-          <div key={proposal.id} className={styles.proposalCard}>
-            <div className={styles.proposalHeader}>
-              <div className={styles.proposalTitle}>
-                <h3>{proposal.title}</h3>
+        {proposals.map((proposal) => {
+          const authorCountry = getAuthorCountry(proposal.author);
+          return (
+            <div key={proposal.id} className={styles.proposalCard}>
+              <div className={styles.proposalHeader}>
+                <div className={styles.proposalTitle}>
+                  <h3>{proposal.title}</h3>
+                </div>
+                <div className={styles.proposalMeta}>
+                  <span className={styles.author}>{getAuthorDisplayName(proposal.author)}</span>
+                  {authorCountry && (
+                    <span className={styles.countryBadge}>
+                      {authorCountry.flag} {authorCountry.name}
+                    </span>
+                  )}
+                  <span className={styles.date}>{proposal.createdAt}</span>
+                </div>
               </div>
-              <div className={styles.proposalMeta}>
-                <span className={styles.author}>{getAuthorDisplayName(proposal.author)}</span>
-                <span className={styles.date}>{proposal.createdAt}</span>
+              <div className={styles.proposalContent}>
+                <p className={styles.proposalDescription}>{proposal.description}</p>
+              </div>
+              <div className={styles.proposalStats}>
+                <span className={styles.proposalVotes}>Votes: {proposal.voteCount}</span>
               </div>
             </div>
-            <div className={styles.proposalContent}>
-              <p className={styles.proposalDescription}>{proposal.description}</p>
-            </div>
-            <div className={styles.proposalStats}>
-              <span className={styles.proposalVotes}>Votes: {proposal.voteCount}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
