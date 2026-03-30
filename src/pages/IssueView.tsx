@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { fetchIssueDetails, getProposals } from '../store/slices/issuesSlice';
+import { fetchIssueDetails, getProposals, fetchApprovals } from '../store/slices/issuesSlice';
 import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
 import Discussion from '../components/issue/Discussion';
@@ -69,7 +69,7 @@ const IssueView: React.FC = () => {
     }
   }, [issueId, issueHostServer, issueHostAgent, currentIssue, dispatch]);
 
-  // Load proposals when needed (shared data for multiple components)
+  // Load proposals and approvals when needed (shared data for multiple components)
   useEffect(() => {
     if (issueId && issueHostServer && issueHostAgent && !isProposalsLoading && currentProposals.length === 0 && !isLoadingProposals.current) {
       isLoadingProposals.current = true;
@@ -82,6 +82,17 @@ const IssueView: React.FC = () => {
       });
     }
   }, [issueId, issueHostServer, issueHostAgent, isProposalsLoading, currentProposals.length, dispatch]);
+
+  // Load approvals when needed
+  useEffect(() => {
+    if (issueId && issueHostServer && issueHostAgent) {
+      dispatch(fetchApprovals({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
+        contractId: issueId,
+      }));
+    }
+  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
   // Handle contract_write events with debouncing and duplicate prevention
   const handleContractWrite = useCallback((event: any) => {
@@ -115,6 +126,12 @@ const IssueView: React.FC = () => {
           isLoadingProposals.current = false;
         });
       }
+
+      dispatch(fetchApprovals({
+        serverUrl: issueHostServer,
+        publicKey: issueHostAgent,
+        contractId: issueId,
+      }));
     }
   }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 

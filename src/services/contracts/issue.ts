@@ -133,6 +133,75 @@ export async function addVote(
 }
 
 /**
+ * Approval voting
+ */
+export async function approveProposal(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  proposalId: string,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'approve',
+      values: { proposal_id: proposalId },
+    } as IMethod,
+  });
+}
+
+export async function withdrawApproval(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  proposalId: string,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'withdraw_approval',
+      values: { proposal_id: proposalId },
+    } as IMethod,
+  });
+}
+
+export async function getApprovals(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  return await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'get_approvals',
+      values: {},
+    } as IMethod,
+  });
+}
+
+export async function getMyApprovals(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  return await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'get_my_approvals',
+      values: {},
+    } as IMethod,
+  });
+}
+
+/**
  * Get stored AI feedback for the issue.
  * Backend may return a string or a wrapped object (e.g. { value: string }).
  */

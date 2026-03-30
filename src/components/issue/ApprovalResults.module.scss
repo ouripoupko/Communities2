@@ -1,0 +1,153 @@
+@use '../../styles/variables' as *;
+
+.container {
+  margin-top: $spacing-2xl;
+  padding-top: $spacing-2xl;
+  border-top: 1px solid $gray-200;
+
+  .header {
+    margin-bottom: $spacing-lg;
+
+    h3 {
+      font-size: $text-lg;
+      font-weight: $font-semibold;
+      color: $gray-800;
+      margin: 0 0 $spacing-xs;
+    }
+
+    p {
+      font-size: $text-sm;
+      color: $gray-500;
+      margin: 0;
+    }
+  }
+
+  .participationSummary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-xl;
+
+    .participantBadge {
+      font-size: $text-sm;
+      color: $gray-700;
+      padding: $spacing-xs $spacing-md;
+      background: $gray-50;
+      border-radius: $radius-full;
+      border: 1px solid $gray-200;
+    }
+  }
+
+  .resultsList {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-lg;
+
+    .resultItem {
+      .resultHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: $spacing-sm;
+
+        .proposalTitle {
+          font-size: $text-sm;
+          font-weight: $font-medium;
+          color: $gray-800;
+        }
+
+        .totalCount {
+          font-size: $text-sm;
+          font-weight: $font-semibold;
+          color: $gray-600;
+          min-width: 1.5rem;
+          text-align: right;
+        }
+      }
+
+      .barContainer {
+        .stackedBar {
+          display: flex;
+          height: 1.25rem;
+          border-radius: $radius-md;
+          overflow: hidden;
+          background: $gray-100;
+
+          .barSegment {
+            transition: width $transition-base;
+            min-width: 2px;
+          }
+        }
+
+        .barLabels {
+          display: flex;
+          gap: $spacing-md;
+          margin-top: $spacing-xs;
+
+          .barLabel {
+            font-size: $text-xs;
+            color: $gray-500;
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: $breakpoint-sm) {
+  .container {
+    .participationSummary {
+      .participantBadge {
+        font-size: $text-xs;
+      }
+    }
+
+    .resultsList .resultItem .barContainer .barLabels {
+      flex-wrap: wrap;
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    border-color: $dark-border;
+
+    .header {
+      h3 {
+        color: $dark-text;
+      }
+
+      p {
+        color: $dark-text-secondary;
+      }
+    }
+
+    .participationSummary .participantBadge {
+      background: $dark-surface;
+      border-color: $dark-border;
+      color: $dark-text-secondary;
+    }
+
+    .resultsList .resultItem {
+      .resultHeader {
+        .proposalTitle {
+          color: $dark-text;
+        }
+
+        .totalCount {
+          color: $dark-text-secondary;
+        }
+      }
+
+      .barContainer {
+        .stackedBar {
+          background: $dark-surface;
+        }
+
+        .barLabels .barLabel {
+          color: $dark-text-secondary;
+        }
+      }
+    }
+  }
+}

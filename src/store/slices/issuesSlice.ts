@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getIssues } from '../../services/contracts/community';
-import { getAiFeedback, getCommentsFromServer, getIssue, getProposalsFromServer } from '../../services/contracts/issue';
+import { getAiFeedback, getApprovals, getCommentsFromServer, getIssue, getProposalsFromServer } from '../../services/contracts/issue';
 
 // Define Proposal and CommunityIssue interfaces
 interface Proposal {
@@ -32,6 +32,8 @@ interface IssuesState {
   proposalsLoading: Record<string, boolean>;
   communityIssues: Record<string, CommunityIssue[]>;
   issueComments: Record<string, any[]>;
+  issueApprovals: Record<string, Record<string, Record<string, boolean>>>;
+  approvalsLoading: Record<string, boolean>;
 }
 
 const initialState: IssuesState = {
@@ -44,6 +46,8 @@ const initialState: IssuesState = {
   proposalsLoading: {},
   communityIssues: {},
   issueComments: {},
+  issueApprovals: {},
+  approvalsLoading: {},
 };
 
 // Async thunks
@@ -151,6 +155,14 @@ export const getProposals = createAsyncThunk(
       contractId,
     );
     return { contractId, proposals: response };
+  }
+);
+
+export const fetchApprovals = createAsyncThunk(
+  'issues/fetchApprovals',
+  async ({ serverUrl, publicKey, contractId }: { serverUrl: string; publicKey: string; contractId: string }) => {
+    const response = await getApprovals(serverUrl, publicKey, contractId);
+    return { contractId, approvals: response as Record<string, Record<string, boolean>> };
   }
 );
 
@@ -313,6 +325,19 @@ const issuesSlice = createSlice({
       .addCase(fetchIssueDetails.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch issue details';
+      });
+
+    // Fetch approvals
+    builder
+      .addCase(fetchApprovals.pending, (state, action) => {
+        state.approvalsLoading[action.meta.arg.contractId] = true;
+      })
+      .addCase(fetchApprovals.fulfilled, (state, action) => {
+        state.issueApprovals[action.payload.contractId] = action.payload.approvals;
+        state.approvalsLoading[action.payload.contractId] = false;
+      })
+      .addCase(fetchApprovals.rejected, (state, action) => {
+        state.approvalsLoading[action.meta.arg.contractId] = false;
       });
   },
 });
