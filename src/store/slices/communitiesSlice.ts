@@ -103,7 +103,7 @@ export const fetchCommunityMembers = createAsyncThunk(
       ]);
 
       const partners = partnersResult as IPartner[];
-      const allPeople = allPeopleResult as { tasks: any; members: any; nominates: any };
+      const allPeople = allPeopleResult as { tasks: Record<string, boolean>; members: Record<string, unknown>; nominates: string[] };
       const members = Object.keys(allPeople.members) as string[];
       const taskAgents = Object.keys(allPeople.tasks) as string[];
       const nominates = Array.isArray(allPeople.nominates) ? allPeople.nominates : [];
@@ -127,37 +127,25 @@ export const fetchCommunityMembers = createAsyncThunk(
         newProfiles: {} // No profiles yet, they'll be loaded individually
       };
 
-      // Fetch profiles individually in the background with sequential delays
-      const fetchProfilesSequentially = async () => {
-        for (const memberAgent of allAgents) {
-          // Check 1: if the member already has a profile in the profiles dictionary, no need to call getMemberProfile
-          if (existingProfiles[memberAgent]) {
-            continue;
-          }
+      // Fetch all profiles in parallel (fire-and-forget)
+      for (const memberAgent of allAgents) {
+        if (existingProfiles[memberAgent]) continue;
 
-          const partner = partnerMap.get(memberAgent);
-          if (!partner) {
-            console.warn(`No partner found for member ${memberAgent}`);
-            continue;
-          }
-
-          // Check 2: if any of the fields in the IPartner of this member is missing or undefined or null, don't call getMemberProfile
-          if (partner.address && partner.agent && partner.profile) {
-            // Dispatch the individual profile fetch thunk
-            dispatch(fetchMemberProfile({
-              memberServerUrl: partner.address,
-              memberPublicKey: partner.agent,
-              memberContractId: partner.profile,
-              memberAgent: memberAgent,
-            }));
-          }
+        const partner = partnerMap.get(memberAgent);
+        if (!partner) {
+          console.warn(`No partner found for member ${memberAgent}`);
+          continue;
         }
-      };
 
-      // Start the sequential profile fetching (don't await it)
-      fetchProfilesSequentially().catch(error => {
-        console.error('Error in sequential profile fetching:', error);
-      });
+        if (partner.address && partner.agent && partner.profile) {
+          dispatch(fetchMemberProfile({
+            memberServerUrl: partner.address,
+            memberPublicKey: partner.agent,
+            memberContractId: partner.profile,
+            memberAgent: memberAgent,
+          }));
+        }
+      }
 
       return result;
     } catch (error) {

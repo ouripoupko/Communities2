@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await dispatch(initializeUser()).unwrap();
       
       setIsLoading(false);
-    } catch (err: any) {
+    } catch (err) {
       throw err;
     }
   };

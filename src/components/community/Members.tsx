@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppSelector } from '../../store/hooks';
+import type { IProfile } from '../../services/interfaces';
 import ApprovalDialog from './dialogs/ApprovalDialog';
 import MessageDialog from './dialogs/MessageDialog';
 import styles from './Members.module.scss';
@@ -9,7 +10,7 @@ import type { BlockchainEvent } from '../../services/eventStream';
 
 interface MemberItemProps {
   publicKey: string;
-  profile: any;
+  profile: IProfile | null;
   showApproveButton?: boolean;
   isApproved?: boolean;
   onApprove?: () => void;

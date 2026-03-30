@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Heart, Shield } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import type { InitiativeData } from '../../types/initiative';
 import CreateFlowDialog, { type CollaborationType } from './dialogs/CreateFlowDialog';
+import CollaborationCard from './collaborations/CollaborationCard';
+import CollaborationFilterBar, { type FilterType, type SortType } from './collaborations/CollaborationFilterBar';
+import CreateCollaborationButtons from './collaborations/CreateCollaborationButtons';
 import styles from './Collaborations.module.scss';
 import { fetchCollaborations } from '../../store/slices/communitiesSlice';
 import {
@@ -12,10 +14,7 @@ import {
   type Collaboration,
 } from '../../services/contracts/community';
 
-export type CollaborationItemType = 'initiative' | 'wish' | 'agreement';
-
-type FilterType = 'all' | CollaborationItemType;
-type SortType = 'newest' | 'mostActive';
+export type { CollaborationItemType } from './collaborations/CollaborationCard';
 
 interface CollaborationsProps {
   communityId: string;
@@ -45,13 +44,7 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
 
   useEffect(() => {
     if (!communityId || !serverUrl || !publicKey) return;
-    dispatch(
-      fetchCollaborations({
-        serverUrl,
-        publicKey,
-        contractId: communityId,
-      }),
-    );
+    dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
   }, [communityId, serverUrl, publicKey, dispatch]);
 
   const handleOpenCreate = (type: CollaborationType) => {
@@ -93,7 +86,6 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
     }
 
     await addCollaboration(serverUrl, publicKey, communityId, newItem);
-    // Store updates via SSE contract_write -> fetchCollaborations
   };
 
   const filteredItems = useMemo(() => {
@@ -101,44 +93,16 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
     if (sort === 'newest') {
       list = [...list].sort((a, b) => b.createdAt - a.createdAt);
     } else {
-      list = [...list].sort(
-        (a, b) => (b.activityCount ?? 0) - (a.activityCount ?? 0)
-      );
+      list = [...list].sort((a, b) => (b.activityCount ?? 0) - (a.activityCount ?? 0));
     }
     return list;
   }, [items, filter, sort]);
 
-  const getTypeIcon = (type: CollaborationItemType) => {
-    switch (type) {
-      case 'initiative':
-        return <Zap size={20} />;
-      case 'wish':
-        return <Heart size={20} />;
-      case 'agreement':
-        return <Shield size={20} />;
-    }
-  };
-
-  const getDisplayTitle = (item: Collaboration) => {
-    if (item.type === 'agreement') return item.rule || item.title;
-    return item.title;
-  };
-
-  const getDisplayDescription = (item: Collaboration) => {
-    if (item.type === 'wish') return item.dreamNeed;
-    if (item.type === 'agreement') return item.protection;
-    return item.description;
-  };
-
   const handleWishClick = (item: Collaboration) => {
-    if (item.type !== 'wish') return;
-    navigate(`/wish/${communityId}/${item.id}/related`, {
-      state: { wish: item },
-    });
+    navigate(`/wish/${communityId}/${item.id}/related`, { state: { wish: item } });
   };
 
   const handleInitiativeClick = (item: Collaboration) => {
-    if (item.type !== 'initiative') return;
     const hostServer = item.hostServer || serverUrl || 'local';
     const hostAgent = item.hostAgent || publicKey || 'local';
     const initiativeData: InitiativeData = {
@@ -152,13 +116,13 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
       hostServer,
       hostAgent,
     };
-    const url = `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${communityId}/${item.id}/roadmap`;
-    navigate(url, { state: { initiative: initiativeData } });
+    navigate(
+      `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${communityId}/${item.id}/roadmap`,
+      { state: { initiative: initiativeData } },
+    );
   };
 
-  const isMembersLoading = membersLoading[communityId] === true;
-  const isCollaborationsLoading = collaborationsLoading[communityId] === true;
-  if (isMembersLoading) {
+  if (membersLoading[communityId] === true) {
     return (
       <div className={styles.container}>
         <div className={styles.loadingState}>
@@ -187,54 +151,17 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
         <p>Initiatives, wishes, and agreements that shape community life</p>
       </div>
 
-      <div className={styles.gates}>
-        <button
-          className={`${styles.gateButton} ${styles.initiative}`}
-          onClick={() => handleOpenCreate('initiative')}
-        >
-          <Zap size={20} />
-          Start Initiative
-        </button>
-        <button
-          className={`${styles.gateButton} ${styles.wish}`}
-          onClick={() => handleOpenCreate('wish')}
-        >
-          <Heart size={20} />
-          Make a Wish
-        </button>
-        <button
-          className={`${styles.gateButton} ${styles.agreement}`}
-          onClick={() => handleOpenCreate('agreement')}
-        >
-          <Shield size={20} />
-          Propose Agreement
-        </button>
-      </div>
+      <CreateCollaborationButtons onOpenCreate={handleOpenCreate} />
 
-      <div className={styles.filterBar}>
-        <div className={styles.filterTabs}>
-          {(['all', 'initiative', 'wish', 'agreement'] as const).map((f) => (
-            <button
-              key={f}
-              className={`${styles.filterTab} ${filter === f ? styles.active : ''}`}
-              onClick={() => setFilter(f)}
-            >
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
-        <select
-          className={styles.sortSelect}
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortType)}
-        >
-          <option value="newest">Newest</option>
-          <option value="mostActive">Most Active</option>
-        </select>
-      </div>
+      <CollaborationFilterBar
+        filter={filter}
+        sort={sort}
+        onFilterChange={setFilter}
+        onSortChange={setSort}
+      />
 
       <div className={styles.list}>
-        {isCollaborationsLoading ? (
+        {collaborationsLoading[communityId] === true ? (
           <div className="empty-state">
             <p>Loading collaborations...</p>
           </div>
@@ -244,56 +171,12 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
           </div>
         ) : (
           filteredItems.map((item) => (
-            <div
+            <CollaborationCard
               key={item.id}
-              className={`${styles.card} ${(item.type === 'initiative' || item.type === 'wish') ? styles.clickable : ''}`}
-              onClick={
-                item.type === 'initiative'
-                  ? () => handleInitiativeClick(item)
-                  : item.type === 'wish'
-                    ? () => handleWishClick(item)
-                    : undefined
-              }
-              role={(item.type === 'initiative' || item.type === 'wish') ? 'button' : undefined}
-            >
-              <div className={styles.cardTop}>
-                <div className={`${styles.typeIcon} ${styles[item.type]}`}>
-                  {getTypeIcon(item.type)}
-                </div>
-                <div className={styles.cardContent}>
-                  <h3 className={styles.cardTitle}>{getDisplayTitle(item)}</h3>
-                  {getDisplayDescription(item) && (
-                    <p className={styles.cardDescription}>{getDisplayDescription(item)}</p>
-                  )}
-                </div>
-              </div>
-              {item.type === 'initiative' && item.currencyGoal !== undefined && (
-                <div className={styles.progressBar}>
-                  <div className={styles.progressLabel}>
-                    <span>Gathered</span>
-                    <span>
-                      {item.currencyGathered ?? 0} / {item.currencyGoal} credits
-                    </span>
-                  </div>
-                  <div className={styles.progressTrack}>
-                    <div
-                      className={styles.progressFill}
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          ((item.currencyGathered ?? 0) / item.currencyGoal) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-              {item.type === 'agreement' && item.consensusStatus && (
-                <div className={styles.consensusStatus}>
-                  Consensus: {item.consensusStatus}
-                </div>
-              )}
-            </div>
+              item={item}
+              onInitiativeClick={handleInitiativeClick}
+              onWishClick={handleWishClick}
+            />
           ))
         )}
       </div>

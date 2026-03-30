@@ -10,14 +10,14 @@ export interface IContract {
     group: string[];
     threshold: number;
     profile: string | null;
-    constructor: any;
+    constructor: Record<string, unknown>;
   }
-  
+
   export interface IMethod {
     name: string;
-    arguments: string[];
-    values: any;
-    parameters: any;
+    arguments?: string[];
+    values?: Record<string, unknown>;
+    parameters?: Record<string, unknown>;
   }
   
   export interface IProfile {

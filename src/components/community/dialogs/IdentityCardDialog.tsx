@@ -23,7 +23,7 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Get community contract info
-  const communityContract = contracts.find((c: any) => c.name === communityName);
+  const communityContract = contracts.find((c) => c.name === communityName);
   const server = communityContract?.address || '';
   const agent = publicKey || '';
   const contract = communityContract?.id || '';

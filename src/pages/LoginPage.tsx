@@ -11,6 +11,8 @@ const LoginPage: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [isValid, setIsValid] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [publicKeyError, setPublicKeyError] = useState<string | null>(null);
+  const [serverUrlError, setServerUrlError] = useState<string | null>(null);
 
   // Check for stored error messages on component mount
   useEffect(() => {
@@ -48,12 +50,32 @@ const LoginPage: React.FC = () => {
     setServerUrlHistory(historyArray);
   }, []);
 
+  const validatePublicKey = (value: string): string | null => {
+    if (value.length === 0) return null;
+    if (!/^[A-Za-z0-9]{64}$/.test(value))
+      return 'Public key must be exactly 64 alphanumeric characters (letters and digits only).';
+    return null;
+  };
+
+  const validateServerUrl = (value: string): string | null => {
+    if (value.length === 0) return null;
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:')
+        return 'Server URL must use http or https.';
+      return null;
+    } catch {
+      return 'Please enter a valid URL (e.g. https://your-server.com).';
+    }
+  };
+
   useEffect(() => {
-    // Validate inputs
-    const isValidPublicKey = publicKey.trim().length > 0;
-    const isValidServerUrl = serverUrl.trim().length > 0 && 
-      (serverUrl.startsWith('http://') || serverUrl.startsWith('https://'));
-    setIsValid(isValidPublicKey && isValidServerUrl);
+    const pkErr = validatePublicKey(publicKey);
+    const srvErr = validateServerUrl(serverUrl);
+    setIsValid(
+      publicKey.length > 0 && pkErr === null &&
+      serverUrl.length > 0 && srvErr === null
+    );
   }, [publicKey, serverUrl]);
 
   const generateRandomKey = () => {
@@ -107,6 +129,7 @@ const LoginPage: React.FC = () => {
                 type="text"
                 value={publicKey}
                 onChange={(e) => setPublicKey(e.target.value)}
+                onBlur={() => setPublicKeyError(validatePublicKey(publicKey))}
                 placeholder="Enter your public key"
                 className="input-field"
               />
@@ -119,6 +142,7 @@ const LoginPage: React.FC = () => {
                 <RefreshCw size={16} />
               </button>
             </div>
+            {publicKeyError && <div className={styles.fieldError}>{publicKeyError}</div>}
           </div>
 
           <div className={styles.inputGroup}>
@@ -133,10 +157,13 @@ const LoginPage: React.FC = () => {
                 value={serverUrl}
                 onChange={(e) => {
                   setServerUrl(e.target.value);
-                  setShowHistory(false); // Hide dropdown when editing after selection
+                  setShowHistory(false);
                 }}
                 onFocus={() => setShowHistory(true)}
-                onBlur={() => setShowHistory(false)}
+                onBlur={() => {
+                  setShowHistory(false);
+                  setServerUrlError(validateServerUrl(serverUrl));
+                }}
                 placeholder="https://your-server.com"
                 className="input-field"
                 autoComplete="off"
@@ -155,6 +182,7 @@ const LoginPage: React.FC = () => {
                 </div>
               )}
             </div>
+            {serverUrlError && <div className={styles.fieldError}>{serverUrlError}</div>}
           </div>
 
           {loginError && (

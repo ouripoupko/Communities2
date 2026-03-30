@@ -7,7 +7,17 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout: numb
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
-    if (!response.ok) throw new Error(await response.text());
+    if (!response.ok) {
+      const text = await response.text();
+      let message = `HTTP ${response.status} ${response.statusText}`;
+      try {
+        const json = JSON.parse(text) as { message?: string; error?: string };
+        if (json.message || json.error) message = json.message ?? json.error ?? message;
+      } catch {
+        if (text.trim() && !text.trim().startsWith('<')) message = text.trim();
+      }
+      throw new Error(message);
+    }
     return await response.json();
   } finally {
     clearTimeout(timeoutId);

@@ -20,7 +20,7 @@ const ApprovalDialog: React.FC<ApprovalDialogProps> = ({
   agentProfileImage,
   communityId
 }) => {
-  const { publicKey, serverUrl } = useAppSelector((state: any) => state.user);
+  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
 
   const handleApprove = async () => {
     if (!publicKey || !serverUrl) return;

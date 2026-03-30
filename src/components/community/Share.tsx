@@ -16,7 +16,7 @@ const Share: React.FC<ShareProps> = ({ communityId }) => {
   // Get community contract info from Redux
   const { contracts } = useAppSelector(state => state.user);
   const { publicKey } = useAppSelector(state => state.user);
-  const communityContract = contracts.find((c: any) => c.id === communityId);
+  const communityContract = contracts.find((c) => c.id === communityId);
   const server = communityContract?.address || '';
   const agent = publicKey || '';
   const contract = communityContract?.id || '';

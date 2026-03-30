@@ -5,6 +5,7 @@ import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchIssueDetails, getProposals } from '../store/slices/issuesSlice';
 import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
+import type { BlockchainEvent } from '../services/eventStream';
 import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
@@ -35,7 +36,7 @@ const IssueView: React.FC = () => {
 
   // Check if current user has access to the community
   const userCommunityContract = useMemo(() => 
-    contracts.find((c: any) => c.id === communityId), 
+    contracts.find((c) => c.id === communityId), 
     [contracts, communityId]
   );
 
@@ -84,7 +85,7 @@ const IssueView: React.FC = () => {
   }, [issueId, issueHostServer, issueHostAgent, isProposalsLoading, currentProposals.length, dispatch]);
 
   // Handle contract_write events with debouncing and duplicate prevention
-  const handleContractWrite = useCallback((event: any) => {
+  const handleContractWrite = useCallback((event: BlockchainEvent) => {
     if (event.contract === issueId && issueId) {
       const now = Date.now();
       // Debounce: only process if at least 2 seconds have passed since last contract write

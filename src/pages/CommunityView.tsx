@@ -44,7 +44,7 @@ const CommunityView: React.FC = () => {
   }
 
   // Find the contract for this community
-  const contract = useMemo(() => contracts.find((c: any) => c.id === communityId), [contracts, communityId]);
+  const contract = useMemo(() => contracts.find((c) => c.id === communityId), [contracts, communityId]);
   const props = contract ? communityProperties[contract.id] || {} : null;
 
   // Check if current user is a member of the community
@@ -88,8 +88,8 @@ const CommunityView: React.FC = () => {
             }))
             .finally(() => setFetching(false));
           }
-        } catch (e) {
-          // ignore
+        } catch {
+          // JSON.parse failed - malformed user data, skip fetch
         }
       }
     }

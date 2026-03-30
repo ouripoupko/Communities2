@@ -116,6 +116,12 @@
         }
       }
 
+      .fieldError {
+        font-size: $text-sm;
+        color: #e53e3e;
+        margin-top: -$spacing-xs;
+      }
+
       .errorMessage {
         display: flex;
         align-items: flex-start;
