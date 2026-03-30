@@ -72,6 +72,14 @@ class Issue:
             return self.approvals[voter].get_dict()
         return {}
 
+    def set_qv_contract(self, qv_contract_id):
+        self.details['qv_contract'] = qv_contract_id
+
+    def get_qv_contract(self):
+        if 'qv_contract' in self.details:
+            return self.details['qv_contract']
+        return None
+
     def get_issue(self):
         return {
             'name': self.get_name(),

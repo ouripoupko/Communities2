@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
+import { MessageSquare, FileText, Vote as VoteIcon, BarChart3, Scale } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchIssueDetails, getProposals, fetchApprovals } from '../store/slices/issuesSlice';
 import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
@@ -9,6 +9,7 @@ import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
 import Outcome from '../components/issue/Outcome';
+import QVTab from '../components/issue/QVTab';
 import PageHeader from '../components/PageHeader';
 import styles from './Container.module.scss';
 
@@ -147,6 +148,7 @@ const IssueView: React.FC = () => {
     { path: 'proposals', label: 'Proposals', icon: FileText },
     { path: 'vote', label: 'Vote', icon: VoteIcon },
     { path: 'outcome', label: 'Outcome', icon: BarChart3 },
+    { path: 'qv', label: 'QV Vote', icon: Scale },
   ];
 
   // Show full-page loading only on initial load, not when refetching (e.g. after SSE).
@@ -198,6 +200,7 @@ const IssueView: React.FC = () => {
             <Route path="proposals" element={<Proposals issueId={issueId!} />} />
             <Route path="vote" element={<Vote issueId={issueId!} />} />
             <Route path="outcome" element={<Outcome issueId={issueId!} />} />
+            <Route path="qv" element={<QVTab issueId={issueId!} />} />
             <Route path="*" element={<Discussion issueId={issueId!} />} />
           </Routes>
         </div>

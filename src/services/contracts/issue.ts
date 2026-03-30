@@ -202,6 +202,42 @@ export async function getMyApprovals(
 }
 
 /**
+ * QV contract linking
+ */
+export async function setQVContract(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  qvContractId: string,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'set_qv_contract',
+      values: { qv_contract_id: qvContractId },
+    } as IMethod,
+  });
+}
+
+export async function getQVContract(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+): Promise<string | null> {
+  return await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'get_qv_contract',
+      values: {},
+    } as IMethod,
+  }) as string | null;
+}
+
+/**
  * Get stored AI feedback for the issue.
  * Backend may return a string or a wrapped object (e.g. { value: string }).
  */
