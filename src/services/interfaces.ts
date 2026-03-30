@@ -28,6 +28,8 @@ export interface IContract {
     // Optional field for storing per-user AI configuration (e.g. OpenAI API key)
     // This is read from the gloki/profile contract as a simple key-value.
     openaiApiKey?: string;
+    // ISO 3166-1 alpha-2 country code (e.g. 'KE', 'NG', 'MW', 'CD') or 'OTHER'
+    country?: string;
   }
 
   export interface IPartner {

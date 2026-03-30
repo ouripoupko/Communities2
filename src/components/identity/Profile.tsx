@@ -5,6 +5,7 @@ import { useEventStream, useEventStreamConnection } from '../../hooks/useEventSt
 import { User, Camera, Save, Key, Server } from 'lucide-react';
 import styles from './Profile.module.scss';
 import { setValues } from '../../services/contracts/gloki';
+import { PILOT_COUNTRIES, OTHER_COUNTRY } from '../../utils/countries';
 
 const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
@@ -13,6 +14,7 @@ const Profile: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [country, setCountry] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
@@ -30,6 +32,7 @@ const Profile: React.FC = () => {
       setLastName(user.profile.lastName || '');
       setImageData(user.profile.userPhoto || null);
       setOpenaiApiKey(user.profile.openaiApiKey || '');
+      setCountry(user.profile.country || '');
       setImageUploadError(null); // Clear any previous image upload errors
     }
   }, [user.profile]);
@@ -96,6 +99,7 @@ const Profile: React.FC = () => {
           lastName,
           imageData,
           openaiApiKey,
+          country,
         );
         
         // Profile data will be refreshed automatically via SSE event
@@ -253,6 +257,27 @@ const Profile: React.FC = () => {
             </div>
 
             <div className="form-group">
+              <label htmlFor="country">Country</label>
+              <select
+                id="country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                disabled={!isEditing}
+                className="input-field"
+              >
+                <option value="">Select your country</option>
+                {PILOT_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.name}
+                  </option>
+                ))}
+                <option value={OTHER_COUNTRY.code}>
+                  {OTHER_COUNTRY.flag} {OTHER_COUNTRY.name}
+                </option>
+              </select>
+            </div>
+
+            <div className="form-group">
               <label htmlFor="openaiApiKey">OpenAI API Key</label>
               <input
                 id="openaiApiKey"
@@ -293,6 +318,7 @@ const Profile: React.FC = () => {
                       setLastName(user.profile?.lastName || '');
                       setImageData(user.profile?.userPhoto || null);
                       setOpenaiApiKey(user.profile?.openaiApiKey || '');
+                      setCountry(user.profile?.country || '');
                       setSaveError(null);
                     }}
                     className="cancel-button"

@@ -35,6 +35,8 @@ class Issue:
         return [self.comments[key].get_dict() for key in self.comments]
     
     def add_proposal(self, proposal):
+        proposal['author'] = master()
+        proposal['createdAt'] = timestamp()
         self.proposals.append(proposal)
 
     def get_proposals(self):

@@ -79,6 +79,33 @@
     }
   }
 
+  .countrySummary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-lg;
+    padding: $spacing-md $spacing-lg;
+    background: $gray-50;
+    border-radius: $radius-md;
+    border: 1px solid $gray-200;
+
+    .countryStat {
+      display: inline-flex;
+      align-items: center;
+      gap: $spacing-xs;
+      padding: $spacing-xs $spacing-md;
+      background: white;
+      border-radius: $radius-full;
+      font-size: $text-sm;
+      color: $gray-700;
+      border: 1px solid $gray-200;
+
+      strong {
+        font-weight: $font-semibold;
+      }
+    }
+  }
+
   .list {
     display: flex;
     flex-direction: column;
@@ -122,6 +149,11 @@
 
           .author {
             font-weight: $font-medium;
+          }
+
+          .countryBadge {
+            font-size: $text-xs;
+            color: $gray-600;
           }
 
           .date {
@@ -247,6 +279,17 @@
           border-color: $gray-500;
           color: $dark-text;
         }
+      }
+    }
+
+    .countrySummary {
+      background: $dark-surface;
+      border-color: $dark-border;
+
+      .countryStat {
+        background: $dark-bg;
+        border-color: $dark-border;
+        color: $dark-text-secondary;
       }
     }
 

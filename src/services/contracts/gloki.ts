@@ -33,6 +33,7 @@ export async function setValues(
   lastName: string,
   imageData: string | null,
   openaiApiKey?: string | null,
+  country?: string | null,
 ) {
   await contractWrite({
     serverUrl,
@@ -49,6 +50,9 @@ export async function setValues(
           // If no key is provided, we omit the property so existing data is untouched.
           ...(openaiApiKey != null && openaiApiKey !== ''
             ? { openaiApiKey }
+            : {}),
+          ...(country != null && country !== ''
+            ? { country }
             : {}),
         },
       },
