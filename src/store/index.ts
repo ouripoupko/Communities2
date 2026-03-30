@@ -6,6 +6,7 @@ import currencyReducer from './slices/currencySlice';
 import initiativeReducer from './slices/initiativeSlice';
 import wishReducer from './slices/wishSlice';
 import agreementReducer from './slices/agreementSlice';
+import qvReducer from './slices/qvSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     initiative: initiativeReducer,
     wish: wishReducer,
     agreement: agreementReducer,
+    qv: qvReducer,
   },
 });
 
