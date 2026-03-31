@@ -1,0 +1,234 @@
+@use '../../../../styles/variables' as *;
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+  max-width: 680px;
+}
+
+// ─── Header count ─────────────────────────────────────────────────────────────
+.header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: $gray-600;
+}
+
+// ─── Compose box ──────────────────────────────────────────────────────────────
+.composeBox {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.composeTextarea {
+  width: 100%;
+  padding: $spacing-md $spacing-lg;
+  border: 1.5px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-family: inherit;
+  color: $gray-800;
+  resize: vertical;
+  outline: none;
+  line-height: 1.5;
+  box-sizing: border-box;
+  transition: border-color $transition-base;
+
+  &:focus { border-color: $primary; }
+  &::placeholder { color: $gray-400; }
+}
+
+.composeActions {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.btnSubmit {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background $transition-base;
+
+  &:hover:not(:disabled) { background: $primary-dark; }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+
+.btnCancel {
+  padding: $spacing-sm $spacing-lg;
+  background: none;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover { border-color: $gray-500; color: $gray-700; }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-3xl 0;
+  color: $gray-400;
+
+  p { margin: 0; font-size: $text-sm; }
+}
+
+// ─── Comment list ─────────────────────────────────────────────────────────────
+.commentList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+// ─── Comment item ─────────────────────────────────────────────────────────────
+.commentItem {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+
+  // Nested items get a left indent + thread line slot
+  &.nested {
+    padding-left: $spacing-xl;
+  }
+}
+
+// Vertical thread line
+.threadLine {
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: $gray-200;
+  border-radius: $radius-full;
+}
+
+.commentBody {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  background: white;
+  border: 1.5px solid $gray-100;
+  border-radius: $radius-lg;
+  padding: $spacing-md $spacing-lg;
+  box-shadow: $shadow-sm;
+}
+
+// ─── Comment header ───────────────────────────────────────────────────────────
+.commentHeader {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: $radius-full;
+  background: $gray-200;
+  color: $gray-600;
+  font-size: $text-xs;
+  font-weight: $font-bold;
+  flex-shrink: 0;
+}
+
+.avatarMe {
+  background: rgba(59, 130, 246, 0.15);
+  color: $primary-dark;
+}
+
+.authorName {
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: $gray-800;
+}
+
+.timestamp {
+  font-size: $text-xs;
+  color: $gray-400;
+  margin-left: auto;
+}
+
+.collapseBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px $spacing-sm;
+  background: none;
+  border: 1px solid $gray-200;
+  border-radius: $radius-full;
+  font-size: $text-xs;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover { border-color: $primary; color: $primary; }
+}
+
+// ─── Comment text ─────────────────────────────────────────────────────────────
+.commentText {
+  font-size: $text-sm;
+  color: $gray-700;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+// ─── Comment actions ──────────────────────────────────────────────────────────
+.commentActions {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: 2px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px $spacing-sm;
+  background: none;
+  border: none;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: $gray-400;
+  cursor: pointer;
+  border-radius: $radius-sm;
+  transition: all $transition-base;
+
+  &:hover { color: $primary; background: rgba(59, 130, 246, 0.06); }
+}
+
+.actionBtnDelete {
+  &:hover { color: $error; background: rgba(220, 38, 38, 0.06); }
+}
+
+// ─── Children ─────────────────────────────────────────────────────────────────
+.children {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+}

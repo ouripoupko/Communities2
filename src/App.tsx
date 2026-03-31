@@ -14,8 +14,9 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
 const IssueView = lazy(() => import('./pages/IssueView'));
-const InitiativeView = lazy(() => import('./pages/InitiativeView'));
-const WishView = lazy(() => import('./pages/WishView'));
+const InitiativeView = lazy(() => import('./pages/collaboration/InitiativeView'));
+const WishView = lazy(() => import('./pages/collaboration/WishView'));
+const AgreementView = lazy(() => import('./pages/collaboration/AgreementView'));
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -47,6 +48,7 @@ function AppContent() {
           <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
           <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />
           <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
+          <Route path="/agreement/:communityId/:agreementId" element={<AgreementView />} />
         </Routes>
       </Suspense>
     </Router>

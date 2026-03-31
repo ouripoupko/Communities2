@@ -102,6 +102,10 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
     navigate(`/wish/${communityId}/${item.id}/related`, { state: { wish: item } });
   };
 
+  const handleAgreementClick = (item: Collaboration) => {
+    navigate(`/agreement/${communityId}/${item.id}`, { state: { agreement: item } });
+  };
+
   const handleInitiativeClick = (item: Collaboration) => {
     const hostServer = item.hostServer || serverUrl || 'local';
     const hostAgent = item.hostAgent || publicKey || 'local';
@@ -176,6 +180,7 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
               item={item}
               onInitiativeClick={handleInitiativeClick}
               onWishClick={handleWishClick}
+              onAgreementClick={handleAgreementClick}
             />
           ))
         )}

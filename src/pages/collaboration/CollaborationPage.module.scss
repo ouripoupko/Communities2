@@ -1,0 +1,126 @@
+@use '../../styles/variables' as *;
+
+// Tab item: wraps navItem to position the remove button
+.tabItem {
+  padding-right: $spacing-lg !important; // make room for × button
+
+  .removeBtn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: $radius-full;
+    background: rgba(0, 0, 0, 0.18);
+    color: white;
+    font-size: 11px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background $transition-base;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.4);
+    }
+  }
+}
+
+// Container for the + button and its dropdown menu
+.addTabWrapper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+// The + Add button — styled like a navItem but dashed/muted
+.addTabBtn {
+  color: $gray-400 !important;
+  border: 2px dashed $gray-300 !important;
+  background: transparent !important;
+
+  &:hover {
+    color: $primary !important;
+    border-color: $primary !important;
+    background: transparent !important;
+    transform: none !important;
+  }
+}
+
+// Dropdown menu for picking a flow
+.addTabMenu {
+  position: absolute;
+  top: calc(100% + $spacing-xs);
+  left: 0;
+  min-width: 180px;
+  background: white;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  box-shadow: $shadow-md;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.addTabMenuItem {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  width: 100%;
+  padding: $spacing-md $spacing-lg;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: $text-sm;
+  color: $gray-700;
+  text-align: left;
+  transition: background $transition-base;
+
+  &:hover {
+    background: $gray-50;
+    color: $primary;
+  }
+}
+
+.addTabMenuGroupHeader {
+  padding: $spacing-sm $spacing-lg $spacing-xs;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: $gray-400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-top: 1px solid $gray-100;
+  pointer-events: none;
+  user-select: none;
+}
+
+.addTabMenuGroupHeaderFirst {
+  border-top: none;
+}
+
+.addTabMenuItemDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+
+  &:hover {
+    background: none;
+    color: $gray-700;
+  }
+}
+
+// Empty state shown when no tabs have been added
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: $spacing-md;
+  color: $gray-500;
+  text-align: center;
+
+  p {
+    font-size: $text-base;
+    margin: 0;
+  }
+}

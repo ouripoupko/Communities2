@@ -1,0 +1,257 @@
+@use '../../../../styles/variables' as *;
+@use 'sass:color';
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+.header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  color: $gray-700;
+}
+
+.headerIcon {
+  color: $warning;
+  flex-shrink: 0;
+}
+
+// ─── Add button ───────────────────────────────────────────────────────────────
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
+  background: none;
+  border: 1.5px dashed $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover {
+    border-color: $warning;
+    color: $warning;
+    background: rgba(245, 158, 11, 0.04);
+  }
+}
+
+// ─── Add form ─────────────────────────────────────────────────────────────────
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  padding: $spacing-sm;
+  background: white;
+  border: 1.5px solid $warning;
+  border-radius: $radius-md;
+  box-shadow: $shadow-sm;
+}
+
+.nameInput,
+.descInput {
+  width: 100%;
+  padding: $spacing-xs $spacing-sm;
+  border: 1px solid $gray-200;
+  border-radius: $radius-sm;
+  font-size: $text-sm;
+  color: $gray-800;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color $transition-base;
+
+  &:focus { border-color: $warning; }
+  &::placeholder { color: $gray-400; }
+}
+
+.descInput {
+  font-size: $text-xs;
+  color: $gray-600;
+}
+
+.errorMsg {
+  font-size: $text-xs;
+  color: $error;
+  margin: 0;
+}
+
+.formActions {
+  display: flex;
+  gap: $spacing-xs;
+}
+
+.btnConfirm {
+  padding: $spacing-xs $spacing-md;
+  background: $warning;
+  color: white;
+  border: none;
+  border-radius: $radius-sm;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background $transition-base;
+  &:hover { background: color.adjust(#f59e0b, $lightness: -8%); }
+}
+
+.btnCancel {
+  padding: $spacing-xs $spacing-md;
+  background: none;
+  border: 1px solid $gray-200;
+  border-radius: $radius-sm;
+  font-size: $text-xs;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+  &:hover { border-color: $gray-400; color: $gray-700; }
+}
+
+// ─── Role list ────────────────────────────────────────────────────────────────
+.roleList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.noData {
+  font-size: $text-sm;
+  color: $gray-400;
+  font-style: italic;
+  margin: 0;
+  padding: $spacing-lg 0;
+}
+
+// ─── Role card ────────────────────────────────────────────────────────────────
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-md;
+  background: white;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-md;
+  box-shadow: $shadow-sm;
+  transition: box-shadow $transition-base;
+
+  &:hover { box-shadow: $shadow-base; }
+}
+
+.cardAssigned {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.02);
+}
+
+// ─── Card header ──────────────────────────────────────────────────────────────
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.roleName {
+  flex: 1;
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  color: $gray-800;
+  word-break: break-word;
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  flex-shrink: 0;
+}
+
+.assignBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-sm;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all $transition-base;
+}
+
+.assignBtnJoin {
+  color: $warning;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.06);
+
+  &:hover {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: $warning;
+  }
+}
+
+.assignBtnLeave {
+  color: $gray-500;
+  border-color: $gray-200;
+  background: none;
+
+  &:hover { color: $error; border-color: rgba(220, 38, 38, 0.4); }
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xs;
+  background: none;
+  border: 1px solid $gray-200;
+  border-radius: $radius-sm;
+  color: $gray-300;
+  cursor: pointer;
+  transition: all $transition-base;
+  &:hover { color: $error; border-color: rgba(220, 38, 38, 0.4); }
+}
+
+// ─── Description ──────────────────────────────────────────────────────────────
+.roleDesc {
+  font-size: $text-sm;
+  color: $gray-500;
+  margin: 0;
+  line-height: 1.5;
+}
+
+// ─── Assignees ────────────────────────────────────────────────────────────────
+.assignees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+  align-items: center;
+  min-height: 24px;
+}
+
+.noAssignees {
+  font-size: $text-xs;
+  color: $gray-300;
+  font-style: italic;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px $spacing-sm;
+  background: $gray-100;
+  color: $gray-600;
+  border-radius: $radius-full;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+}
+
+.chipMe {
+  background: rgba(245, 158, 11, 0.15);
+  color: color.adjust(#f59e0b, $lightness: -20%);
+}

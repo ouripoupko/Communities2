@@ -9,6 +9,7 @@ interface CollaborationCardProps {
   item: Collaboration;
   onInitiativeClick: (item: Collaboration) => void;
   onWishClick: (item: Collaboration) => void;
+  onAgreementClick: (item: Collaboration) => void;
 }
 
 const getTypeIcon = (type: CollaborationItemType) => {
@@ -30,8 +31,8 @@ const getDisplayDescription = (item: Collaboration): string | undefined => {
   return item.description;
 };
 
-const CollaborationCard: React.FC<CollaborationCardProps> = ({ item, onInitiativeClick, onWishClick }) => {
-  const isClickable = item.type === 'initiative' || item.type === 'wish';
+const CollaborationCard: React.FC<CollaborationCardProps> = ({ item, onInitiativeClick, onWishClick, onAgreementClick }) => {
+  const isClickable = true;
   const description = getDisplayDescription(item);
 
   return (
@@ -40,9 +41,10 @@ const CollaborationCard: React.FC<CollaborationCardProps> = ({ item, onInitiativ
       onClick={
         item.type === 'initiative' ? () => onInitiativeClick(item) :
         item.type === 'wish'       ? () => onWishClick(item) :
+        item.type === 'agreement'  ? () => onAgreementClick(item) :
         undefined
       }
-      role={isClickable ? 'button' : undefined}
+      role="button"
     >
       <div className={styles.cardTop}>
         <div className={`${styles.typeIcon} ${styles[item.type]}`}>
