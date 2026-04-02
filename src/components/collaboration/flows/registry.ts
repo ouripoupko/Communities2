@@ -1,6 +1,7 @@
-import { FileText, Heart, MessageSquare, CalendarDays, PieChart, KanbanSquare, AlertTriangle, HelpCircle, Award, ThumbsUp } from 'lucide-react';
+import { FileText, Heart, MessageSquare, CalendarDays, PieChart, KanbanSquare, AlertTriangle, HelpCircle, Award, ThumbsUp, Scale } from 'lucide-react';
 // RankingFlow and ScoringFlow imports removed — will be replaced by ApprovalFlow and QVFlow
 import ApprovalFlow from './voting/ApprovalFlow';
+import QVFlow from './voting/QVFlow';
 import DocFlow from './document/DocFlow';
 import FundraisingFlow from './fundraising/FundraisingFlow';
 import DiscussionFlow from './discussion/DiscussionFlow';
@@ -30,7 +31,13 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     component: ApprovalFlow,
     group: 'Decision Making',
   },
-  // QVFlow will be added here in Task 8
+  {
+    id: 'quadratic',
+    label: 'Quadratic Voting',
+    icon: Scale,
+    component: QVFlow,
+    group: 'Decision Making',
+  },
   {
     id: 'concerns',
     label: 'Concern Resolution',

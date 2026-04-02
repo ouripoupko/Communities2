@@ -1,0 +1,291 @@
+@use '../../../../styles/variables' as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.tabs {
+  display: flex;
+  gap: $spacing-xs;
+  border-bottom: 1.5px solid $gray-200;
+  padding-bottom: $spacing-xs;
+}
+
+.tab {
+  padding: $spacing-sm $spacing-lg;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover { color: $gray-700; }
+}
+
+.tabActive {
+  color: $primary;
+  border-bottom-color: $primary;
+}
+
+// ─── Add proposal ──────────────────────────────────────────────────────
+.addForm {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.addInput {
+  flex: 1;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-800;
+  outline: none;
+  box-sizing: border-box;
+
+  &:focus { border-color: $primary; }
+  &::placeholder { color: $gray-400; }
+}
+
+.addBtn {
+  padding: $spacing-sm $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background $transition-base;
+
+  &:hover:not(:disabled) { opacity: 0.9; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// ─── Proposal list ─────────────────────────────────────────────────────
+.proposalList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.proposalCard {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  background: white;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-md;
+  box-shadow: $shadow-sm;
+}
+
+.proposalBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.proposalText {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-800;
+  word-break: break-word;
+}
+
+.proposalMeta {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: $text-xs;
+  color: $gray-400;
+  margin-top: 2px;
+}
+
+// ─── Results ───────────────────────────────────────────────────────────
+.resultsList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.resultRow {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.resultLabel {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-700;
+}
+
+.resultBar {
+  height: 24px;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  display: flex;
+  background: $gray-100;
+}
+
+.resultSegment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.resultCount {
+  font-size: $text-xs;
+  color: $gray-500;
+  margin-top: 2px;
+}
+
+// ─── States ────────────────────────────────────────────────────────────
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl;
+  color: $gray-400;
+  font-size: $text-sm;
+}
+
+.noData {
+  font-size: $text-sm;
+  color: $gray-400;
+  font-style: italic;
+  padding: $spacing-lg 0;
+}
+
+.error {
+  font-size: $text-sm;
+  color: $error;
+  padding: $spacing-md;
+}
+
+// ─── QV-specific: Budget ───────────────────────────────────────────────
+.budget {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $spacing-sm;
+  background: $gray-50;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  padding: $spacing-sm $spacing-md;
+  font-size: $text-sm;
+  color: $gray-600;
+}
+
+.budgetLabel {
+  font-weight: $font-semibold;
+  color: $gray-700;
+}
+
+.budgetRemaining {
+  font-weight: $font-bold;
+  color: $primary;
+}
+
+// ─── QV-specific: Allocate ─────────────────────────────────────────────
+.allocateList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.allocateRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-md;
+  background: white;
+}
+
+.allocateLabel {
+  flex: 1;
+  font-size: $text-sm;
+  color: $gray-800;
+  word-break: break-word;
+}
+
+.allocateControls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-shrink: 0;
+}
+
+.stepperBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $gray-100;
+  border: 1px solid $gray-200;
+  border-radius: $radius-sm;
+  font-size: $text-base;
+  font-weight: $font-bold;
+  color: $gray-700;
+  cursor: pointer;
+  line-height: 1;
+  transition: all $transition-base;
+
+  &:hover:not(:disabled) {
+    background: $gray-200;
+    color: $gray-900;
+  }
+
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.creditDisplay {
+  min-width: 2rem;
+  text-align: center;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: $gray-800;
+}
+
+.voteDisplay {
+  font-size: $text-xs;
+  color: $gray-400;
+  min-width: 4rem;
+}
+
+.submitRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submitBtn {
+  padding: $spacing-sm $spacing-xl;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background $transition-base;
+
+  &:hover:not(:disabled) { opacity: 0.9; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// ─── QV-specific: Participation ────────────────────────────────────────
+.participation {
+  font-size: $text-xs;
+  color: $gray-400;
+  margin-top: $spacing-xs;
+}
