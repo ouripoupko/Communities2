@@ -5,7 +5,6 @@ class Issue:
         self.comments = Storage('comments')
         self.proposals = Storage('proposals')
         self.votes = Storage('votes')
-        self.approvals = Storage('approvals')
 
     def set_description(self, text):
         self.details['description'] = text
@@ -36,8 +35,6 @@ class Issue:
         return [self.comments[key].get_dict() for key in self.comments]
     
     def add_proposal(self, proposal):
-        proposal['author'] = master()
-        proposal['createdAt'] = timestamp()
         self.proposals.append(proposal)
 
     def get_proposals(self):
@@ -48,37 +45,6 @@ class Issue:
 
     def get_votes(self):
         return {key: self.votes[key].get_dict() for key in self.votes}
-
-    def approve(self, proposal_id):
-        voter = master()
-        self.approvals[voter][proposal_id] = True
-
-    def withdraw_approval(self, proposal_id):
-        voter = master()
-        if voter in self.approvals:
-            voter_doc = self.approvals[voter].get_dict()
-            if proposal_id in voter_doc:
-                del self.approvals[voter][proposal_id]
-
-    def get_approvals(self):
-        result = {}
-        for voter in self.approvals:
-            result[voter] = self.approvals[voter].get_dict()
-        return result
-
-    def get_my_approvals(self):
-        voter = master()
-        if voter in self.approvals:
-            return self.approvals[voter].get_dict()
-        return {}
-
-    def set_qv_contract(self, qv_contract_id):
-        self.details['qv_contract'] = qv_contract_id
-
-    def get_qv_contract(self):
-        if 'qv_contract' in self.details:
-            return self.details['qv_contract']
-        return None
 
     def get_issue(self):
         return {

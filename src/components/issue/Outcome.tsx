@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import { BarChart3 } from 'lucide-react';
 import styles from './Outcome.module.scss';
 import { useAppSelector } from '../../store/hooks';
-import ApprovalResults from './ApprovalResults';
 
 // Constant for the acceptance bar ID
 const ACCEPTANCE_BAR_ID = '__ACCEPTANCE_BAR__';
@@ -207,8 +206,6 @@ const Outcome: React.FC<OutcomeProps> = ({ issueId }) => {
           </div>
         </div>
       </div>
-
-      <ApprovalResults issueId={issueId} />
     </div>
   );
 };

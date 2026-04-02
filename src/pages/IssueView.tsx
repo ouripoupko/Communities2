@@ -1,8 +1,8 @@
 import React, { useMemo, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, FileText, Vote as VoteIcon, BarChart3, Scale } from 'lucide-react';
+import { MessageSquare, FileText, Vote as VoteIcon, BarChart3 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { fetchIssueDetails, getProposals, fetchApprovals } from '../store/slices/issuesSlice';
+import { fetchIssueDetails, getProposals } from '../store/slices/issuesSlice';
 import { fetchCommunityProperties } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
 import type { BlockchainEvent } from '../services/eventStream';
@@ -10,7 +10,6 @@ import Discussion from '../components/issue/Discussion';
 import Proposals from '../components/issue/Proposals';
 import Vote from '../components/issue/Vote';
 import Outcome from '../components/issue/Outcome';
-import QVTab from '../components/issue/QVTab';
 import PageHeader from '../components/PageHeader';
 import styles from './Container.module.scss';
 
@@ -71,7 +70,7 @@ const IssueView: React.FC = () => {
     }
   }, [issueId, issueHostServer, issueHostAgent, currentIssue, dispatch]);
 
-  // Load proposals and approvals when needed (shared data for multiple components)
+  // Load proposals when needed (shared data for multiple components)
   useEffect(() => {
     if (issueId && issueHostServer && issueHostAgent && !isProposalsLoading && currentProposals.length === 0 && !isLoadingProposals.current) {
       isLoadingProposals.current = true;
@@ -84,17 +83,6 @@ const IssueView: React.FC = () => {
       });
     }
   }, [issueId, issueHostServer, issueHostAgent, isProposalsLoading, currentProposals.length, dispatch]);
-
-  // Load approvals when needed
-  useEffect(() => {
-    if (issueId && issueHostServer && issueHostAgent) {
-      dispatch(fetchApprovals({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-      }));
-    }
-  }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
   // Handle contract_write events with debouncing and duplicate prevention
   const handleContractWrite = useCallback((event: BlockchainEvent) => {
@@ -128,12 +116,6 @@ const IssueView: React.FC = () => {
           isLoadingProposals.current = false;
         });
       }
-
-      dispatch(fetchApprovals({
-        serverUrl: issueHostServer,
-        publicKey: issueHostAgent,
-        contractId: issueId,
-      }));
     }
   }, [issueId, issueHostServer, issueHostAgent, dispatch]);
 
@@ -149,7 +131,6 @@ const IssueView: React.FC = () => {
     { path: 'proposals', label: 'Proposals', icon: FileText },
     { path: 'vote', label: 'Vote', icon: VoteIcon },
     { path: 'outcome', label: 'Outcome', icon: BarChart3 },
-    { path: 'qv', label: 'QV Vote', icon: Scale },
   ];
 
   // Show full-page loading only on initial load, not when refetching (e.g. after SSE).
@@ -201,7 +182,6 @@ const IssueView: React.FC = () => {
             <Route path="proposals" element={<Proposals issueId={issueId!} />} />
             <Route path="vote" element={<Vote issueId={issueId!} />} />
             <Route path="outcome" element={<Outcome issueId={issueId!} />} />
-            <Route path="qv" element={<QVTab issueId={issueId!} />} />
             <Route path="*" element={<Discussion issueId={issueId!} />} />
           </Routes>
         </div>
