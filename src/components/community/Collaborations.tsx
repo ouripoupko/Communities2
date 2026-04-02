@@ -75,6 +75,7 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
         title: data.title || 'Untitled',
         description: data.description,
       });
+      dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
       return;
     } else if (createType === 'wish') {
       newItem.dreamNeed = data.dreamNeed;
@@ -86,6 +87,7 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
     }
 
     await addCollaboration(serverUrl, publicKey, communityId, newItem);
+    dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
   };
 
   const filteredItems = useMemo(() => {

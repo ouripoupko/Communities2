@@ -1,32 +1,26 @@
-# Flows Migration — Implementation Status
+# Flows Migration — COMPLETE
 
 **Plan:** `docs/superpowers/plans/2026-04-02-flows-migration.md`
 **Spec:** `docs/superpowers/specs/2026-04-02-flows-migration-design.md`
-**Branch:** `eston/dev`
+**Branch:** `eston/dev` — deployed to GitHub Pages
 
-## Task Status
+## All 11 Tasks Done
 
-| # | Task | Status |
-|---|------|--------|
-| 1 | Revert Issue Pipeline Changes | done |
-| 2 | Delete Old Mock Voting Flows | done |
-| 3 | Flow Contract Manager (Shared Infra) | done |
-| 4 | CountryBadge Component | done |
-| 5 | Approval Voting Python Contract | done |
-| 6 | Approval Voting Flow (Frontend) | done |
-| 7 | Quadratic Voting Python Contract | done |
-| 8 | Quadratic Voting Flow (Frontend) | done |
-| 9 | Concerns Python Contract | done |
-| 10 | Wire ConcernsFlow to Blockchain | done |
-| 11 | Final Registry Cleanup + Build + Push | done |
+All flows migration tasks completed and pushed. Three blockchain-backed flows now in Decision Making:
+1. **Approval Voting** (ApprovalFlow) — proposals + thumbs up/down + country-segmented results
+2. **Quadratic Voting** (QVFlow) — proposals + credit allocation + sqrt voting + results
+3. **Concern Resolution** (ConcernsFlow) — raise concerns with severity, propose resolutions, author resolves
 
-## Key Context for Resuming
+## Key Context
 
 - React 19 + TypeScript + Vite + Redux Toolkit + SCSS Modules
 - Python blockchain contracts: `Storage()`, `master()`, `timestamp()`, `partners()` — no imports, no `.get(key, default)`
 - Contract API: `contractRead()`/`contractWrite()` from `src/services/api.ts`; `deployContract()` for new contracts
 - Vite `?raw` suffix for importing Python contract source
 - `FlowProps`: `{ instanceId, collaborationId, collaborationType }`
+- `useFlowContract` hook: `src/components/collaboration/flows/shared/useFlowContract.ts`
+- `flowContractsSlice`: `src/components/collaboration/flows/shared/flowContractsSlice.ts` (localStorage-backed)
+- `CountryBadge`: `src/components/collaboration/flows/shared/CountryBadge.tsx`
 - `useAppSelector`/`useAppDispatch` from `src/store/hooks.ts`
 - Profiles available at `state.communities.profiles[publicKey]`
 - User auth at `state.user.serverUrl` and `state.user.publicKey`
