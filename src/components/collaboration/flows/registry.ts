@@ -1,5 +1,4 @@
 import { FileText, Heart, MessageSquare, CalendarDays, PieChart, KanbanSquare, AlertTriangle, HelpCircle, Award, ThumbsUp, Scale } from 'lucide-react';
-// RankingFlow and ScoringFlow imports removed — will be replaced by ApprovalFlow and QVFlow
 import ApprovalFlow from './voting/ApprovalFlow';
 import QVFlow from './voting/QVFlow';
 import DocFlow from './document/DocFlow';

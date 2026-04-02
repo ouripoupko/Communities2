@@ -8,17 +8,17 @@
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Revert Issue Pipeline Changes | pending |
-| 2 | Delete Old Mock Voting Flows | pending |
-| 3 | Flow Contract Manager (Shared Infra) | pending |
-| 4 | CountryBadge Component | pending |
-| 5 | Approval Voting Python Contract | pending |
-| 6 | Approval Voting Flow (Frontend) | pending |
-| 7 | Quadratic Voting Python Contract | pending |
-| 8 | Quadratic Voting Flow (Frontend) | pending |
-| 9 | Concerns Python Contract | pending |
-| 10 | Wire ConcernsFlow to Blockchain | pending |
-| 11 | Final Registry Cleanup + Build + Push | pending |
+| 1 | Revert Issue Pipeline Changes | done |
+| 2 | Delete Old Mock Voting Flows | done |
+| 3 | Flow Contract Manager (Shared Infra) | done |
+| 4 | CountryBadge Component | done |
+| 5 | Approval Voting Python Contract | done |
+| 6 | Approval Voting Flow (Frontend) | done |
+| 7 | Quadratic Voting Python Contract | done |
+| 8 | Quadratic Voting Flow (Frontend) | done |
+| 9 | Concerns Python Contract | done |
+| 10 | Wire ConcernsFlow to Blockchain | done |
+| 11 | Final Registry Cleanup + Build + Push | done |
 
 ## Key Context for Resuming
 
