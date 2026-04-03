@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
@@ -11,6 +11,30 @@ export type CollaborationType = 'initiative' | 'wish' | 'agreement';
 interface CollaborationTab {
   instanceId: string;
   flowId: string;
+}
+
+const TABS_STORAGE_KEY = 'collaborationTabs';
+
+function loadTabs(collaborationId: string): CollaborationTab[] {
+  try {
+    const raw = localStorage.getItem(TABS_STORAGE_KEY);
+    if (!raw) return [];
+    const all = JSON.parse(raw) as Record<string, CollaborationTab[]>;
+    return all[collaborationId] ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTabs(collaborationId: string, tabs: CollaborationTab[]) {
+  try {
+    const raw = localStorage.getItem(TABS_STORAGE_KEY);
+    const all = raw ? (JSON.parse(raw) as Record<string, CollaborationTab[]>) : {};
+    all[collaborationId] = tabs;
+    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // localStorage full or unavailable
+  }
 }
 
 interface CollaborationPageProps {
@@ -29,19 +53,29 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   communityId,
 }) => {
   const navigate = useNavigate();
-  const [tabs, setTabs] = useState<CollaborationTab[]>([]);
-  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<CollaborationTab[]>(() => loadTabs(collaborationId));
+  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(
+    () => { const saved = loadTabs(collaborationId); return saved.length > 0 ? saved[0].instanceId : null; },
+  );
   const [showAddMenu, setShowAddMenu] = useState(false);
+
+  const updateTabs = useCallback((updater: (prev: CollaborationTab[]) => CollaborationTab[]) => {
+    setTabs((prev) => {
+      const next = updater(prev);
+      saveTabs(collaborationId, next);
+      return next;
+    });
+  }, [collaborationId]);
 
   const addTab = (flowId: string) => {
     const newTab: CollaborationTab = { instanceId: crypto.randomUUID(), flowId };
-    setTabs((prev) => [...prev, newTab]);
+    updateTabs((prev) => [...prev, newTab]);
     setActiveInstanceId(newTab.instanceId);
     setShowAddMenu(false);
   };
 
   const removeTab = (instanceId: string) => {
-    setTabs((prev) => {
+    updateTabs((prev) => {
       const next = prev.filter((t) => t.instanceId !== instanceId);
       if (activeInstanceId === instanceId) {
         setActiveInstanceId(next.length > 0 ? next[next.length - 1].instanceId : null);
