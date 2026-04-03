@@ -5,7 +5,7 @@ import { useAppSelector, useAppDispatch } from '../store/hooks';
 import PageHeader from '../components/PageHeader';
 
 // Lazy load components to reduce initial bundle size
-const Collaborations = lazy(() => import('../components/community/Collaborations'));
+const ActivityHub = lazy(() => import('../components/community/ActivityHub'));
 const Members = lazy(() => import('../components/community/Members'));
 const Currency = lazy(() => import('../components/community/Currency'));
 const Share = lazy(() => import('../components/community/Share'));
@@ -200,13 +200,13 @@ const CommunityView: React.FC = () => {
             <Routes>
               <Route path="issues" element={<Navigate to={`/community/${communityId}/activity`} replace />} />
               <Route path="collaborations" element={<Navigate to={`/community/${communityId}/activity`} replace />} />
-              <Route path="activity" element={<Collaborations communityId={communityId!} />} />
+              <Route path="activity" element={<ActivityHub communityId={communityId!} />} />
               <Route path="chat" element={<ChatTopicList communityId={communityId!} />} />
               <Route path="chat/:topicId" element={<ChatTopic />} />
               <Route path="members" element={<Members communityId={communityId!} />} />
               <Route path="currency" element={<Currency communityId={communityId!} />} />
               <Route path="share" element={<Share communityId={communityId!} />} />
-              <Route path="*" element={<Collaborations communityId={communityId!} />} />
+              <Route path="*" element={<ActivityHub communityId={communityId!} />} />
             </Routes>
           </Suspense>
         </div>

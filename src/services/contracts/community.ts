@@ -226,7 +226,7 @@ export async function getIssues(
 
 export interface Collaboration {
   id: string;
-  type: 'initiative' | 'wish' | 'agreement';
+  type: 'initiative' | 'wish' | 'agreement' | 'collab';
   title: string;
   description?: string;
   dreamNeed?: string;
