@@ -83,9 +83,7 @@ export const fetchCollaborations = createAsyncThunk(
       args.publicKey,
       args.contractId,
     );
-    console.log('[fetchCollaborations] raw result:', JSON.stringify(result, null, 2));
     const collaborations = Array.isArray(result) ? result : [];
-    console.log('[fetchCollaborations] parsed collaborations:', collaborations.length, collaborations);
     return { contractId: args.contractId, collaborations };
   },
 );
