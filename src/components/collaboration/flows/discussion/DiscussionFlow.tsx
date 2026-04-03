@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { MessageSquare, Reply, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import * as api from './discussionApi';
 import type { Comment } from './discussionApi';
+import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './DiscussionFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +21,10 @@ function buildTree(flat: Comment[]): CommentNode[] {
     if (c.parentId && map.has(c.parentId)) map.get(c.parentId)!.children.push(node);
     else roots.push(node);
   });
-  const sort = (nodes: CommentNode[]) => { nodes.sort((a, b) => a.timestamp - b.timestamp); nodes.forEach(n => sort(n.children)); };
+  const sort = (nodes: CommentNode[]) => {
+    nodes.sort((a, b) => a.timestamp - b.timestamp);
+    nodes.forEach(n => sort(n.children));
+  };
   sort(roots);
   return roots;
 }
@@ -28,7 +32,8 @@ function buildTree(flat: Comment[]): CommentNode[] {
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-const authorLabel = (id: string) => id === api.CURRENT_USER ? 'You' : id;
+const authorLabel = (id: string, currentUser: string) =>
+  id === currentUser ? 'You' : id;
 
 // ---------------------------------------------------------------------------
 // Compose box (used both for top-level and replies)
@@ -78,28 +83,32 @@ const ComposeBox: React.FC<{
 // ---------------------------------------------------------------------------
 // Single comment node — recursive
 // ---------------------------------------------------------------------------
-
 const CommentItem: React.FC<{
   node: CommentNode;
   depth: number;
-  refresh: () => void;
-}> = ({ node, depth, refresh }) => {
-  const [replying,   setReplying]   = useState(false);
-  const [collapsed,  setCollapsed]  = useState(false);
+  currentUser: string;
+  server: string;
+  agent: string;
+  contractId: string;
+  flat: Comment[];
+  load: () => Promise<void>;
+}> = ({ node, depth, currentUser, server, agent, contractId, flat, load }) => {
+  const [replying,  setReplying]  = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
-  const isOwn      = node.author === api.CURRENT_USER;
+  const isOwn      = node.author === currentUser;
   const hasChildren = node.children.length > 0;
 
-  const handleReply = useCallback((text: string) => {
-    api.addComment(text, node.id);
-    refresh();
+  const handleReply = useCallback(async (text: string) => {
+    await api.addComment(server, agent, contractId, currentUser, text, node.id);
     setReplying(false);
-  }, [node.id, refresh]);
+    await load();
+  }, [server, agent, contractId, currentUser, node.id, load]);
 
-  const handleDelete = useCallback(() => {
-    api.deleteComment(node.id);
-    refresh();
-  }, [node.id, refresh]);
+  const handleDelete = useCallback(async () => {
+    await api.deleteComment(server, agent, contractId, flat, node.id);
+    await load();
+  }, [server, agent, contractId, flat, node.id, load]);
 
   return (
     <div className={`${styles.commentItem} ${depth > 0 ? styles.nested : ''}`}>
@@ -110,9 +119,9 @@ const CommentItem: React.FC<{
         {/* Header */}
         <div className={styles.commentHeader}>
           <span className={`${styles.avatar} ${isOwn ? styles.avatarMe : ''}`}>
-            {authorLabel(node.author)[0].toUpperCase()}
+            {authorLabel(node.author, currentUser)[0].toUpperCase()}
           </span>
-          <span className={styles.authorName}>{authorLabel(node.author)}</span>
+          <span className={styles.authorName}>{authorLabel(node.author, currentUser)}</span>
           <span className={styles.timestamp}>{formatTime(node.timestamp)}</span>
           {hasChildren && (
             <button
@@ -141,7 +150,7 @@ const CommentItem: React.FC<{
           {isOwn && (
             <button
               className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-              onClick={handleDelete}
+              onClick={() => { void handleDelete(); }}
             >
               <Trash2 size={13} /> Delete
             </button>
@@ -151,8 +160,8 @@ const CommentItem: React.FC<{
         {/* Reply compose */}
         {replying && (
           <ComposeBox
-            placeholder={`Replying to ${authorLabel(node.author)}…`}
-            onSubmit={handleReply}
+            placeholder={`Replying to ${authorLabel(node.author, currentUser)}…`}
+            onSubmit={text => { void handleReply(text); }}
             onCancel={() => setReplying(false)}
             autoFocus
           />
@@ -163,7 +172,17 @@ const CommentItem: React.FC<{
       {!collapsed && node.children.length > 0 && (
         <div className={styles.children}>
           {node.children.map(child => (
-            <CommentItem key={child.id} node={child} depth={depth + 1} refresh={refresh} />
+            <CommentItem
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              currentUser={currentUser}
+              server={server}
+              agent={agent}
+              contractId={contractId}
+              flat={flat}
+              load={load}
+            />
           ))}
         </div>
       )}
@@ -174,17 +193,34 @@ const CommentItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Root flow component
 // ---------------------------------------------------------------------------
-const DiscussionFlow: React.FC<FlowProps> = () => {
-  const [flat, setFlat] = useState<Comment[]>(() => api.getComments());
+const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+  const [flat,    setFlat]    = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
 
-  const refresh = useCallback(() => setFlat(api.getComments()), []);
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await api.loadComments(flowServer, flowAgent, instanceId);
+      setFlat(data);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [instanceId, flowServer, flowAgent]);
 
-  const tree = useMemo(() => buildTree(flat), [flat]);
+  useEffect(() => { void load(); }, [load]);
 
-  const handleTopLevel = useCallback((text: string) => {
-    api.addComment(text, null);
-    refresh();
-  }, [refresh]);
+  if (loading) return <FlowLoading />;
+  if (error)   return <FlowError message={error} onRetry={load} />;
+
+  const tree = buildTree(flat);
+
+  const handleTopLevel = async (text: string) => {
+    await api.addComment(flowServer, flowAgent, instanceId, currentUser, text, null);
+    await load();
+  };
 
   return (
     <div className={styles.container}>
@@ -193,7 +229,10 @@ const DiscussionFlow: React.FC<FlowProps> = () => {
         <span>{flat.length} comment{flat.length !== 1 ? 's' : ''}</span>
       </div>
 
-      <ComposeBox placeholder="Share your thoughts on this topic…" onSubmit={handleTopLevel} />
+      <ComposeBox
+        placeholder="Share your thoughts on this topic…"
+        onSubmit={text => { void handleTopLevel(text); }}
+      />
 
       {tree.length === 0 ? (
         <div className={styles.empty}>
@@ -203,7 +242,17 @@ const DiscussionFlow: React.FC<FlowProps> = () => {
       ) : (
         <div className={styles.commentList}>
           {tree.map(node => (
-            <CommentItem key={node.id} node={node} depth={0} refresh={refresh} />
+            <CommentItem
+              key={node.id}
+              node={node}
+              depth={0}
+              currentUser={currentUser}
+              server={flowServer}
+              agent={flowAgent}
+              contractId={instanceId}
+              flat={flat}
+              load={load}
+            />
           ))}
         </div>
       )}

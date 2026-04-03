@@ -12,7 +12,9 @@ import { usePreview } from 'react-dnd-preview';
 import { BarChart2, List, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { FlowLoading, FlowError } from '../FlowShell';
 import { ACCEPTANCE_BAR_ID } from './types';
+import type { Proposal, ParticipantRanking } from './types';
 import * as api from './rankingApi';
 import { computeCycleGroups } from './smithSet';
 import styles from './RankingFlow.module.scss';
@@ -138,7 +140,7 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, mo
 // My Ranking tab
 // ---------------------------------------------------------------------------
 interface RankingTabProps {
-  proposals: ReturnType<typeof api.getProposals>;
+  proposals: Proposal[];
   order: string[];
   onOrderChange: (order: string[]) => void;
   onAddProposal: (text: string) => void;
@@ -221,23 +223,23 @@ const RankingTab: React.FC<RankingTabProps> = ({
 // Aggregated tab
 // ---------------------------------------------------------------------------
 interface AggregatedTabProps {
-  proposals: ReturnType<typeof api.getProposals>;
+  proposals: Proposal[];
+  allRankings: ParticipantRanking[];
 }
 
-const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals }) => {
+const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings }) => {
   const proposalMap = useMemo(
     () => new Map(proposals.map((p) => [p.id, p.text])),
     [proposals],
   );
 
   const cycleGroups = useMemo(() => {
-    const allRankings = api.getAllRankings();
     const rankingsOnly = allRankings.map((r) =>
       r.order.filter((id) => id !== ACCEPTANCE_BAR_ID),
     );
     const candidateIds = proposals.map((p) => p.id);
     return computeCycleGroups(candidateIds, rankingsOnly);
-  }, [proposals]);
+  }, [proposals, allRankings]);
 
   if (proposals.length === 0) {
     return <p className={styles.noData}>No proposals yet. Add some in the My Ranking tab.</p>;
@@ -277,22 +279,48 @@ const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals }) => {
 // ---------------------------------------------------------------------------
 // Root component (wraps its own DndProvider)
 // ---------------------------------------------------------------------------
-const RankingFlowInner: React.FC<FlowProps> = () => {
-  const [activeTab, setActiveTab] = useState<'ranking' | 'aggregated'>('ranking');
-  const [proposals, setProposals] = useState(() => api.getProposals());
-  const [order, setOrder] = useState<string[]>(() => api.getMyRanking().order);
+const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+  const [activeTab,    setActiveTab]    = useState<'ranking' | 'aggregated'>('ranking');
+  const [proposals,    setProposals]    = useState<Proposal[]>([]);
+  const [order,        setOrder]        = useState<string[]>([]);
+  const [allRankings,  setAllRankings]  = useState<ParticipantRanking[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const handleOrderChange = useCallback((newOrder: string[]) => {
-    api.saveMyRanking(newOrder);
-    setOrder(newOrder);
-  }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [loadedProposals, loadedAllRankings] = await Promise.all([
+        api.loadProposals(flowServer, flowAgent, instanceId),
+        api.loadAllRankings(flowServer, flowAgent, instanceId),
+      ]);
+      const myOrder = await api.loadMyRanking(flowServer, flowAgent, instanceId, currentUser, loadedProposals);
+      setProposals(loadedProposals);
+      setAllRankings(loadedAllRankings);
+      setOrder(myOrder);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load ranking data');
+    } finally {
+      setLoading(false);
+    }
+  }, [flowServer, flowAgent, instanceId, currentUser]);
 
-  const handleAddProposal = useCallback((text: string) => {
-    api.addProposal(text);
-    setProposals(api.getProposals());
-    setOrder(api.getMyRanking().order);
-  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const handleOrderChange = useCallback(async (newOrder: string[]) => {
+    setOrder(newOrder);
+    await api.saveMyRanking(flowServer, flowAgent, instanceId, newOrder);
+  }, [flowServer, flowAgent, instanceId]);
+
+  const handleAddProposal = useCallback(async (text: string) => {
+    await api.addProposal(flowServer, flowAgent, instanceId, text);
+    await load();
+  }, [flowServer, flowAgent, instanceId, load]);
+
+  if (loading) return <FlowLoading />;
+  if (error)   return <FlowError message={error} onRetry={() => void load()} />;
 
   return (
     <div className={styles.container}>
@@ -317,13 +345,15 @@ const RankingFlowInner: React.FC<FlowProps> = () => {
         <RankingTab
           proposals={proposals}
           order={order}
-          onOrderChange={handleOrderChange}
-          onAddProposal={handleAddProposal}
+          onOrderChange={(newOrder) => { void handleOrderChange(newOrder); }}
+          onAddProposal={(text) => { void handleAddProposal(text); }}
           listRef={listRef}
         />
       )}
 
-      {activeTab === 'aggregated' && <AggregatedTab proposals={proposals} />}
+      {activeTab === 'aggregated' && (
+        <AggregatedTab proposals={proposals} allRankings={allRankings} />
+      )}
 
       <CustomPreview listWidth={listRef.current?.offsetWidth} />
     </div>

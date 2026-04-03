@@ -1,28 +1,42 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Heart, Target, Users } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import * as api from './fundraisingApi';
+import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './FundraisingFlow.module.scss';
 
 // ---------------------------------------------------------------------------
 // Setup screen
 // ---------------------------------------------------------------------------
-const SetupScreen: React.FC<{ instanceId: string; onDone: () => void }> = ({ instanceId, onDone }) => {
-  const [name,      setName]      = useState('');
+const SetupScreen: React.FC<{
+  flowServer: string;
+  flowAgent: string;
+  instanceId: string;
+  onDone: () => void;
+}> = ({ flowServer, flowAgent, instanceId, onDone }) => {
+  const [name,        setName]        = useState('');
   const [description, setDescription] = useState('');
-  const [goalInput, setGoalInput] = useState('');
-  const [error,     setError]     = useState('');
+  const [goalInput,   setGoalInput]   = useState('');
+  const [error,       setError]       = useState('');
+  const [saving,      setSaving]      = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name.trim()) { setError('Please give the fund a name.'); return; }
     const goal = goalInput.trim() ? Number(goalInput) : null;
     if (goalInput.trim() && (isNaN(goal!) || goal! <= 0)) {
       setError('Goal must be a positive number.');
       return;
     }
-    api.configureFund(instanceId, name, description, goal);
-    onDone();
+    setSaving(true);
+    try {
+      await api.configureFund(flowServer, flowAgent, instanceId, name, description, goal);
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save configuration.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -78,8 +92,8 @@ const SetupScreen: React.FC<{ instanceId: string; onDone: () => void }> = ({ ins
 
       {error && <p className={styles.errorMsg}>{error}</p>}
 
-      <button className={styles.btnPrimary} onClick={handleSubmit}>
-        Launch Fundraiser
+      <button className={styles.btnPrimary} onClick={handleSubmit} disabled={saving}>
+        {saving ? 'Saving…' : 'Launch Fundraiser'}
       </button>
     </div>
   );
@@ -117,35 +131,44 @@ const ProgressBar: React.FC<{ raised: number; goal: number | null }> = ({ raised
 // ---------------------------------------------------------------------------
 // Contribution form
 // ---------------------------------------------------------------------------
-const ContributeForm: React.FC<{ instanceId: string; onContributed: () => void }> = ({ instanceId, onContributed }) => {
-  const balance = api.getBalance(api.CURRENT_USER);
+const ContributeForm: React.FC<{
+  flowServer: string;
+  flowAgent: string;
+  instanceId: string;
+  currentUser: string;
+  onContributed: () => void;
+}> = ({ flowServer, flowAgent, instanceId, currentUser, onContributed }) => {
   const [amountInput, setAmountInput] = useState('');
   const [error,       setError]       = useState('');
   const [success,     setSuccess]     = useState(false);
+  const [submitting,  setSubmitting]  = useState(false);
 
-  const handlePay = () => {
+  const handlePay = async () => {
     const amount = Number(amountInput);
-    const result = api.contribute(instanceId, amount);
-    if (!result.ok) { setError(result.reason); return; }
-    setAmountInput('');
-    setError('');
-    setSuccess(true);
-    onContributed();
-    setTimeout(() => setSuccess(false), 2500);
+    if (!amount || amount <= 0) { setError('Amount must be positive.'); return; }
+    setSubmitting(true);
+    try {
+      await api.contribute(flowServer, flowAgent, instanceId, currentUser, amount);
+      setAmountInput('');
+      setError('');
+      setSuccess(true);
+      onContributed();
+      setTimeout(() => setSuccess(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to record contribution.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className={styles.contributeCard}>
       <h3 className={styles.cardTitle}>Contribute</h3>
-      <p className={styles.balanceHint}>
-        Your balance: <strong>{balance} {api.CURRENCY_SYMBOL}</strong>
-      </p>
       <div className={styles.contributeRow}>
         <input
           className={styles.input}
           type="number"
           min={1}
-          max={balance}
           step={1}
           placeholder={`Amount in ${api.CURRENCY_SYMBOL}`}
           value={amountInput}
@@ -155,9 +178,9 @@ const ContributeForm: React.FC<{ instanceId: string; onContributed: () => void }
         <button
           className={styles.btnPrimary}
           onClick={handlePay}
-          disabled={!amountInput || Number(amountInput) <= 0}
+          disabled={submitting || !amountInput || Number(amountInput) <= 0}
         >
-          <Heart size={16} /> Contribute
+          <Heart size={16} /> {submitting ? 'Sending…' : 'Contribute'}
         </button>
       </div>
       {error   && <p className={styles.errorMsg}>{error}</p>}
@@ -169,20 +192,23 @@ const ContributeForm: React.FC<{ instanceId: string; onContributed: () => void }
 // ---------------------------------------------------------------------------
 // Contributions list
 // ---------------------------------------------------------------------------
-const ContributionsList: React.FC<{ contributions: api.Contribution[] }> = ({ contributions }) => {
+const ContributionsList: React.FC<{
+  contributions: api.Contribution[];
+  currentUser: string;
+}> = ({ contributions, currentUser }) => {
   if (contributions.length === 0) {
     return <p className={styles.noData}>No contributions yet. Be the first!</p>;
   }
   const sorted = [...contributions].sort((a, b) => b.timestamp - a.timestamp);
   const fmt    = (ts: number) => new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  const label  = (id: string) => (id === api.CURRENT_USER ? 'You' : id);
+  const label  = (id: string) => (id === currentUser ? 'You' : id);
 
   return (
     <div className={styles.contributionsList}>
       {sorted.map(c => (
         <div key={c.id} className={styles.contributionRow}>
           <div className={styles.contributorInfo}>
-            <span className={`${styles.avatar} ${c.participantId === api.CURRENT_USER ? styles.avatarMe : ''}`}>
+            <span className={`${styles.avatar} ${c.participantId === currentUser ? styles.avatarMe : ''}`}>
               {label(c.participantId)[0].toUpperCase()}
             </span>
             <div>
@@ -202,20 +228,24 @@ const ContributionsList: React.FC<{ contributions: api.Contribution[] }> = ({ co
 // ---------------------------------------------------------------------------
 // Active fundraiser screen
 // ---------------------------------------------------------------------------
-const ActiveFund: React.FC<{ instanceId: string }> = ({ instanceId }) => {
-  const [fundState, setFundState] = useState(() => api.getFund(instanceId));
-
-  const refresh     = useCallback(() => setFundState(api.getFund(instanceId)), [instanceId]);
-  const raised      = api.totalRaised(instanceId);
-  const myContrib   = api.contributionByUser(instanceId, api.CURRENT_USER);
-  const contributors = new Set(fundState.contributions.map(c => c.participantId)).size;
+const ActiveFund: React.FC<{
+  flowServer: string;
+  flowAgent: string;
+  instanceId: string;
+  currentUser: string;
+  fund: api.FundState;
+  onReload: () => void;
+}> = ({ flowServer, flowAgent, instanceId, currentUser, fund, onReload }) => {
+  const raised       = api.totalRaised(fund.contributions);
+  const myContrib    = api.contributionByUser(fund.contributions, currentUser);
+  const contributors = new Set(fund.contributions.map(c => c.participantId)).size;
 
   return (
     <div className={styles.activeFund}>
       {/* Fund name + description */}
       <div className={styles.descriptionCard}>
-        <h3 className={styles.fundName}>{fundState.name}</h3>
-        {fundState.description && <p className={styles.description}>{fundState.description}</p>}
+        <h3 className={styles.fundName}>{fund.config?.name}</h3>
+        {fund.config?.description && <p className={styles.description}>{fund.config.description}</p>}
       </div>
 
       {/* Stats row */}
@@ -230,10 +260,10 @@ const ActiveFund: React.FC<{ instanceId: string }> = ({ instanceId }) => {
           <span className={styles.statValue}>{contributors}</span>
           <span className={styles.statLabel}>Contributors</span>
         </div>
-        {fundState.goal && (
+        {fund.config?.goal && (
           <div className={styles.statCard}>
             <Target size={20} className={styles.statIcon} />
-            <span className={styles.statValue}>{fundState.goal.toLocaleString()}</span>
+            <span className={styles.statValue}>{fund.config.goal.toLocaleString()}</span>
             <span className={styles.statLabel}>Goal ({api.CURRENCY_SYMBOL})</span>
           </div>
         )}
@@ -246,13 +276,19 @@ const ActiveFund: React.FC<{ instanceId: string }> = ({ instanceId }) => {
         )}
       </div>
 
-      <ProgressBar raised={raised} goal={fundState.goal} />
+      <ProgressBar raised={raised} goal={fund.config?.goal ?? null} />
 
-      <ContributeForm instanceId={instanceId} onContributed={refresh} />
+      <ContributeForm
+        flowServer={flowServer}
+        flowAgent={flowAgent}
+        instanceId={instanceId}
+        currentUser={currentUser}
+        onContributed={onReload}
+      />
 
       <div className={styles.historySection}>
         <h3 className={styles.cardTitle}>Contributions</h3>
-        <ContributionsList contributions={fundState.contributions} />
+        <ContributionsList contributions={fund.contributions} currentUser={currentUser} />
       </div>
     </div>
   );
@@ -261,13 +297,50 @@ const ActiveFund: React.FC<{ instanceId: string }> = ({ instanceId }) => {
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const FundraisingFlow: React.FC<FlowProps> = ({ instanceId }) => {
-  const [configured, setConfigured] = useState(() => api.getFund(instanceId).name !== null);
+const FundraisingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+  const [fund,    setFund]    = useState<api.FundState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
 
-  if (!configured) {
-    return <SetupScreen instanceId={instanceId} onDone={() => setConfigured(true)} />;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const state = await api.loadFund(flowServer, flowAgent, instanceId);
+      setFund(state);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load fund.');
+    } finally {
+      setLoading(false);
+    }
+  }, [flowServer, flowAgent, instanceId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <FlowLoading />;
+  if (error)   return <FlowError message={error} onRetry={load} />;
+
+  if (!fund || fund.config === null) {
+    return (
+      <SetupScreen
+        flowServer={flowServer}
+        flowAgent={flowAgent}
+        instanceId={instanceId}
+        onDone={load}
+      />
+    );
   }
-  return <ActiveFund instanceId={instanceId} />;
+
+  return (
+    <ActiveFund
+      flowServer={flowServer}
+      flowAgent={flowAgent}
+      instanceId={instanceId}
+      currentUser={currentUser}
+      fund={fund}
+      onReload={load}
+    />
+  );
 };
 
 export default FundraisingFlow;

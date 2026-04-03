@@ -19,6 +19,8 @@ const InitiativeView: React.FC = () => {
       title={initiative?.title ?? 'Initiative'}
       collaborationId={initiativeId!}
       communityId={communityId!}
+      collaborationServer={initiative?.hostServer}
+      collaborationAgent={initiative?.hostAgent}
     />
   );
 };

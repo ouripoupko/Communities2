@@ -1,6 +1,9 @@
 // ---------------------------------------------------------------------------
-// Event scheduling flow — local in-memory store, no persistence yet
+// Event scheduling flow — persisted via contract API
 // ---------------------------------------------------------------------------
+
+import { contractRead, contractWrite } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 
 export type Availability = 'yes' | 'maybe' | 'no';
 
@@ -14,121 +17,229 @@ export interface TimeSlot {
 /** participantId → slotId → availability */
 export type ResponseMap = Record<string, Record<string, Availability>>;
 
-export interface EventState {
-  title: string | null;
+export interface EventConfig {
+  title: string;
   description: string;
-  slots: TimeSlot[];
-  responses: ResponseMap;
-  confirmedSlotId: string | null;
   organizerId: string;
 }
 
-export const CURRENT_USER = 'me';
-const ALL_PARTICIPANTS = ['me', 'alice', 'bob', 'carol'];
+export interface EventState {
+  config: EventConfig | null;
+  slots: TimeSlot[];
+  responses: ResponseMap;
+  confirmedSlotId: string | null;
+}
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Normalizers
 // ---------------------------------------------------------------------------
 
-// Pre-seed some slots and responses so the grid looks alive on first open
-let state: EventState = {
-  title: null,
-  description: '',
-  slots: [],
-  responses: {},
-  confirmedSlotId: null,
-  organizerId: CURRENT_USER,
-};
+function normalizeTimeSlot(s: Record<string, unknown>): TimeSlot {
+  return {
+    id: String(s['id'] ?? ''),
+    date: String(s['date'] ?? ''),
+    startTime: String(s['startTime'] ?? ''),
+    endTime: String(s['endTime'] ?? ''),
+  };
+}
+
+function normalizeConfig(c: Record<string, unknown>): EventConfig {
+  return {
+    title: String(c['title'] ?? ''),
+    description: String(c['description'] ?? ''),
+    organizerId: String(c['organizerId'] ?? ''),
+  };
+}
+
+function normalizeAvailabilityRecord(r: Record<string, unknown>): { participantId: string; responses: Record<string, Availability> } {
+  let responses: Record<string, Availability>;
+  const raw = r['responses'];
+  if (typeof raw === 'string') {
+    try {
+      responses = JSON.parse(raw) as Record<string, Availability>;
+    } catch {
+      responses = {};
+    }
+  } else if (raw && typeof raw === 'object') {
+    responses = raw as Record<string, Availability>;
+  } else {
+    responses = {};
+  }
+  return {
+    participantId: String(r['participantId'] ?? ''),
+    responses,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 
-export function getState(): EventState {
-  return {
-    ...state,
-    slots: state.slots.map(s => ({ ...s })),
-    responses: JSON.parse(JSON.stringify(state.responses)),
-  };
+export async function loadEventState(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<EventState> {
+  const [rawConfig, rawSlots, rawAvailability, rawConfirmed] = await Promise.all([
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_config', values: {} } as IMethod }),
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_slots', values: {} } as IMethod }),
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_all_availability', values: {} } as IMethod }),
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_confirmed_slot', values: {} } as IMethod }),
+  ]);
+
+  // Config: null if empty dict or missing title
+  let config: EventConfig | null = null;
+  if (rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig)) {
+    const c = rawConfig as Record<string, unknown>;
+    if (c['title']) {
+      config = normalizeConfig(c);
+    }
+  }
+
+  // Slots
+  const slots: TimeSlot[] = Array.isArray(rawSlots)
+    ? (rawSlots as Record<string, unknown>[]).map(normalizeTimeSlot)
+    : [];
+
+  // Responses: flatten [{participantId, responses}] → ResponseMap
+  const responses: ResponseMap = {};
+  if (Array.isArray(rawAvailability)) {
+    for (const entry of rawAvailability as Record<string, unknown>[]) {
+      const { participantId, responses: pResponses } = normalizeAvailabilityRecord(entry);
+      if (participantId) {
+        responses[participantId] = pResponses;
+      }
+    }
+  }
+
+  // Confirmed slot
+  let confirmedSlotId: string | null = null;
+  if (typeof rawConfirmed === 'string' && rawConfirmed.trim() !== '') {
+    confirmedSlotId = rawConfirmed;
+  }
+
+  return { config, slots, responses, confirmedSlotId };
 }
 
-export function isOrganizer(): boolean {
-  return state.organizerId === CURRENT_USER;
-}
-
-export function getParticipants(): string[] {
-  return [...ALL_PARTICIPANTS];
-}
-
-export function setupEvent(title: string, description: string): void {
-  state = { ...state, title: title.trim(), description: description.trim() };
-}
-
-export function addSlot(date: string, startTime: string, endTime: string): TimeSlot {
-  const slot: TimeSlot = {
-    id: `slot_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-    date,
-    startTime,
-    endTime,
-  };
-  state = { ...state, slots: [...state.slots, slot] };
-
-  // Auto-fill simulated responses for non-me participants
-  const PATTERNS: Availability[][] = [
-    ['yes',   'no',    'maybe', 'yes'  ],
-    ['maybe', 'yes',   'yes',   'no'   ],
-    ['no',    'maybe', 'yes',   'maybe'],
-  ];
-  const simParticipants = ALL_PARTICIPANTS.filter(p => p !== CURRENT_USER);
-  const slotIndex = state.slots.length - 1;
-
-  const newResponses: ResponseMap = JSON.parse(JSON.stringify(state.responses));
-  simParticipants.forEach((p, pi) => {
-    if (!newResponses[p]) newResponses[p] = {};
-    const av = PATTERNS[pi % PATTERNS.length][slotIndex % 4];
-    newResponses[p][slot.id] = av;
+export async function setupEvent(
+  server: string,
+  agent: string,
+  contractId: string,
+  title: string,
+  description: string,
+  currentUser: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: {
+      name: 'set_config',
+      values: { config: { title: title.trim(), description: description.trim(), organizerId: currentUser } },
+    } as IMethod,
   });
-  state = { ...state, responses: newResponses };
-
-  return { ...slot };
 }
 
-export function removeSlot(slotId: string): void {
-  state = {
-    ...state,
-    slots: state.slots.filter(s => s.id !== slotId),
-    responses: Object.fromEntries(
-      Object.entries(state.responses).map(([p, rs]) => {
-        const { [slotId]: _removed, ...rest } = rs;
-        return [p, rest];
-      })
-    ),
-  };
+export async function addSlot(
+  server: string,
+  agent: string,
+  contractId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: {
+      name: 'add_slot',
+      values: { slot: { id: crypto.randomUUID(), date, startTime, endTime } },
+    } as IMethod,
+  });
 }
 
-export function setAvailability(slotId: string, availability: Availability): void {
-  const newResponses: ResponseMap = JSON.parse(JSON.stringify(state.responses));
-  if (!newResponses[CURRENT_USER]) newResponses[CURRENT_USER] = {};
-  newResponses[CURRENT_USER][slotId] = availability;
-  state = { ...state, responses: newResponses };
+export async function removeSlot(
+  server: string,
+  agent: string,
+  contractId: string,
+  slots: TimeSlot[],
+  slotId: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: {
+      name: 'set_slots',
+      values: { slots: slots.filter(s => s.id !== slotId) },
+    } as IMethod,
+  });
 }
 
-export function confirmSlot(slotId: string): void {
-  if (!isOrganizer()) return;
-  state = { ...state, confirmedSlotId: slotId };
+export async function setMyAvailability(
+  server: string,
+  agent: string,
+  contractId: string,
+  currentResponses: Record<string, Availability>,
+  slotId: string,
+  availability: Availability,
+): Promise<void> {
+  const newResponses = { ...currentResponses, [slotId]: availability };
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: {
+      name: 'set_my_availability',
+      values: { responses: newResponses },
+    } as IMethod,
+  });
 }
 
-export function unconfirm(): void {
-  if (!isOrganizer()) return;
-  state = { ...state, confirmedSlotId: null };
+export async function confirmSlot(
+  server: string,
+  agent: string,
+  contractId: string,
+  slotId: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_confirmed_slot', values: { slot_id: slotId } } as IMethod,
+  });
 }
 
-/** Returns yes+maybe count per slot, sorted best-first */
-export function slotScores(): { slotId: string; yes: number; maybe: number; total: number }[] {
-  return state.slots.map(s => {
+export async function unconfirmSlot(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_confirmed_slot', values: { slot_id: '' } } as IMethod,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pure helpers
+// ---------------------------------------------------------------------------
+
+export function isOrganizer(config: EventConfig | null, currentUser: string): boolean {
+  return config?.organizerId === currentUser;
+}
+
+export function slotScores(
+  slots: TimeSlot[],
+  responses: ResponseMap,
+): { slotId: string; yes: number; maybe: number; total: number }[] {
+  return slots.map(s => {
     let yes = 0, maybe = 0;
-    for (const p of ALL_PARTICIPANTS) {
-      const av = state.responses[p]?.[s.id];
+    for (const pResponses of Object.values(responses)) {
+      const av = pResponses[s.id];
       if (av === 'yes')   yes++;
       if (av === 'maybe') maybe++;
     }

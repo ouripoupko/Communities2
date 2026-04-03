@@ -1,101 +1,58 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { PieChart, List, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import * as api from './budgetApi';
-import { CURRENCY_SYMBOL } from '../fundraising/fundraisingApi';
+import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './BudgetFlow.module.scss';
-
-// ---------------------------------------------------------------------------
-// Setup screen — select a fund
-// ---------------------------------------------------------------------------
-const SetupScreen: React.FC<{ instanceId: string; onDone: () => void }> = ({ instanceId, onDone }) => {
-  const available = api.getAvailableFunds(instanceId);
-  const [selectedFundId, setSelectedFundId] = useState('');
-  const [error, setError] = useState('');
-
-  const handleSubmit = () => {
-    if (!selectedFundId) { setError('Please select a fund.'); return; }
-    api.linkFund(instanceId, selectedFundId);
-    onDone();
-  };
-
-  if (available.length === 0) {
-    return (
-      <div className={styles.setup}>
-        <div className={styles.setupIcon}><PieChart size={40} /></div>
-        <h2 className={styles.setupTitle}>Budget Allocation</h2>
-        <p className={styles.noFunds}>
-          No fundraising funds are available to allocate. Add and configure a <strong>Fundraising</strong> tab first.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.setup}>
-      <div className={styles.setupIcon}><PieChart size={40} /></div>
-      <h2 className={styles.setupTitle}>Budget Allocation</h2>
-      <p className={styles.setupSubtitle}>
-        Select the fund whose raised credits you want to distribute across budget items.
-      </p>
-
-      <div className={styles.formGroup}>
-        <label className={styles.label} htmlFor="fund-select">Select fund *</label>
-        <select
-          id="fund-select"
-          className={styles.select}
-          value={selectedFundId}
-          onChange={e => { setSelectedFundId(e.target.value); setError(''); }}
-        >
-          <option value="">— choose a fund —</option>
-          {available.map(f => (
-            <option key={f.instanceId} value={f.instanceId}>
-              {f.name} ({f.totalRaised.toLocaleString()} {CURRENCY_SYMBOL} raised)
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {error && <p className={styles.errorMsg}>{error}</p>}
-
-      <button className={styles.btnPrimary} onClick={handleSubmit}>
-        <PieChart size={16} /> Start Allocating
-      </button>
-    </div>
-  );
-};
 
 // ---------------------------------------------------------------------------
 // My Allocation tab
 // ---------------------------------------------------------------------------
 const AllocationTab: React.FC<{
+  flowServer: string;
+  flowAgent: string;
   instanceId: string;
-  state: ReturnType<typeof api.getState>;
-  onRefresh: () => void;
-}> = ({ instanceId, state, onRefresh }) => {
+  currentUser: string;
+  items: api.BudgetItem[];
+  allocations: api.ParticipantAllocation[];
+  myAllocation: Record<string, number>;
+  onMyAllocationChange: (updated: Record<string, number>) => void;
+  onReload: () => void;
+}> = ({ flowServer, flowAgent, instanceId, currentUser, items, allocations, myAllocation, onMyAllocationChange, onReload }) => {
   const [inputText, setInputText] = useState('');
-  const [error, setError]         = useState('');
+  const [error,     setError]     = useState('');
+  const [adding,    setAdding]    = useState(false);
 
-  const used      = api.myPointsUsed(instanceId);
-  const remaining = api.TOTAL_POINTS - used;
+  const used       = api.myPointsUsed(allocations, currentUser);
+  const remaining  = api.TOTAL_POINTS - used;
   const overBudget = remaining < 0;
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const name = inputText.trim();
     if (!name) return;
-    api.addItem(instanceId, name);
-    setInputText('');
-    onRefresh();
+    setAdding(true);
+    try {
+      await api.addItem(flowServer, flowAgent, instanceId, currentUser, name);
+      setInputText('');
+      onReload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add item.');
+    } finally {
+      setAdding(false);
+    }
   };
 
-  const handlePoints = (itemId: string, val: string) => {
+  const handlePoints = async (itemId: string, val: string) => {
     const n = val === '' ? 0 : Math.max(0, Math.min(api.TOTAL_POINTS, Number(val)));
-    api.setAllocation(instanceId, itemId, n);
-    onRefresh();
+    const updated = { ...myAllocation, [itemId]: n };
+    onMyAllocationChange(updated);
+    try {
+      await api.saveMyAllocation(flowServer, flowAgent, instanceId, updated);
+    } catch {
+      // Allocation save failure is non-fatal; local state already updated
+    }
   };
-
-  const myAlloc = state.allocations[api.CURRENT_USER] ?? {};
 
   return (
     <div className={styles.allocationTab}>
@@ -118,18 +75,18 @@ const AllocationTab: React.FC<{
           onChange={e => { setInputText(e.target.value); setError(''); }}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
         />
-        <button className={styles.addBtn} onClick={handleAdd}>
-          <Plus size={16} /> Add
+        <button className={styles.addBtn} onClick={handleAdd} disabled={adding}>
+          <Plus size={16} /> {adding ? 'Adding…' : 'Add'}
         </button>
       </div>
       {error && <p className={styles.errorMsg}>{error}</p>}
 
-      {state.items.length === 0 ? (
+      {items.length === 0 ? (
         <p className={styles.noData}>No items yet. Add one above.</p>
       ) : (
         <div className={styles.itemList}>
-          {state.items.map(item => {
-            const pts = myAlloc[item.id] ?? 0;
+          {items.map(item => {
+            const pts = myAllocation[item.id] ?? 0;
             const pct = api.TOTAL_POINTS > 0 ? (pts / api.TOTAL_POINTS) * 100 : 0;
             return (
               <div key={item.id} className={styles.itemRow}>
@@ -165,11 +122,10 @@ const AllocationTab: React.FC<{
 // Results tab
 // ---------------------------------------------------------------------------
 const ResultsTab: React.FC<{
-  instanceId: string;
-  fundName: string;
-  totalRaised: number;
-}> = ({ instanceId, fundName, totalRaised }) => {
-  const aggregated = useMemo(() => api.getAggregated(instanceId), [instanceId]);
+  items: api.BudgetItem[];
+  allocations: api.ParticipantAllocation[];
+}> = ({ items, allocations }) => {
+  const aggregated = useMemo(() => api.getAggregated(items, allocations), [items, allocations]);
 
   if (aggregated.length === 0) {
     return <p className={styles.noData}>No items yet. Add some in the My Allocation tab.</p>;
@@ -177,11 +133,6 @@ const ResultsTab: React.FC<{
 
   return (
     <div className={styles.resultsTab}>
-      <div className={styles.resultsHeader}>
-        <span className={styles.fundLabel}>{fundName}</span>
-        <span className={styles.fundTotal}>{totalRaised.toLocaleString()} {CURRENCY_SYMBOL} total</span>
-      </div>
-
       <div className={styles.resultsList}>
         {aggregated.map((row, idx) => (
           <div key={row.item.id} className={styles.resultRow}>
@@ -199,17 +150,15 @@ const ResultsTab: React.FC<{
               </div>
             </div>
             <div className={styles.resultAmount}>
-              <span className={styles.resultAmountValue}>
-                {row.amount.toFixed(1)}
-              </span>
-              <span className={styles.resultAmountSymbol}>{CURRENCY_SYMBOL}</span>
+              <span className={styles.resultAmountValue}>{row.totalPoints}</span>
+              <span className={styles.resultAmountSymbol}>pts</span>
             </div>
           </div>
         ))}
       </div>
 
       <p className={styles.resultsNote}>
-        Percentages are normalized across all items. Amounts are calculated from the total raised.
+        Percentages are normalized across all items based on total points allocated.
       </p>
     </div>
   );
@@ -218,36 +167,51 @@ const ResultsTab: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const BudgetFlow: React.FC<FlowProps> = ({ instanceId }) => {
-  const [activeTab, setActiveTab]   = useState<'allocation' | 'results'>('allocation');
-  const [budgetState, setBudgetState] = useState(() => api.getState(instanceId));
-  const [configured, setConfigured]  = useState(() => api.getState(instanceId).fundInstanceId !== null);
+const BudgetFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+  const [budgetState,   setBudgetState]   = useState<api.BudgetState | null>(null);
+  const [myAllocation,  setMyAllocation]  = useState<Record<string, number>>({});
+  const [activeTab,     setActiveTab]     = useState<'allocation' | 'results'>('allocation');
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
 
-  const refresh = useCallback(() => setBudgetState(api.getState(instanceId)), [instanceId]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const state = await api.loadBudget(flowServer, flowAgent, instanceId);
+      setBudgetState(state);
+      const mine = state.allocations.find(a => a.participantId === currentUser)?.allocation ?? {};
+      setMyAllocation(mine);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load budget.');
+    } finally {
+      setLoading(false);
+    }
+  }, [flowServer, flowAgent, instanceId, currentUser]);
 
-  const handleSetupDone = useCallback(() => {
-    setBudgetState(api.getState(instanceId));
-    setConfigured(true);
-  }, [instanceId]);
+  useEffect(() => { load(); }, [load]);
 
-  if (!configured) {
-    return <SetupScreen instanceId={instanceId} onDone={handleSetupDone} />;
-  }
+  if (loading) return <FlowLoading />;
+  if (error)   return <FlowError message={error} onRetry={load} />;
+  if (!budgetState) return null;
 
-  const available = api.getAvailableFunds(instanceId);
-  const fundInfo  = available.find(f => f.instanceId === budgetState.fundInstanceId)
-    ?? { name: 'Fund', totalRaised: 0 };
+  const { items, allocations, fundLink } = budgetState;
+
+  // Derive allocations with local myAllocation merged in for accurate point counting
+  const allocationsWithMine: api.ParticipantAllocation[] = [
+    ...allocations.filter(a => a.participantId !== currentUser),
+    { participantId: currentUser, allocation: myAllocation },
+  ];
 
   return (
     <div className={styles.container}>
-      {/* Fund info bar */}
-      <div className={styles.fundBar}>
-        <PieChart size={16} className={styles.fundBarIcon} />
-        <span className={styles.fundBarName}>{fundInfo.name}</span>
-        <span className={styles.fundBarAmount}>
-          {fundInfo.totalRaised.toLocaleString()} {CURRENCY_SYMBOL}
-        </span>
-      </div>
+      {/* Fund info bar (shown only if a fund is linked) */}
+      {fundLink && (
+        <div className={styles.fundBar}>
+          <PieChart size={16} className={styles.fundBarIcon} />
+          <span className={styles.fundBarName}>Linked Fund: {fundLink.id}</span>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className={styles.tabBar}>
@@ -266,13 +230,22 @@ const BudgetFlow: React.FC<FlowProps> = ({ instanceId }) => {
       </div>
 
       {activeTab === 'allocation' && (
-        <AllocationTab instanceId={instanceId} state={budgetState} onRefresh={refresh} />
+        <AllocationTab
+          flowServer={flowServer}
+          flowAgent={flowAgent}
+          instanceId={instanceId}
+          currentUser={currentUser}
+          items={items}
+          allocations={allocationsWithMine}
+          myAllocation={myAllocation}
+          onMyAllocationChange={setMyAllocation}
+          onReload={load}
+        />
       )}
       {activeTab === 'results' && (
         <ResultsTab
-          instanceId={instanceId}
-          fundName={fundInfo.name}
-          totalRaised={fundInfo.totalRaised}
+          items={items}
+          allocations={allocationsWithMine}
         />
       )}
     </div>

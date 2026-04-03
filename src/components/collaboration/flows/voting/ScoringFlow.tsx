@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { BarChart2, List, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './scoringApi';
 import styles from './ScoringFlow.module.scss';
 
@@ -66,7 +67,7 @@ const ScoringTab: React.FC<{
                     onChange={(e) => {
                       const raw = e.target.value;
                       if (raw === '') {
-                        // Remove score (set to 0 internally so it's not undefined)
+                        // Remove score (set to NaN internally so it's not undefined)
                         onScore(opt.id, NaN);
                       } else {
                         const val = Math.max(0, Math.min(10, Number(raw)));
@@ -98,10 +99,11 @@ const ScoringTab: React.FC<{
 // Aggregated tab — average scores, ranked top to bottom
 // ---------------------------------------------------------------------------
 
-const AggregatedTab: React.FC<{ options: api.ScoringOption[] }> = ({ options }) => {
+const AggregatedTab: React.FC<{
+  options: api.ScoringOption[];
+  allScores: api.ParticipantScores[];
+}> = ({ options, allScores }) => {
   const ranked = useMemo(() => {
-    const allScores = api.getAllScores();
-
     return options
       .map((opt) => {
         const values = allScores
@@ -118,7 +120,7 @@ const AggregatedTab: React.FC<{ options: api.ScoringOption[] }> = ({ options }) 
         if (b.avg === null) return -1;
         return b.avg - a.avg;
       });
-  }, [options]);
+  }, [options, allScores]);
 
   if (options.length === 0) {
     return <p className={styles.noData}>No options yet. Add some in the My Scores tab.</p>;
@@ -167,22 +169,58 @@ const AggregatedTab: React.FC<{ options: api.ScoringOption[] }> = ({ options }) 
 // Root component
 // ---------------------------------------------------------------------------
 
-const ScoringFlow: React.FC<FlowProps> = () => {
+const ScoringFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'scoring' | 'aggregated'>('scoring');
-  const [options, setOptions] = useState(() => api.getOptions());
-  const [myScores, setMyScores] = useState<Record<string, number>>(
-    () => api.getMyScores().scores,
-  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [options, setOptions] = useState<api.ScoringOption[]>([]);
+  const [myScores, setMyScores] = useState<Record<string, number>>({});
+  const [allScores, setAllScores] = useState<api.ParticipantScores[]>([]);
 
-  const handleAddOption = useCallback((text: string) => {
-    api.addOption(text);
-    setOptions(api.getOptions());
-  }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [loadedOptions, loadedMyScores, loadedAllScores] = await Promise.all([
+        api.loadOptions(flowServer, flowAgent, instanceId),
+        api.loadMyScores(flowServer, flowAgent, instanceId, currentUser),
+        api.loadAllScores(flowServer, flowAgent, instanceId),
+      ]);
+      setOptions(loadedOptions);
+      setMyScores(loadedMyScores);
+      setAllScores(loadedAllScores);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load scoring data.');
+    } finally {
+      setLoading(false);
+    }
+  }, [instanceId, flowServer, flowAgent, currentUser]);
 
-  const handleScore = useCallback((optionId: string, score: number) => {
-    api.setScore(optionId, score);
-    setMyScores({ ...api.getMyScores().scores });
-  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleAddOption = useCallback(async (text: string) => {
+    try {
+      await api.addOption(flowServer, flowAgent, instanceId, text);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add option.');
+    }
+  }, [flowServer, flowAgent, instanceId, load]);
+
+  const handleScore = useCallback(async (optionId: string, score: number) => {
+    const updatedScores = { ...myScores, [optionId]: score };
+    setMyScores(updatedScores);
+    try {
+      await api.saveMyScores(flowServer, flowAgent, instanceId, updatedScores);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save scores.');
+    }
+  }, [flowServer, flowAgent, instanceId, myScores]);
+
+  if (loading) return <FlowLoading />;
+  if (error) return <FlowError message={error} onRetry={load} />;
 
   return (
     <div className={styles.container}>
@@ -212,7 +250,9 @@ const ScoringFlow: React.FC<FlowProps> = () => {
         />
       )}
 
-      {activeTab === 'aggregated' && <AggregatedTab options={options} />}
+      {activeTab === 'aggregated' && (
+        <AggregatedTab options={options} allScores={allScores} />
+      )}
     </div>
   );
 };

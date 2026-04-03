@@ -6,7 +6,6 @@ import FundraisingFlow from './fundraising/FundraisingFlow';
 import DiscussionFlow from './discussion/DiscussionFlow';
 import SchedulingFlow from './scheduling/SchedulingFlow';
 import BudgetFlow from './budget/BudgetFlow';
-import { hasAvailableFunds } from './budget/budgetApi';
 import TaskboardFlow from './taskboard/TaskboardFlow';
 import ConcernsFlow from './concerns/ConcernsFlow';
 import QAFlow from './qa/QAFlow';
@@ -82,7 +81,6 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: PieChart,
     component: BudgetFlow,
     group: 'Governance & Finance',
-    isAvailable: () => hasAvailableFunds(),
   },
 
   // ── Communication ──────────────────────────────────────────────────────────

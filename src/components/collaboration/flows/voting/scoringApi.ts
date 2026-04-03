@@ -1,6 +1,9 @@
 // ---------------------------------------------------------------------------
-// Scoring flow — local in-memory store, no persistence yet
+// Scoring flow — persisted via contract API
 // ---------------------------------------------------------------------------
+
+import { contractRead, contractWrite } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 
 export interface ScoringOption {
   id: string;
@@ -14,54 +17,105 @@ export interface ParticipantScores {
 }
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Normalizers
 // ---------------------------------------------------------------------------
 
-const options: ScoringOption[] = [
-  { id: 's1', text: 'Build a community garden' },
-  { id: 's2', text: 'Organise monthly meetups' },
-  { id: 's3', text: 'Create an online forum' },
-  { id: 's4', text: 'Launch a newsletter' },
-];
+function normalizeOption(o: Record<string, unknown>): ScoringOption {
+  return {
+    id: String(o['id'] ?? ''),
+    text: String(o['text'] ?? ''),
+  };
+}
 
-// Simulated scores from other participants
-const otherScores: ParticipantScores[] = [
-  { participantId: 'alice', scores: { s1: 8, s2: 6, s3: 4, s4: 7 } },
-  { participantId: 'bob',   scores: { s1: 5, s2: 9, s3: 7, s4: 3 } },
-  { participantId: 'carol', scores: { s1: 7, s2: 5, s3: 9, s4: 6 } },
-];
-
-let myScores: ParticipantScores = {
-  participantId: 'me',
-  scores: {},
-};
+function normalizeScores(s: Record<string, unknown>): ParticipantScores {
+  let scores: Record<string, number>;
+  const raw = s['scores'];
+  if (typeof raw === 'string') {
+    try {
+      scores = JSON.parse(raw) as Record<string, number>;
+    } catch {
+      scores = {};
+    }
+  } else if (raw && typeof raw === 'object') {
+    scores = raw as Record<string, number>;
+  } else {
+    scores = {};
+  }
+  return {
+    participantId: String(s['participantId'] ?? ''),
+    scores,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 
-export function getOptions(): ScoringOption[] {
-  return [...options];
+export async function loadOptions(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<ScoringOption[]> {
+  const result = await contractRead({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'get_options', values: {} } as IMethod,
+  });
+  if (!Array.isArray(result)) return [];
+  return (result as Record<string, unknown>[]).map(normalizeOption);
 }
 
-export function addOption(text: string): ScoringOption {
-  const opt: ScoringOption = { id: `s${Date.now()}`, text };
-  options.push(opt);
-  return opt;
+export async function loadAllScores(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<ParticipantScores[]> {
+  const result = await contractRead({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'get_all_scores', values: {} } as IMethod,
+  });
+  if (!Array.isArray(result)) return [];
+  return (result as Record<string, unknown>[]).map(normalizeScores);
 }
 
-export function getMyScores(): ParticipantScores {
-  return { ...myScores, scores: { ...myScores.scores } };
+export async function loadMyScores(
+  server: string,
+  agent: string,
+  contractId: string,
+  currentUser: string,
+): Promise<Record<string, number>> {
+  const all = await loadAllScores(server, agent, contractId);
+  const mine = all.find(p => p.participantId === currentUser);
+  return mine ? mine.scores : {};
 }
 
-export function setScore(optionId: string, score: number): void {
-  myScores = {
-    ...myScores,
-    scores: { ...myScores.scores, [optionId]: score },
-  };
+export async function addOption(
+  server: string,
+  agent: string,
+  contractId: string,
+  text: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'add_option', values: { option: { id: crypto.randomUUID(), text: text.trim() } } } as IMethod,
+  });
 }
 
-/** Returns scores from all participants including the current user */
-export function getAllScores(): ParticipantScores[] {
-  return [myScores, ...otherScores];
+export async function saveMyScores(
+  server: string,
+  agent: string,
+  contractId: string,
+  scores: Record<string, number>,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_my_scores', values: { scores } } as IMethod,
+  });
 }

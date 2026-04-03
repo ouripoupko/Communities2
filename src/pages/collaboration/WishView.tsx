@@ -23,6 +23,8 @@ const WishView: React.FC = () => {
       subtitle={subtitle}
       collaborationId={wishId!}
       communityId={communityId!}
+      collaborationServer={wish?.hostServer}
+      collaborationAgent={wish?.hostAgent}
     />
   );
 };

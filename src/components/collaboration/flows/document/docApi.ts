@@ -1,6 +1,9 @@
 // ---------------------------------------------------------------------------
-// Collaborative document — local in-memory store, no persistence yet
+// Collaborative document — persistent API backed by contract storage
 // ---------------------------------------------------------------------------
+
+import { contractRead, contractWrite } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 
 export type ElementType = 'title' | 'section' | 'subsection' | 'paragraph' | 'sentence';
 export type ProposalKind = 'delete' | 'edit';
@@ -10,7 +13,7 @@ export interface DocElement {
   type: ElementType;
   text: string;
   owner: string;
-  parentId: string | null; // null for title and top-level sections
+  parentId: string | null;
   order: number;
 }
 
@@ -18,7 +21,7 @@ export interface Proposal {
   id: string;
   targetId: string;
   kind: ProposalKind;
-  proposedText?: string; // only for 'edit'
+  proposedText?: string;
   proposer: string;
   supporters: string[];
   rejecters: string[];
@@ -30,13 +33,10 @@ export interface DocumentState {
 }
 
 // ---------------------------------------------------------------------------
-// Community constants
+// Constants
 // ---------------------------------------------------------------------------
-export const CURRENT_USER = 'me';
-export const COMMUNITY_SIZE = 4; // me, alice, bob, carol
-export const MAJORITY = Math.floor(COMMUNITY_SIZE / 2) + 1; // 3
+export const MAJORITY = 3;
 
-// Which element types may be added inside which parent types
 export const ALLOWED_CHILDREN: Partial<Record<ElementType, ElementType[]>> = {
   section:    ['subsection', 'paragraph'],
   subsection: ['paragraph'],
@@ -44,147 +44,285 @@ export const ALLOWED_CHILDREN: Partial<Record<ElementType, ElementType[]>> = {
 };
 
 // ---------------------------------------------------------------------------
-// Mutable state
+// Normalize helpers — safely coerce unknown contract data to typed objects
 // ---------------------------------------------------------------------------
-let elements: DocElement[] = [
-  { id: 'title', type: 'title',      text: 'Community Action Plan',                              owner: 'system', parentId: null,  order: 0 },
-  { id: 's1',    type: 'section',    text: 'Introduction',                                       owner: 'alice',  parentId: null,  order: 1 },
-  { id: 'p1',    type: 'paragraph',  text: 'Background',                                         owner: 'alice',  parentId: 's1',  order: 1 },
-  { id: 'sen1',  type: 'sentence',   text: 'Our community faces unique challenges in 2025.',      owner: 'alice',  parentId: 'p1',  order: 1 },
-  { id: 'sen2',  type: 'sentence',   text: 'Together we can build a stronger foundation.',        owner: 'bob',    parentId: 'p1',  order: 2 },
-  { id: 's2',    type: 'section',    text: 'Goals',                                              owner: 'me',     parentId: null,  order: 2 },
-  { id: 'ss1',   type: 'subsection', text: 'Short-term Goals',                                   owner: 'me',     parentId: 's2',  order: 1 },
-  { id: 'p2',    type: 'paragraph',  text: 'Immediate Actions',                                  owner: 'me',     parentId: 'ss1', order: 1 },
-  { id: 'sen3',  type: 'sentence',   text: 'Launch a community survey by Q2.',                   owner: 'me',     parentId: 'p2',  order: 1 },
-];
+function normalizeElement(e: Record<string, unknown>): DocElement {
+  return {
+    id:       String(e.id ?? ''),
+    type:     (e.type as ElementType) ?? 'sentence',
+    text:     String(e.text ?? ''),
+    owner:    String(e.owner ?? ''),
+    parentId: e.parentId != null ? String(e.parentId) : null,
+    order:    Number(e.order ?? 0),
+  };
+}
 
-let proposals: Proposal[] = [
-  {
-    id: 'prop1',
-    targetId: 'sen1',
-    kind: 'edit',
-    proposedText: 'Our community faces new opportunities in 2025.',
-    proposer: 'bob',
-    supporters: ['alice'],
-    rejecters: [],
-  },
-];
+function normalizeProposal(p: Record<string, unknown>): Proposal {
+  return {
+    id:           String(p.id ?? ''),
+    targetId:     String(p.targetId ?? ''),
+    kind:         (p.kind as ProposalKind) ?? 'edit',
+    proposedText: p.proposedText != null ? String(p.proposedText) : undefined,
+    proposer:     String(p.proposer ?? ''),
+    supporters:   Array.isArray(p.supporters) ? p.supporters.map(String) : [],
+    rejecters:    Array.isArray(p.rejecters)  ? p.rejecters.map(String)  : [],
+  };
+}
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Internal pure helpers
 // ---------------------------------------------------------------------------
-function getDescendants(id: string): DocElement[] {
+function getDescendants(elements: DocElement[], id: string): DocElement[] {
   const children = elements.filter(e => e.parentId === id);
-  return [...children, ...children.flatMap(c => getDescendants(c.id))];
+  return [...children, ...children.flatMap(c => getDescendants(elements, c.id))];
 }
 
-function hasOthersDescendants(id: string): boolean {
-  return getDescendants(id).some(e => e.owner !== CURRENT_USER);
+function hasOthersDescendants(elements: DocElement[], id: string, currentUser: string): boolean {
+  return getDescendants(elements, id).some(e => e.owner !== currentUser);
 }
 
-function nextOrder(parentId: string | null): number {
+function nextOrder(elements: DocElement[], parentId: string | null): number {
   const siblings = elements.filter(e => e.parentId === parentId && e.type !== 'title');
   return siblings.length > 0 ? Math.max(...siblings.map(e => e.order)) + 1 : 1;
 }
 
-function internalDelete(id: string): void {
-  const toRemove = new Set([id, ...getDescendants(id).map(e => e.id)]);
-  elements  = elements.filter(e => !toRemove.has(e.id));
-  proposals = proposals.filter(p => !toRemove.has(p.targetId));
-}
-
-function applyOrDiscard(proposalId: string): void {
-  const p = proposals.find(q => q.id === proposalId);
-  if (!p) return;
-  if (p.supporters.length >= MAJORITY) {
-    if (p.kind === 'delete') {
-      internalDelete(p.targetId);
-    } else if (p.kind === 'edit' && p.proposedText !== undefined) {
-      elements = elements.map(e => e.id === p.targetId ? { ...e, text: p.proposedText! } : e);
-    }
-    proposals = proposals.filter(q => q.id !== proposalId);
-  } else if (p.rejecters.length >= MAJORITY) {
-    proposals = proposals.filter(q => q.id !== proposalId);
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Public API — capability checks
+// Public capability checks (pure, no I/O)
 // ---------------------------------------------------------------------------
 
-export function canDirectEdit(id: string): boolean {
+export function canDirectEdit(elements: DocElement[], id: string, currentUser: string): boolean {
   const el = elements.find(e => e.id === id);
   if (!el) return false;
-  if (el.type === 'title') return true; // anyone can edit the title text
-  return el.owner === CURRENT_USER;
+  if (el.type === 'title') return true;
+  return el.owner === currentUser;
 }
 
-export function canDirectDelete(id: string): boolean {
+export function canDirectDelete(elements: DocElement[], id: string, currentUser: string): boolean {
   const el = elements.find(e => e.id === id);
   if (!el || el.type === 'title') return false;
-  if (el.owner !== CURRENT_USER) return false;
-  return !hasOthersDescendants(id);
+  if (el.owner !== currentUser) return false;
+  return !hasOthersDescendants(elements, id, currentUser);
 }
 
-export function canProposeEdit(id: string): boolean {
+export function canProposeEdit(elements: DocElement[], id: string, currentUser: string): boolean {
   const el = elements.find(e => e.id === id);
   if (!el || el.type === 'title') return false;
-  return el.owner !== CURRENT_USER;
+  return el.owner !== currentUser;
 }
 
-export function canProposeDelete(id: string): boolean {
+export function canProposeDelete(elements: DocElement[], id: string, currentUser: string): boolean {
   const el = elements.find(e => e.id === id);
   if (!el || el.type === 'title') return false;
-  if (el.owner === CURRENT_USER) return hasOthersDescendants(id);
+  if (el.owner === currentUser) return hasOthersDescendants(elements, id, currentUser);
   return true;
 }
 
 // ---------------------------------------------------------------------------
-// Public API — mutations
+// Async API — contract I/O
 // ---------------------------------------------------------------------------
 
-export function getDocument(): DocumentState {
-  return {
-    elements:  elements.map(e => ({ ...e })),
-    proposals: proposals.map(p => ({ ...p, supporters: [...p.supporters], rejecters: [...p.rejecters] })),
+export async function loadDocument(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<DocumentState> {
+  const [rawElements, rawProposals] = await Promise.all([
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_elements', values: {} } as IMethod }),
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_proposals', values: {} } as IMethod }),
+  ]);
+
+  const elements: DocElement[] = Array.isArray(rawElements)
+    ? rawElements.map(e => normalizeElement(e as Record<string, unknown>))
+    : [];
+
+  const proposals: Proposal[] = Array.isArray(rawProposals)
+    ? rawProposals.map(p => normalizeProposal(p as Record<string, unknown>))
+    : [];
+
+  return { elements, proposals };
+}
+
+export async function addElement(
+  server: string,
+  agent: string,
+  contractId: string,
+  elements: DocElement[],
+  currentUser: string,
+  type: ElementType,
+  parentId: string | null,
+  text: string,
+): Promise<void> {
+  const newElement: DocElement = {
+    id:       crypto.randomUUID(),
+    type,
+    text:     text.trim(),
+    owner:    currentUser,
+    parentId,
+    order:    nextOrder(elements, parentId),
   };
-}
-
-export function addElement(type: ElementType, parentId: string | null, text: string): void {
-  const id = `el_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  elements = [...elements, { id, type, text: text.trim(), owner: CURRENT_USER, parentId, order: nextOrder(parentId) }];
-}
-
-export function updateElement(id: string, text: string): void {
-  if (!canDirectEdit(id)) return;
-  elements = elements.map(e => e.id === id ? { ...e, text: text.trim() } : e);
-}
-
-export function deleteElement(id: string): void {
-  if (!canDirectDelete(id)) return;
-  internalDelete(id);
-}
-
-export function proposeEdit(targetId: string, proposedText: string): void {
-  const id = `prop_${Date.now()}`;
-  proposals = [...proposals, { id, targetId, kind: 'edit', proposedText: proposedText.trim(), proposer: CURRENT_USER, supporters: [CURRENT_USER], rejecters: [] }];
-  applyOrDiscard(id);
-}
-
-export function proposeDelete(targetId: string): void {
-  const id = `prop_${Date.now()}`;
-  proposals = [...proposals, { id, targetId, kind: 'delete', proposer: CURRENT_USER, supporters: [CURRENT_USER], rejecters: [] }];
-  applyOrDiscard(id);
-}
-
-export function voteProposal(proposalId: string, vote: 'support' | 'reject'): void {
-  proposals = proposals.map(p => {
-    if (p.id !== proposalId) return p;
-    const supporters = p.supporters.filter(s => s !== CURRENT_USER);
-    const rejecters  = p.rejecters.filter(r => r !== CURRENT_USER);
-    if (vote === 'support') supporters.push(CURRENT_USER);
-    else rejecters.push(CURRENT_USER);
-    return { ...p, supporters, rejecters };
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'add_element', values: { element: newElement } } as IMethod,
   });
-  applyOrDiscard(proposalId);
+}
+
+export async function updateElement(
+  server: string,
+  agent: string,
+  contractId: string,
+  elements: DocElement[],
+  id: string,
+  currentUser: string,
+  text: string,
+): Promise<void> {
+  if (!canDirectEdit(elements, id, currentUser)) return;
+  const updated = elements.map(e => e.id === id ? { ...e, text: text.trim() } : e);
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_elements', values: { elements: updated } } as IMethod,
+  });
+}
+
+export async function deleteElement(
+  server: string,
+  agent: string,
+  contractId: string,
+  elements: DocElement[],
+  proposals: Proposal[],
+  id: string,
+  currentUser: string,
+): Promise<void> {
+  if (!canDirectDelete(elements, id, currentUser)) return;
+  const toRemove = new Set([id, ...getDescendants(elements, id).map(e => e.id)]);
+  const filteredElements  = elements.filter(e => !toRemove.has(e.id));
+  const filteredProposals = proposals.filter(p => !toRemove.has(p.targetId));
+  await Promise.all([
+    contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_elements',  values: { elements: filteredElements }   } as IMethod }),
+    contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: filteredProposals } } as IMethod }),
+  ]);
+}
+
+export async function proposeEdit(
+  server: string,
+  agent: string,
+  contractId: string,
+  elements: DocElement[],
+  proposals: Proposal[],
+  targetId: string,
+  currentUser: string,
+  proposedText: string,
+): Promise<void> {
+  if (!canProposeEdit(elements, targetId, currentUser)) return;
+
+  const newProposal: Proposal = {
+    id:          crypto.randomUUID(),
+    targetId,
+    kind:        'edit',
+    proposedText: proposedText.trim(),
+    proposer:    currentUser,
+    supporters:  [currentUser],
+    rejecters:   [],
+  };
+
+  let updatedProposals = [...proposals, newProposal];
+  let updatedElements  = elements;
+
+  // Check if majority is immediately met
+  if (newProposal.supporters.length >= MAJORITY) {
+    updatedElements  = elements.map(e => e.id === targetId ? { ...e, text: newProposal.proposedText! } : e);
+    updatedProposals = proposals; // don't add the proposal — it was applied instantly
+    await Promise.all([
+      contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_elements',  values: { elements: updatedElements }   } as IMethod }),
+      contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: updatedProposals } } as IMethod }),
+    ]);
+  } else {
+    await contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: updatedProposals } } as IMethod });
+  }
+}
+
+export async function proposeDelete(
+  server: string,
+  agent: string,
+  contractId: string,
+  elements: DocElement[],
+  proposals: Proposal[],
+  targetId: string,
+  currentUser: string,
+): Promise<void> {
+  if (!canProposeDelete(elements, targetId, currentUser)) return;
+
+  const newProposal: Proposal = {
+    id:         crypto.randomUUID(),
+    targetId,
+    kind:       'delete',
+    proposer:   currentUser,
+    supporters: [currentUser],
+    rejecters:  [],
+  };
+
+  let updatedProposals = [...proposals, newProposal];
+  let updatedElements  = elements;
+
+  if (newProposal.supporters.length >= MAJORITY) {
+    const toRemove      = new Set([targetId, ...getDescendants(elements, targetId).map(e => e.id)]);
+    updatedElements     = elements.filter(e => !toRemove.has(e.id));
+    updatedProposals    = proposals.filter(p => !toRemove.has(p.targetId));
+    await Promise.all([
+      contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_elements',  values: { elements: updatedElements }   } as IMethod }),
+      contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: updatedProposals } } as IMethod }),
+    ]);
+  } else {
+    await contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: updatedProposals } } as IMethod });
+  }
+}
+
+export async function voteProposal(
+  server: string,
+  agent: string,
+  contractId: string,
+  elements: DocElement[],
+  proposals: Proposal[],
+  proposalId: string,
+  currentUser: string,
+  vote: 'support' | 'reject',
+): Promise<void> {
+  const proposal = proposals.find(p => p.id === proposalId);
+  if (!proposal) return;
+
+  // Update supporters/rejecters — remove currentUser from both, then add to appropriate list
+  const supporters = proposal.supporters.filter(s => s !== currentUser);
+  const rejecters  = proposal.rejecters.filter(r => r !== currentUser);
+  if (vote === 'support') supporters.push(currentUser);
+  else                    rejecters.push(currentUser);
+
+  const updatedProposal: Proposal = { ...proposal, supporters, rejecters };
+  let updatedProposals = proposals.map(p => p.id === proposalId ? updatedProposal : p);
+  let updatedElements  = elements;
+
+  if (updatedProposal.supporters.length >= MAJORITY) {
+    // Apply and remove proposal
+    if (updatedProposal.kind === 'delete') {
+      const toRemove   = new Set([updatedProposal.targetId, ...getDescendants(elements, updatedProposal.targetId).map(e => e.id)]);
+      updatedElements  = elements.filter(e => !toRemove.has(e.id));
+      updatedProposals = updatedProposals.filter(p => !toRemove.has(p.targetId));
+    } else if (updatedProposal.kind === 'edit' && updatedProposal.proposedText !== undefined) {
+      updatedElements  = elements.map(e => e.id === updatedProposal.targetId ? { ...e, text: updatedProposal.proposedText! } : e);
+      updatedProposals = updatedProposals.filter(p => p.id !== proposalId);
+    }
+    await Promise.all([
+      contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_elements',  values: { elements: updatedElements }   } as IMethod }),
+      contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: updatedProposals } } as IMethod }),
+    ]);
+  } else if (updatedProposal.rejecters.length >= MAJORITY) {
+    // Discard proposal
+    updatedProposals = updatedProposals.filter(p => p.id !== proposalId);
+    await contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: updatedProposals } } as IMethod });
+  } else {
+    // Just update the vote counts
+    await contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_proposals', values: { proposals: updatedProposals } } as IMethod });
+  }
 }

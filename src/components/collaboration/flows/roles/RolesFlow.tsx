@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Award, Plus, Trash2, UserPlus, UserMinus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import * as api from './rolesApi';
 import type { Role } from './rolesApi';
+import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './RolesFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -13,8 +14,8 @@ const AddRoleForm: React.FC<{
   onSubmit: (name: string, description: string) => void;
   onCancel: () => void;
 }> = ({ onSubmit, onCancel }) => {
-  const [name, setName]   = useState('');
-  const [desc, setDesc]   = useState('');
+  const [name,  setName]  = useState('');
+  const [desc,  setDesc]  = useState('');
   const [error, setError] = useState('');
 
   const submit = () => {
@@ -55,10 +56,12 @@ const AddRoleForm: React.FC<{
 // ---------------------------------------------------------------------------
 const RoleCard: React.FC<{
   role: Role;
-  onRefresh: () => void;
-}> = ({ role, onRefresh }) => {
-  const assigned = api.isAssigned(role);
-  const act = (fn: () => void) => { fn(); onRefresh(); };
+  currentUser: string;
+  onJoin:   () => Promise<void>;
+  onLeave:  () => Promise<void>;
+  onDelete: () => Promise<void>;
+}> = ({ role, currentUser, onJoin, onLeave, onDelete }) => {
+  const assigned = api.isAssigned(role, currentUser);
 
   return (
     <div className={`${styles.card} ${assigned ? styles.cardAssigned : ''}`}>
@@ -66,48 +69,31 @@ const RoleCard: React.FC<{
         <span className={styles.roleName}>{role.name}</span>
         <div className={styles.cardActions}>
           {assigned ? (
-            <button
-              className={`${styles.assignBtn} ${styles.assignBtnLeave}`}
-              onClick={() => act(() => api.leaveRole(role.id))}
-              title="Leave this role"
-            >
+            <button className={`${styles.assignBtn} ${styles.assignBtnLeave}`} onClick={onLeave} title="Leave this role">
               <UserMinus size={13} /> Leave
             </button>
           ) : (
-            <button
-              className={`${styles.assignBtn} ${styles.assignBtnJoin}`}
-              onClick={() => act(() => api.joinRole(role.id))}
-              title="Join this role"
-            >
+            <button className={`${styles.assignBtn} ${styles.assignBtnJoin}`} onClick={onJoin} title="Join this role">
               <UserPlus size={13} /> Join
             </button>
           )}
-          {api.canDelete(role) && (
-            <button
-              className={styles.deleteBtn}
-              onClick={() => act(() => api.deleteRole(role.id))}
-              title="Delete role"
-            >
+          {api.canDelete(role, currentUser) && (
+            <button className={styles.deleteBtn} onClick={onDelete} title="Delete role">
               <Trash2 size={13} />
             </button>
           )}
         </div>
       </div>
 
-      {role.description && (
-        <p className={styles.roleDesc}>{role.description}</p>
-      )}
+      {role.description && <p className={styles.roleDesc}>{role.description}</p>}
 
       <div className={styles.assignees}>
         {role.assignees.length === 0 ? (
           <span className={styles.noAssignees}>No one assigned yet</span>
         ) : (
           role.assignees.map(a => (
-            <span
-              key={a}
-              className={`${styles.chip} ${a === api.CURRENT_USER ? styles.chipMe : ''}`}
-            >
-              {a === api.CURRENT_USER ? 'you' : a}
+            <span key={a} className={`${styles.chip} ${a === currentUser ? styles.chipMe : ''}`}>
+              {a === currentUser ? 'you' : a}
             </span>
           ))
         )}
@@ -119,11 +105,28 @@ const RoleCard: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const RolesFlow: React.FC<FlowProps> = () => {
-  const [roles,   setRoles]   = useState(() => api.getRoles());
+const RolesFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+  const [roles,   setRoles]   = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
   const [adding,  setAdding]  = useState(false);
 
-  const refresh = useCallback(() => setRoles(api.getRoles()), []);
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await api.loadRoles(flowServer, flowAgent, instanceId);
+      setRoles(data.sort((a, b) => a.createdAt - b.createdAt));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [instanceId, flowServer, flowAgent]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  if (loading) return <FlowLoading />;
+  if (error)   return <FlowError message={error} onRetry={load} />;
 
   return (
     <div className={styles.container}>
@@ -134,10 +137,10 @@ const RolesFlow: React.FC<FlowProps> = () => {
 
       {adding ? (
         <AddRoleForm
-          onSubmit={(name, desc) => {
-            api.addRole(name, desc);
-            refresh();
+          onSubmit={async (name, desc) => {
+            await api.addRole(flowServer, flowAgent, instanceId, currentUser, name, desc);
             setAdding(false);
+            await load();
           }}
           onCancel={() => setAdding(false)}
         />
@@ -152,7 +155,14 @@ const RolesFlow: React.FC<FlowProps> = () => {
       ) : (
         <div className={styles.roleList}>
           {roles.map(r => (
-            <RoleCard key={r.id} role={r} onRefresh={refresh} />
+            <RoleCard
+              key={r.id}
+              role={r}
+              currentUser={currentUser}
+              onJoin={async ()   => { await api.joinRole(flowServer, flowAgent, instanceId, roles, r.id, currentUser); await load(); }}
+              onLeave={async ()  => { await api.leaveRole(flowServer, flowAgent, instanceId, roles, r.id, currentUser); await load(); }}
+              onDelete={async () => { await api.deleteRole(flowServer, flowAgent, instanceId, roles, r.id); await load(); }}
+            />
           ))}
         </div>
       )}

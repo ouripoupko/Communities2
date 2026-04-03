@@ -19,6 +19,8 @@ const AgreementView: React.FC = () => {
       title={title}
       collaborationId={agreementId!}
       communityId={communityId!}
+      collaborationServer={agreement?.hostServer}
+      collaborationAgent={agreement?.hostAgent}
     />
   );
 };

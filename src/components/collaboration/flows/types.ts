@@ -1,7 +1,14 @@
 import type React from 'react';
 
 export interface FlowProps {
+  /** Contract id of this flow on the owner's server */
   instanceId: string;
+  /** Server URL where the flow contract is deployed */
+  flowServer: string;
+  /** Public key of the agent who owns the flow contract */
+  flowAgent: string;
+  /** Current authenticated user's public key */
+  currentUser: string;
   collaborationId: string;
   collaborationType: 'initiative' | 'wish' | 'agreement';
 }

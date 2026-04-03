@@ -1,6 +1,5 @@
-// ---------------------------------------------------------------------------
-// Task board flow — local in-memory store, no persistence yet
-// ---------------------------------------------------------------------------
+import { contractRead, contractWrite } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 
@@ -14,8 +13,6 @@ export interface Task {
   createdAt: number;
 }
 
-export const CURRENT_USER = 'me';
-
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   todo:        'To Do',
   in_progress: 'In Progress',
@@ -25,111 +22,97 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 export const STATUS_ORDER: TaskStatus[] = ['todo', 'in_progress', 'done'];
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Helpers
 // ---------------------------------------------------------------------------
-let tasks: Task[] = [
-  {
-    id: 't1', title: 'Draft community newsletter',
-    description: 'Write the monthly update for all members.',
-    createdBy: 'alice', ownerId: 'alice', status: 'in_progress',
-    createdAt: Date.now() - 3_600_000 * 10,
-  },
-  {
-    id: 't2', title: 'Book the meeting room',
-    description: '',
-    createdBy: 'bob', ownerId: null, status: 'todo',
-    createdAt: Date.now() - 3_600_000 * 8,
-  },
-  {
-    id: 't3', title: 'Update website homepage',
-    description: 'Refresh the hero image and event dates.',
-    createdBy: 'me', ownerId: 'me', status: 'todo',
-    createdAt: Date.now() - 3_600_000 * 6,
-  },
-  {
-    id: 't4', title: 'Print event banners',
-    description: '',
-    createdBy: 'carol', ownerId: 'carol', status: 'done',
-    createdAt: Date.now() - 3_600_000 * 24,
-  },
-  {
-    id: 't5', title: 'Send invitations',
-    description: 'Email all 120 registered members.',
-    createdBy: 'alice', ownerId: 'bob', status: 'in_progress',
-    createdAt: Date.now() - 3_600_000 * 5,
-  },
-];
 
-// ---------------------------------------------------------------------------
-// Capability checks
-// ---------------------------------------------------------------------------
-export function canClaim(task: Task): boolean {
-  return task.ownerId !== CURRENT_USER;
-}
-
-export function canRelease(task: Task): boolean {
-  return task.ownerId === CURRENT_USER && task.status !== 'done';
-}
-
-export function canAdvance(task: Task): boolean {
-  return task.ownerId === CURRENT_USER && task.status !== 'done';
-}
-
-export function canRevert(task: Task): boolean {
-  return task.ownerId === CURRENT_USER && task.status !== 'todo';
-}
-
-export function canDelete(task: Task): boolean {
-  return task.createdBy === CURRENT_USER && task.status !== 'done';
+function normalizeTask(t: Record<string, unknown>): Task {
+  return {
+    id:          String(t.id          ?? ''),
+    title:       String(t.title       ?? ''),
+    description: String(t.description ?? ''),
+    createdBy:   String(t.createdBy   ?? ''),
+    ownerId:     t.ownerId != null ? String(t.ownerId) : null,
+    status:      (t.status as TaskStatus) ?? 'todo',
+    createdAt:   Number(t.createdAt   ?? 0),
+  };
 }
 
 // ---------------------------------------------------------------------------
-// API
+// Capability checks (pure)
 // ---------------------------------------------------------------------------
-export function getTasks(): Task[] {
-  return tasks.map(t => ({ ...t }));
+
+export function canClaim(task: Task, currentUser: string): boolean   { return task.ownerId !== currentUser; }
+export function canRelease(task: Task, currentUser: string): boolean { return task.ownerId === currentUser && task.status !== 'done'; }
+export function canAdvance(task: Task, currentUser: string): boolean { return task.ownerId === currentUser && task.status !== 'done'; }
+export function canRevert(task: Task, currentUser: string): boolean  { return task.ownerId === currentUser && task.status !== 'todo'; }
+export function canDelete(task: Task, currentUser: string): boolean  { return task.createdBy === currentUser && task.status !== 'done'; }
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
+
+export async function loadTasks(server: string, agent: string, contractId: string): Promise<Task[]> {
+  const result = await contractRead({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'get_tasks', values: {} } as IMethod,
+  });
+  return (Array.isArray(result) ? result : []).map(t => normalizeTask(t as Record<string, unknown>));
 }
 
-export function addTask(title: string, description: string): Task {
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
+
+async function setTasks(server: string, agent: string, contractId: string, tasks: Task[]): Promise<void> {
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_tasks', values: { tasks } } as IMethod,
+  });
+}
+
+export async function addTask(
+  server: string, agent: string, contractId: string,
+  currentUser: string, title: string, description: string,
+): Promise<void> {
   const task: Task = {
-    id: `t_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+    id: crypto.randomUUID(),
     title: title.trim(),
     description: description.trim(),
-    createdBy: CURRENT_USER,
+    createdBy: currentUser,
     ownerId: null,
     status: 'todo',
     createdAt: Date.now(),
   };
-  tasks = [...tasks, task];
-  return { ...task };
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'add_task', values: { task } } as IMethod,
+  });
 }
 
-export function claimTask(id: string): void {
-  tasks = tasks.map(t => t.id === id ? { ...t, ownerId: CURRENT_USER } : t);
+export async function claimTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
+  await setTasks(server, agent, contractId, tasks.map(t => t.id === id ? { ...t, ownerId: currentUser } : t));
 }
 
-export function releaseTask(id: string): void {
-  tasks = tasks.map(t =>
-    t.id === id && t.ownerId === CURRENT_USER ? { ...t, ownerId: null } : t
-  );
+export async function releaseTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
+  await setTasks(server, agent, contractId, tasks.map(t => t.id === id && t.ownerId === currentUser ? { ...t, ownerId: null } : t));
 }
 
-export function advanceTask(id: string): void {
-  tasks = tasks.map(t => {
-    if (t.id !== id || t.ownerId !== CURRENT_USER) return t;
+export async function advanceTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
+  await setTasks(server, agent, contractId, tasks.map(t => {
+    if (t.id !== id || t.ownerId !== currentUser) return t;
     const next = STATUS_ORDER[STATUS_ORDER.indexOf(t.status) + 1];
     return next ? { ...t, status: next } : t;
-  });
+  }));
 }
 
-export function revertTask(id: string): void {
-  tasks = tasks.map(t => {
-    if (t.id !== id || t.ownerId !== CURRENT_USER) return t;
+export async function revertTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
+  await setTasks(server, agent, contractId, tasks.map(t => {
+    if (t.id !== id || t.ownerId !== currentUser) return t;
     const prev = STATUS_ORDER[STATUS_ORDER.indexOf(t.status) - 1];
     return prev ? { ...t, status: prev } : t;
-  });
+  }));
 }
 
-export function deleteTask(id: string): void {
-  tasks = tasks.filter(t => !(t.id === id && canDelete(t)));
+export async function deleteTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
+  await setTasks(server, agent, contractId, tasks.filter(t => !(t.id === id && canDelete(t, currentUser))));
 }

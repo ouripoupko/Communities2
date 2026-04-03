@@ -1,6 +1,5 @@
-// ---------------------------------------------------------------------------
-// Role Nomination flow — local in-memory store, no persistence yet
-// ---------------------------------------------------------------------------
+import { contractRead, contractWrite } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 
 export interface Role {
   id: string;
@@ -8,98 +7,107 @@ export interface Role {
   description: string;
   createdBy: string;
   createdAt: number;
-  assignees: string[]; // participantIds
+  assignees: string[];
 }
 
-export const CURRENT_USER = 'me';
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Seed data
-// ---------------------------------------------------------------------------
-let roles: Role[] = [
-  {
-    id: 'r1',
-    name: 'Facilitator',
-    description: 'Guides meetings and keeps discussions on track.',
-    createdBy: 'alice',
-    createdAt: Date.now() - 3_600_000 * 48,
-    assignees: ['alice'],
-  },
-  {
-    id: 'r2',
-    name: 'Treasurer',
-    description: 'Manages the community fund and financial records.',
-    createdBy: 'bob',
-    createdAt: Date.now() - 3_600_000 * 36,
-    assignees: [],
-  },
-  {
-    id: 'r3',
-    name: 'Note Taker',
-    description: 'Documents decisions and action items during meetings.',
-    createdBy: 'carol',
-    createdAt: Date.now() - 3_600_000 * 12,
-    assignees: ['carol', 'me'],
-  },
-];
+function normalizeRole(r: Record<string, unknown>): Role {
+  return {
+    id:          String(r.id          ?? ''),
+    name:        String(r.name        ?? ''),
+    description: String(r.description ?? ''),
+    createdBy:   String(r.createdBy   ?? ''),
+    createdAt:   Number(r.createdAt   ?? 0),
+    assignees:   Array.isArray(r.assignees) ? r.assignees.map(String) : [],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
 
-export function getRoles(): Role[] {
-  return [...roles].sort((a, b) => a.createdAt - b.createdAt);
+export async function loadRoles(server: string, agent: string, contractId: string): Promise<Role[]> {
+  const result = await contractRead({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'get_roles', values: {} } as IMethod,
+  });
+  return (Array.isArray(result) ? result : []).map(r => normalizeRole(r as Record<string, unknown>));
 }
 
 // ---------------------------------------------------------------------------
-// Capability checks
+// Capability checks (pure, no I/O)
 // ---------------------------------------------------------------------------
 
-export function isAssigned(role: Role): boolean {
-  return role.assignees.includes(CURRENT_USER);
+export function isAssigned(role: Role, currentUser: string): boolean {
+  return role.assignees.includes(currentUser);
 }
 
-export function canDelete(role: Role): boolean {
-  return role.createdBy === CURRENT_USER;
+export function canDelete(role: Role, currentUser: string): boolean {
+  return role.createdBy === currentUser;
 }
 
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
 
-function uid(): string {
-  return `r_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-}
-
-export function addRole(name: string, description: string): Role {
-  const r: Role = {
-    id: uid(),
-    name: name.trim(),
+export async function addRole(
+  server: string, agent: string, contractId: string,
+  currentUser: string, name: string, description: string,
+): Promise<Role> {
+  const role: Role = {
+    id:          crypto.randomUUID(),
+    name:        name.trim(),
     description: description.trim(),
-    createdBy: CURRENT_USER,
-    createdAt: Date.now(),
-    assignees: [],
+    createdBy:   currentUser,
+    createdAt:   Date.now(),
+    assignees:   [],
   };
-  roles = [...roles, r];
-  return r;
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'add_role', values: { role } } as IMethod,
+  });
+  return role;
 }
 
-export function deleteRole(roleId: string): void {
-  roles = roles.filter(r => r.id !== roleId);
+export async function deleteRole(
+  server: string, agent: string, contractId: string,
+  roles: Role[], roleId: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_roles', values: { roles: roles.filter(r => r.id !== roleId) } } as IMethod,
+  });
 }
 
-export function joinRole(roleId: string): void {
-  roles = roles.map(r =>
-    r.id === roleId && !r.assignees.includes(CURRENT_USER)
-      ? { ...r, assignees: [...r.assignees, CURRENT_USER] }
+export async function joinRole(
+  server: string, agent: string, contractId: string,
+  roles: Role[], roleId: string, currentUser: string,
+): Promise<void> {
+  const updated = roles.map(r =>
+    r.id === roleId && !r.assignees.includes(currentUser)
+      ? { ...r, assignees: [...r.assignees, currentUser] }
       : r
   );
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_roles', values: { roles: updated } } as IMethod,
+  });
 }
 
-export function leaveRole(roleId: string): void {
-  roles = roles.map(r =>
+export async function leaveRole(
+  server: string, agent: string, contractId: string,
+  roles: Role[], roleId: string, currentUser: string,
+): Promise<void> {
+  const updated = roles.map(r =>
     r.id === roleId
-      ? { ...r, assignees: r.assignees.filter(a => a !== CURRENT_USER) }
+      ? { ...r, assignees: r.assignees.filter(a => a !== currentUser) }
       : r
   );
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_roles', values: { roles: updated } } as IMethod,
+  });
 }

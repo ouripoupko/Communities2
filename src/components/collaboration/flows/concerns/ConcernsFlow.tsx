@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './concernsApi';
 import type { Concern, ConcernVote, ConcernStatus } from './concernsApi';
 import styles from './ConcernsFlow.module.scss';
@@ -24,17 +25,22 @@ function redIntensity(weight: number): string {
 // ---------------------------------------------------------------------------
 // Add concern form
 // ---------------------------------------------------------------------------
-const AddConcernForm: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
-  const [open,  setOpen]  = useState(false);
-  const [title, setTitle] = useState('');
-  const [desc,  setDesc]  = useState('');
-  const [error, setError] = useState('');
+const AddConcernForm: React.FC<{ onAdd: (title: string, desc: string) => Promise<void> }> = ({ onAdd }) => {
+  const [open,      setOpen]      = useState(false);
+  const [title,     setTitle]     = useState('');
+  const [desc,      setDesc]      = useState('');
+  const [error,     setError]     = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     if (!title.trim()) { setError('Title is required.'); return; }
-    api.addConcern(title, desc);
-    setTitle(''); setDesc(''); setError(''); setOpen(false);
-    onAdd();
+    setSubmitting(true);
+    try {
+      await onAdd(title, desc);
+      setTitle(''); setDesc(''); setError(''); setOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!open) {
@@ -54,7 +60,8 @@ const AddConcernForm: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
         value={title}
         autoFocus
         onChange={e => { setTitle(e.target.value); setError(''); }}
-        onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setOpen(false); }}
+        onKeyDown={e => { if (e.key === 'Enter') void submit(); if (e.key === 'Escape') setOpen(false); }}
+        disabled={submitting}
       />
       <textarea
         className={styles.addDescInput}
@@ -62,11 +69,12 @@ const AddConcernForm: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
         placeholder="Description (optional)"
         value={desc}
         onChange={e => setDesc(e.target.value)}
+        disabled={submitting}
       />
       {error && <p className={styles.errorMsg}>{error}</p>}
       <div className={styles.addFormActions}>
-        <button className={styles.btnConfirm} onClick={submit}>Submit</button>
-        <button className={styles.btnCancel} onClick={() => { setOpen(false); setError(''); }}>Cancel</button>
+        <button className={styles.btnConfirm} onClick={() => void submit()} disabled={submitting}>Submit</button>
+        <button className={styles.btnCancel} onClick={() => { setOpen(false); setError(''); }} disabled={submitting}>Cancel</button>
       </div>
     </div>
   );
@@ -78,16 +86,17 @@ const AddConcernForm: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
 const ConcernCard: React.FC<{
   concern: Concern;
   status: ConcernStatus;
-  onRefresh: () => void;
-}> = ({ concern, status, onRefresh }) => {
-  const counts = api.voteCounts(concern);
-  const weight = api.supportWeight(concern);
-  const myVote = concern.votes[api.CURRENT_USER] as ConcernVote | undefined;
+  currentUser: string;
+  onVote: (concernId: string, v: ConcernVote) => Promise<void>;
+  onClearVote: (concernId: string) => Promise<void>;
+}> = ({ concern, status, currentUser, onVote, onClearVote }) => {
+  const counts  = api.voteCounts(concern);
+  const weight  = api.supportWeight(concern);
+  const myVote  = concern.votes[currentUser] as ConcernVote | undefined;
 
-  const handleVote = (v: ConcernVote) => {
-    if (myVote === v) api.clearVote(concern.id);
-    else              api.vote(concern.id, v);
-    onRefresh();
+  const handleVote = async (v: ConcernVote) => {
+    if (myVote === v) await onClearVote(concern.id);
+    else              await onVote(concern.id, v);
   };
 
   const borderColor = status === 'active' ? redIntensity(weight) : undefined;
@@ -112,7 +121,7 @@ const ConcernCard: React.FC<{
         <div className={styles.cardHeader}>
           <span className={styles.cardTitle}>{concern.title}</span>
           <span className={styles.cardCreator}>
-            by {concern.createdBy === api.CURRENT_USER ? 'you' : concern.createdBy}
+            by {concern.createdBy === currentUser ? 'you' : concern.createdBy}
           </span>
         </div>
 
@@ -134,7 +143,7 @@ const ConcernCard: React.FC<{
               <button
                 key={v}
                 className={`${styles.voteBtn} ${styles[`voteBtn_${v}`]} ${myVote === v ? styles.voteBtnActive : ''}`}
-                onClick={() => handleVote(v)}
+                onClick={() => void handleVote(v)}
                 title={myVote === v ? 'Click to remove your vote' : VOTE_LABELS[v]}
               >
                 {VOTE_LABELS[v]}{myVote === v ? ' ✓' : ''}
@@ -176,10 +185,40 @@ const CollapsibleSection: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const ConcernsFlow: React.FC<FlowProps> = () => {
-  const [concerns, setConcerns] = useState<Concern[]>(() => api.getConcerns());
+const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+  const [concerns, setConcerns] = useState<Concern[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
 
-  const refresh = useCallback(() => setConcerns(api.getConcerns()), []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.loadConcerns(flowServer, flowAgent, instanceId);
+      setConcerns(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load concerns');
+    } finally {
+      setLoading(false);
+    }
+  }, [flowServer, flowAgent, instanceId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleAdd = useCallback(async (title: string, desc: string) => {
+    await api.addConcern(flowServer, flowAgent, instanceId, concerns, currentUser, title, desc);
+    await load();
+  }, [flowServer, flowAgent, instanceId, concerns, currentUser, load]);
+
+  const handleVote = useCallback(async (concernId: string, v: ConcernVote) => {
+    await api.voteConcern(flowServer, flowAgent, instanceId, concerns, concernId, currentUser, v);
+    await load();
+  }, [flowServer, flowAgent, instanceId, concerns, currentUser, load]);
+
+  const handleClearVote = useCallback(async (concernId: string) => {
+    await api.clearVoteConcern(flowServer, flowAgent, instanceId, concerns, concernId, currentUser);
+    await load();
+  }, [flowServer, flowAgent, instanceId, concerns, currentUser, load]);
 
   const { active, resolved, rejected } = useMemo(() => {
     const active:   Concern[] = [];
@@ -199,6 +238,9 @@ const ConcernsFlow: React.FC<FlowProps> = () => {
     return { active, resolved, rejected };
   }, [concerns]);
 
+  if (loading) return <FlowLoading />;
+  if (error)   return <FlowError message={error} onRetry={() => void load()} />;
+
   return (
     <div className={styles.container}>
       {/* Header */}
@@ -208,7 +250,7 @@ const ConcernsFlow: React.FC<FlowProps> = () => {
       </div>
 
       {/* Add form */}
-      <AddConcernForm onAdd={refresh} />
+      <AddConcernForm onAdd={handleAdd} />
 
       {/* Active concerns */}
       {active.length === 0 ? (
@@ -216,7 +258,14 @@ const ConcernsFlow: React.FC<FlowProps> = () => {
       ) : (
         <div className={styles.concernList}>
           {active.map(c => (
-            <ConcernCard key={c.id} concern={c} status="active" onRefresh={refresh} />
+            <ConcernCard
+              key={c.id}
+              concern={c}
+              status="active"
+              currentUser={currentUser}
+              onVote={handleVote}
+              onClearVote={handleClearVote}
+            />
           ))}
         </div>
       )}
@@ -225,7 +274,14 @@ const ConcernsFlow: React.FC<FlowProps> = () => {
       <CollapsibleSection label="Resolved" count={resolved.length} colorClass={styles.toggleResolved}>
         <div className={styles.concernList}>
           {resolved.map(c => (
-            <ConcernCard key={c.id} concern={c} status="resolved" onRefresh={refresh} />
+            <ConcernCard
+              key={c.id}
+              concern={c}
+              status="resolved"
+              currentUser={currentUser}
+              onVote={handleVote}
+              onClearVote={handleClearVote}
+            />
           ))}
         </div>
       </CollapsibleSection>
@@ -233,7 +289,14 @@ const ConcernsFlow: React.FC<FlowProps> = () => {
       <CollapsibleSection label="Rejected" count={rejected.length} colorClass={styles.toggleRejected}>
         <div className={styles.concernList}>
           {rejected.map(c => (
-            <ConcernCard key={c.id} concern={c} status="rejected" onRefresh={refresh} />
+            <ConcernCard
+              key={c.id}
+              concern={c}
+              status="rejected"
+              currentUser={currentUser}
+              onVote={handleVote}
+              onClearVote={handleClearVote}
+            />
           ))}
         </div>
       </CollapsibleSection>

@@ -1,6 +1,9 @@
 // ---------------------------------------------------------------------------
-// Concern resolution flow — local in-memory store, no persistence yet
+// Concern resolution flow — persistent via contract
 // ---------------------------------------------------------------------------
+
+import { contractRead, contractWrite } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 
 export type ConcernVote = 'support' | 'reject' | 'resolved';
 
@@ -16,48 +19,28 @@ export interface Concern {
 
 export type ConcernStatus = 'active' | 'resolved' | 'rejected';
 
-export const CURRENT_USER = 'me';
-const ALL_PARTICIPANTS = ['me', 'alice', 'bob', 'carol'];
-export const COMMUNITY_SIZE = ALL_PARTICIPANTS.length;
-const MAJORITY = Math.floor(COMMUNITY_SIZE / 2) + 1; // 3
+export const MAJORITY = 3; // configurable later
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Normalization
 // ---------------------------------------------------------------------------
-let concerns: Concern[] = [
-  {
-    id: 'c1',
-    title: 'Budget transparency is insufficient',
-    description: 'Members cannot see how funds are allocated month to month.',
-    createdBy: 'alice',
-    createdAt: Date.now() - 3_600_000 * 48,
-    votes: { alice: 'support', bob: 'support', carol: 'support' },
-  },
-  {
-    id: 'c2',
-    title: 'Decision-making process excludes newer members',
-    description: 'Only founding members seem to have a real vote on major decisions.',
-    createdBy: 'bob',
-    createdAt: Date.now() - 3_600_000 * 24,
-    votes: { alice: 'support', bob: 'support', carol: 'reject' },
-  },
-  {
-    id: 'c3',
-    title: 'Meeting frequency is too high',
-    description: '',
-    createdBy: 'carol',
-    createdAt: Date.now() - 3_600_000 * 10,
-    votes: { alice: 'reject', bob: 'reject', carol: 'support' },
-  },
-  {
-    id: 'c4',
-    title: 'Communication channels are fragmented',
-    description: 'Too many platforms: email, Slack, WhatsApp — things get missed.',
-    createdBy: 'me',
-    createdAt: Date.now() - 3_600_000 * 6,
-    votes: { me: 'support', alice: 'resolved', bob: 'resolved', carol: 'resolved' },
-  },
-];
+
+function normalizeConcern(raw: unknown): Concern {
+  const r = raw as Record<string, unknown>;
+  const rawVotes = r['votes'];
+  const votes: Record<string, ConcernVote> =
+    rawVotes && typeof rawVotes === 'object' && !Array.isArray(rawVotes)
+      ? (rawVotes as Record<string, ConcernVote>)
+      : {};
+  return {
+    id:          String(r['id'] ?? ''),
+    title:       String(r['title'] ?? ''),
+    description: String(r['description'] ?? ''),
+    createdBy:   String(r['createdBy'] ?? ''),
+    createdAt:   Number(r['createdAt'] ?? 0),
+    votes,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Derived helpers
@@ -84,38 +67,84 @@ export function concernStatus(c: Concern): ConcernStatus {
 }
 
 // ---------------------------------------------------------------------------
-// API
+// Async API
 // ---------------------------------------------------------------------------
 
-export function getConcerns(): Concern[] {
-  return concerns.map(c => ({ ...c, votes: { ...c.votes } }));
+export async function loadConcerns(server: string, agent: string, contractId: string): Promise<Concern[]> {
+  const result = await contractRead({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'get_concerns', values: {} } as IMethod,
+  });
+  const items: unknown[] = Array.isArray(result) ? result : [];
+  return items.map(normalizeConcern);
 }
 
-export function addConcern(title: string, description: string): Concern {
-  const c: Concern = {
-    id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-    title: title.trim(),
+export async function addConcern(
+  server: string,
+  agent: string,
+  contractId: string,
+  concerns: Concern[],
+  currentUser: string,
+  title: string,
+  description: string,
+): Promise<void> {
+  const newConcern: Concern = {
+    id:          crypto.randomUUID(),
+    title:       title.trim(),
     description: description.trim(),
-    createdBy: CURRENT_USER,
-    createdAt: Date.now(),
-    votes: { [CURRENT_USER]: 'support' }, // creator implicitly supports
+    createdBy:   currentUser,
+    createdAt:   Date.now(),
+    votes:       { [currentUser]: 'support' },
   };
-  concerns = [...concerns, c];
-  return { ...c, votes: { ...c.votes } };
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_concerns', values: { concerns: [...concerns, newConcern] } } as IMethod,
+  });
 }
 
-export function vote(concernId: string, v: ConcernVote): void {
-  concerns = concerns.map(c =>
+export async function voteConcern(
+  server: string,
+  agent: string,
+  contractId: string,
+  concerns: Concern[],
+  concernId: string,
+  currentUser: string,
+  v: ConcernVote,
+): Promise<void> {
+  const updated = concerns.map(c =>
     c.id === concernId
-      ? { ...c, votes: { ...c.votes, [CURRENT_USER]: v } }
-      : c
+      ? { ...c, votes: { ...c.votes, [currentUser]: v } }
+      : c,
   );
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_concerns', values: { concerns: updated } } as IMethod,
+  });
 }
 
-export function clearVote(concernId: string): void {
-  concerns = concerns.map(c => {
+export async function clearVoteConcern(
+  server: string,
+  agent: string,
+  contractId: string,
+  concerns: Concern[],
+  concernId: string,
+  currentUser: string,
+): Promise<void> {
+  const updated = concerns.map(c => {
     if (c.id !== concernId) return c;
-    const { [CURRENT_USER]: _removed, ...rest } = c.votes;
+    const { [currentUser]: _removed, ...rest } = c.votes;
     return { ...c, votes: rest };
+  });
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_concerns', values: { concerns: updated } } as IMethod,
   });
 }

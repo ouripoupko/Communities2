@@ -1,6 +1,5 @@
-// ---------------------------------------------------------------------------
-// Q&A flow — local in-memory store, no persistence yet
-// ---------------------------------------------------------------------------
+import { contractRead, contractWrite } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 
 export interface Question {
   id: string;
@@ -15,171 +14,257 @@ export interface Answer {
   text: string;
   createdBy: string;
   createdAt: number;
-  upvotes: string[]; // participantIds who upvoted
+  upvotes: string[];
 }
 
-export const CURRENT_USER = 'me';
-const ALL_PARTICIPANTS = ['me', 'alice', 'bob', 'carol'];
-export const COMMUNITY_SIZE = ALL_PARTICIPANTS.length;
+function normalizeQuestion(q: Record<string, unknown>): Question {
+  return {
+    id:        String(q.id        ?? ''),
+    text:      String(q.text      ?? ''),
+    createdBy: String(q.createdBy ?? ''),
+    createdAt: Number(q.createdAt ?? 0),
+  };
+}
 
-// ---------------------------------------------------------------------------
-// Seed data
-// ---------------------------------------------------------------------------
-let questions: Question[] = [
-  {
-    id: 'q1',
-    text: 'What is the best way to reach consensus quickly?',
-    createdBy: 'alice',
-    createdAt: Date.now() - 3_600_000 * 72,
-  },
-  {
-    id: 'q2',
-    text: 'How should we handle members who are consistently absent?',
-    createdBy: 'bob',
-    createdAt: Date.now() - 3_600_000 * 48,
-  },
-  {
-    id: 'q3',
-    text: 'What community currency exchange rate should we adopt?',
-    createdBy: 'me',
-    createdAt: Date.now() - 3_600_000 * 6,
-  },
-];
-
-let answers: Answer[] = [
-  {
-    id: 'a1',
-    questionId: 'q1',
-    text: 'Use a time-boxed discussion followed by a simple majority vote.',
-    createdBy: 'alice',
-    createdAt: Date.now() - 3_600_000 * 70,
-    upvotes: ['me', 'carol'],
-  },
-  {
-    id: 'a2',
-    questionId: 'q1',
-    text: 'Consent-based decision making: proceed unless someone raises a paramount objection.',
-    createdBy: 'bob',
-    createdAt: Date.now() - 3_600_000 * 68,
-    upvotes: ['bob'],
-  },
-  {
-    id: 'a3',
-    questionId: 'q2',
-    text: 'Send a personal check-in message first, then raise it with the group if there is no response.',
-    createdBy: 'carol',
-    createdAt: Date.now() - 3_600_000 * 46,
-    upvotes: ['alice', 'bob'],
-  },
-];
+function normalizeAnswer(a: Record<string, unknown>): Answer {
+  const upvotes = Array.isArray(a.upvotes)
+    ? (a.upvotes as unknown[]).map(u => String(u))
+    : [];
+  return {
+    id:         String(a.id         ?? ''),
+    questionId: String(a.questionId ?? ''),
+    text:       String(a.text       ?? ''),
+    createdBy:  String(a.createdBy  ?? ''),
+    createdAt:  Number(a.createdAt  ?? 0),
+    upvotes,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
 
-export function getQuestions(): Question[] {
-  return [...questions].sort((a, b) => b.createdAt - a.createdAt);
+export async function loadQuestions(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<Question[]> {
+  const result = await contractRead({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'get_questions', values: {} } as IMethod,
+  });
+  const raw = Array.isArray(result) ? result : [];
+  return (raw as Record<string, unknown>[]).map(normalizeQuestion);
 }
 
-export function getAllAnswers(): Answer[] {
-  return [...answers];
-}
-
-/** Returns answers for a question sorted by upvote count descending, then oldest first. */
-export function getSortedAnswers(questionId: string): Answer[] {
-  return answers
-    .filter(a => a.questionId === questionId)
-    .sort((a, b) => b.upvotes.length - a.upvotes.length || a.createdAt - b.createdAt);
-}
-
-export function getMyAnswer(questionId: string): Answer | undefined {
-  return answers.find(a => a.questionId === questionId && a.createdBy === CURRENT_USER);
-}
-
-export function getMyUpvotedAnswerId(questionId: string): string | null {
-  const a = answers.find(a => a.questionId === questionId && a.upvotes.includes(CURRENT_USER));
-  return a ? a.id : null;
-}
-
-// ---------------------------------------------------------------------------
-// Capability checks
-// ---------------------------------------------------------------------------
-
-export function canAddAnswer(questionId: string): boolean {
-  return !answers.some(a => a.questionId === questionId && a.createdBy === CURRENT_USER);
-}
-
-export function canDeleteQuestion(question: Question): boolean {
-  return question.createdBy === CURRENT_USER;
+export async function loadAnswers(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<Answer[]> {
+  const result = await contractRead({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'get_answers', values: {} } as IMethod,
+  });
+  const raw = Array.isArray(result) ? result : [];
+  return (raw as Record<string, unknown>[]).map(normalizeAnswer);
 }
 
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
 
-function uid(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-}
-
-export function addQuestion(text: string): Question {
-  const q: Question = {
-    id: uid('q'),
-    text: text.trim(),
-    createdBy: CURRENT_USER,
+export async function addQuestion(
+  server: string,
+  agent: string,
+  contractId: string,
+  currentUser: string,
+  text: string,
+): Promise<void> {
+  const question: Question = {
+    id:        crypto.randomUUID(),
+    text:      text.trim(),
+    createdBy: currentUser,
     createdAt: Date.now(),
   };
-  questions = [...questions, q];
-  return q;
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'add_question', values: { question } } as IMethod,
+  });
 }
 
-export function deleteQuestion(questionId: string): void {
-  answers   = answers.filter(a => a.questionId !== questionId);
-  questions = questions.filter(q => q.id !== questionId);
+export async function deleteQuestion(
+  server: string,
+  agent: string,
+  contractId: string,
+  questions: Question[],
+  answers: Answer[],
+  questionId: string,
+  currentUser: string,
+): Promise<void> {
+  const q = questions.find(q => q.id === questionId);
+  if (!q || q.createdBy !== currentUser) return;
+
+  const filteredQuestions = questions.filter(q => q.id !== questionId);
+  const filteredAnswers   = answers.filter(a => a.questionId !== questionId);
+
+  await Promise.all([
+    contractWrite({
+      serverUrl: server,
+      publicKey: agent,
+      contractId,
+      method: { name: 'set_questions', values: { questions: filteredQuestions } } as IMethod,
+    }),
+    contractWrite({
+      serverUrl: server,
+      publicKey: agent,
+      contractId,
+      method: { name: 'set_answers', values: { answers: filteredAnswers } } as IMethod,
+    }),
+  ]);
 }
 
-export function addAnswer(questionId: string, text: string): Answer {
-  const a: Answer = {
-    id: uid('a'),
+export async function addAnswer(
+  server: string,
+  agent: string,
+  contractId: string,
+  currentUser: string,
+  answers: Answer[],
+  questionId: string,
+  text: string,
+): Promise<void> {
+  const alreadyAnswered = answers.some(
+    a => a.questionId === questionId && a.createdBy === currentUser,
+  );
+  if (alreadyAnswered) return;
+
+  const answer: Answer = {
+    id:         crypto.randomUUID(),
     questionId,
-    text: text.trim(),
-    createdBy: CURRENT_USER,
-    createdAt: Date.now(),
-    upvotes: [],
+    text:       text.trim(),
+    createdBy:  currentUser,
+    createdAt:  Date.now(),
+    upvotes:    [],
   };
-  answers = [...answers, a];
-  return a;
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'add_answer', values: { answer } } as IMethod,
+  });
 }
 
-export function editAnswer(answerId: string, text: string): void {
-  answers = answers.map(a => a.id === answerId ? { ...a, text: text.trim() } : a);
+export async function editAnswer(
+  server: string,
+  agent: string,
+  contractId: string,
+  answers: Answer[],
+  answerId: string,
+  currentUser: string,
+  text: string,
+): Promise<void> {
+  const updated = answers.map(a =>
+    a.id === answerId && a.createdBy === currentUser ? { ...a, text: text.trim() } : a,
+  );
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_answers', values: { answers: updated } } as IMethod,
+  });
 }
 
-export function deleteAnswer(answerId: string): void {
-  answers = answers.filter(a => a.id !== answerId);
+export async function deleteAnswer(
+  server: string,
+  agent: string,
+  contractId: string,
+  answers: Answer[],
+  answerId: string,
+  currentUser: string,
+): Promise<void> {
+  const filtered = answers.filter(
+    a => !(a.id === answerId && a.createdBy === currentUser),
+  );
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_answers', values: { answers: filtered } } as IMethod,
+  });
 }
 
-/**
- * Toggle upvote for the current user on the given answer.
- * A user can upvote at most one answer per question; clicking a different
- * answer moves the upvote, clicking the same answer removes it.
- */
-export function toggleUpvote(answerId: string): void {
+export async function toggleUpvote(
+  server: string,
+  agent: string,
+  contractId: string,
+  answers: Answer[],
+  answerId: string,
+  currentUser: string,
+): Promise<void> {
   const target = answers.find(a => a.id === answerId);
   if (!target) return;
 
   const { questionId } = target;
-  const alreadyVotedThis = target.upvotes.includes(CURRENT_USER);
+  const alreadyVotedThis = target.upvotes.includes(currentUser);
 
-  // Remove current user's upvote from every answer in this question
-  answers = answers.map(a => {
+  // Remove currentUser's upvote from all answers in the same question
+  let updated = answers.map(a => {
     if (a.questionId !== questionId) return a;
-    return { ...a, upvotes: a.upvotes.filter(u => u !== CURRENT_USER) };
+    return { ...a, upvotes: a.upvotes.filter(u => u !== currentUser) };
   });
 
-  // If the clicked answer was NOT already the one voted for, add the upvote
+  // If the clicked answer was NOT already the one voted, add the upvote
   if (!alreadyVotedThis) {
-    answers = answers.map(a =>
-      a.id === answerId ? { ...a, upvotes: [...a.upvotes, CURRENT_USER] } : a
+    updated = updated.map(a =>
+      a.id === answerId ? { ...a, upvotes: [...a.upvotes, currentUser] } : a,
     );
   }
+
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_answers', values: { answers: updated } } as IMethod,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pure helpers
+// ---------------------------------------------------------------------------
+
+export function getSortedAnswers(answers: Answer[], questionId: string): Answer[] {
+  return answers
+    .filter(a => a.questionId === questionId)
+    .sort((a, b) => b.upvotes.length - a.upvotes.length || a.createdAt - b.createdAt);
+}
+
+export function getMyUpvotedAnswerId(
+  answers: Answer[],
+  questionId: string,
+  currentUser: string,
+): string | null {
+  const a = answers.find(
+    a => a.questionId === questionId && a.upvotes.includes(currentUser),
+  );
+  return a ? a.id : null;
+}
+
+export function canAddAnswer(
+  answers: Answer[],
+  questionId: string,
+  currentUser: string,
+): boolean {
+  return !answers.some(
+    a => a.questionId === questionId && a.createdBy === currentUser,
+  );
+}
+
+export function canDeleteQuestion(question: Question, currentUser: string): boolean {
+  return question.createdBy === currentUser;
 }
