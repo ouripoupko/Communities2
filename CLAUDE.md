@@ -30,6 +30,32 @@
 - Add menu has click-outside-to-close handler
 - Flow registry: `src/components/collaboration/flows/registry.ts` — all available flows grouped by category
 
+## Activity Hub & Navigation
+
+- `ActivityHub` (`src/components/community/ActivityHub.tsx`): dashboard with Initiative, Collab, Chat summary cards
+- CommunityView default tab renamed from "Collaborations" to "Activity" at route `/activity`
+- Three sections: Initiative (pipeline), Collab (teamwork templates), Chat (topics + messages)
+
+## Initiative Pipeline
+
+- `PipelineView` (`src/components/collaboration/PipelineView.tsx`): wraps initiative with 5-stage progress bar
+- Stages: Problem Definition → Discussion → Proposals (ApprovalFlow) → Vote (QVFlow) → Mandate
+- Stage stored on initiative contract via `set_stage`/`get_stage`
+- `CreateInitiativeDialog`: structured form with problem, evidence URLs, countries affected
+- ConcernsFlow available as sidebar at any stage
+
+## Chat
+
+- `ChatTopicList` + `ChatTopic` in `src/components/community/chat/`
+- Local in-memory data via `chatApi.ts`, keyed by communityId
+- Routes: `/community/:communityId/chat` and `/community/:communityId/chat/:topicId`
+
+## Collab
+
+- Template-based workspaces using Ouri's flow tools (Scheduling, Task Board, Roles, etc.)
+- Templates defined in `src/components/collaboration/collabTemplates.ts`
+- `CreateCollabDialog`: name + template picker, pre-populates tabs via localStorage
+
 ## Deployment
 
 - GitHub Pages via `.github/workflows/deploy.yml`, triggered on push to `eston/dev`
