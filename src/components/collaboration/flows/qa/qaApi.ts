@@ -23,9 +23,14 @@ const ALL_PARTICIPANTS = ['me', 'alice', 'bob', 'carol'];
 export const COMMUNITY_SIZE = ALL_PARTICIPANTS.length;
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Per-instance store (keyed by instanceId)
 // ---------------------------------------------------------------------------
-let questions: Question[] = [
+interface QAStore {
+  questions: Question[];
+  answers: Answer[];
+}
+
+const SEED_QUESTIONS: Question[] = [
   {
     id: 'q1',
     text: 'What is the best way to reach consensus quickly?',
@@ -46,7 +51,7 @@ let questions: Question[] = [
   },
 ];
 
-let answers: Answer[] = [
+const SEED_ANSWERS: Answer[] = [
   {
     id: 'a1',
     questionId: 'q1',
@@ -73,31 +78,43 @@ let answers: Answer[] = [
   },
 ];
 
+const storesByInstance = new Map<string, QAStore>();
+
+function getStore(instanceId: string): QAStore {
+  if (!storesByInstance.has(instanceId)) {
+    storesByInstance.set(instanceId, {
+      questions: SEED_QUESTIONS.map(q => ({ ...q })),
+      answers: SEED_ANSWERS.map(a => ({ ...a, upvotes: [...a.upvotes] })),
+    });
+  }
+  return storesByInstance.get(instanceId)!;
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
 
-export function getQuestions(): Question[] {
-  return [...questions].sort((a, b) => b.createdAt - a.createdAt);
+export function getQuestions(instanceId: string): Question[] {
+  return [...getStore(instanceId).questions].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export function getAllAnswers(): Answer[] {
-  return [...answers];
+export function getAllAnswers(instanceId: string): Answer[] {
+  return [...getStore(instanceId).answers];
 }
 
 /** Returns answers for a question sorted by upvote count descending, then oldest first. */
-export function getSortedAnswers(questionId: string): Answer[] {
-  return answers
+export function getSortedAnswers(instanceId: string, questionId: string): Answer[] {
+  return getStore(instanceId).answers
     .filter(a => a.questionId === questionId)
     .sort((a, b) => b.upvotes.length - a.upvotes.length || a.createdAt - b.createdAt);
 }
 
-export function getMyAnswer(questionId: string): Answer | undefined {
-  return answers.find(a => a.questionId === questionId && a.createdBy === CURRENT_USER);
+export function getMyAnswer(instanceId: string, questionId: string): Answer | undefined {
+  return getStore(instanceId).answers.find(a => a.questionId === questionId && a.createdBy === CURRENT_USER);
 }
 
-export function getMyUpvotedAnswerId(questionId: string): string | null {
-  const a = answers.find(a => a.questionId === questionId && a.upvotes.includes(CURRENT_USER));
+export function getMyUpvotedAnswerId(instanceId: string, questionId: string): string | null {
+  const a = getStore(instanceId).answers.find(a => a.questionId === questionId && a.upvotes.includes(CURRENT_USER));
   return a ? a.id : null;
 }
 
@@ -105,8 +122,8 @@ export function getMyUpvotedAnswerId(questionId: string): string | null {
 // Capability checks
 // ---------------------------------------------------------------------------
 
-export function canAddAnswer(questionId: string): boolean {
-  return !answers.some(a => a.questionId === questionId && a.createdBy === CURRENT_USER);
+export function canAddAnswer(instanceId: string, questionId: string): boolean {
+  return !getStore(instanceId).answers.some(a => a.questionId === questionId && a.createdBy === CURRENT_USER);
 }
 
 export function canDeleteQuestion(question: Question): boolean {
@@ -121,23 +138,26 @@ function uid(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
 }
 
-export function addQuestion(text: string): Question {
+export function addQuestion(instanceId: string, text: string): Question {
+  const store = getStore(instanceId);
   const q: Question = {
     id: uid('q'),
     text: text.trim(),
     createdBy: CURRENT_USER,
     createdAt: Date.now(),
   };
-  questions = [...questions, q];
+  store.questions = [...store.questions, q];
   return q;
 }
 
-export function deleteQuestion(questionId: string): void {
-  answers   = answers.filter(a => a.questionId !== questionId);
-  questions = questions.filter(q => q.id !== questionId);
+export function deleteQuestion(instanceId: string, questionId: string): void {
+  const store = getStore(instanceId);
+  store.answers   = store.answers.filter(a => a.questionId !== questionId);
+  store.questions = store.questions.filter(q => q.id !== questionId);
 }
 
-export function addAnswer(questionId: string, text: string): Answer {
+export function addAnswer(instanceId: string, questionId: string, text: string): Answer {
+  const store = getStore(instanceId);
   const a: Answer = {
     id: uid('a'),
     questionId,
@@ -146,16 +166,18 @@ export function addAnswer(questionId: string, text: string): Answer {
     createdAt: Date.now(),
     upvotes: [],
   };
-  answers = [...answers, a];
+  store.answers = [...store.answers, a];
   return a;
 }
 
-export function editAnswer(answerId: string, text: string): void {
-  answers = answers.map(a => a.id === answerId ? { ...a, text: text.trim() } : a);
+export function editAnswer(instanceId: string, answerId: string, text: string): void {
+  const store = getStore(instanceId);
+  store.answers = store.answers.map(a => a.id === answerId ? { ...a, text: text.trim() } : a);
 }
 
-export function deleteAnswer(answerId: string): void {
-  answers = answers.filter(a => a.id !== answerId);
+export function deleteAnswer(instanceId: string, answerId: string): void {
+  const store = getStore(instanceId);
+  store.answers = store.answers.filter(a => a.id !== answerId);
 }
 
 /**
@@ -163,22 +185,23 @@ export function deleteAnswer(answerId: string): void {
  * A user can upvote at most one answer per question; clicking a different
  * answer moves the upvote, clicking the same answer removes it.
  */
-export function toggleUpvote(answerId: string): void {
-  const target = answers.find(a => a.id === answerId);
+export function toggleUpvote(instanceId: string, answerId: string): void {
+  const store = getStore(instanceId);
+  const target = store.answers.find(a => a.id === answerId);
   if (!target) return;
 
   const { questionId } = target;
   const alreadyVotedThis = target.upvotes.includes(CURRENT_USER);
 
   // Remove current user's upvote from every answer in this question
-  answers = answers.map(a => {
+  store.answers = store.answers.map(a => {
     if (a.questionId !== questionId) return a;
     return { ...a, upvotes: a.upvotes.filter(u => u !== CURRENT_USER) };
   });
 
   // If the clicked answer was NOT already the one voted for, add the upvote
   if (!alreadyVotedThis) {
-    answers = answers.map(a =>
+    store.answers = store.answers.map(a =>
       a.id === answerId ? { ...a, upvotes: [...a.upvotes, CURRENT_USER] } : a
     );
   }

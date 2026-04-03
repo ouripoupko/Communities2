@@ -14,9 +14,9 @@ export interface Role {
 export const CURRENT_USER = 'me';
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Per-instance store (keyed by instanceId)
 // ---------------------------------------------------------------------------
-let roles: Role[] = [
+const SEED_DATA: Role[] = [
   {
     id: 'r1',
     name: 'Facilitator',
@@ -43,12 +43,21 @@ let roles: Role[] = [
   },
 ];
 
+const rolesByInstance = new Map<string, Role[]>();
+
+function getStore(instanceId: string): Role[] {
+  if (!rolesByInstance.has(instanceId)) {
+    rolesByInstance.set(instanceId, SEED_DATA.map(r => ({ ...r, assignees: [...r.assignees] })));
+  }
+  return rolesByInstance.get(instanceId)!;
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
 
-export function getRoles(): Role[] {
-  return [...roles].sort((a, b) => a.createdAt - b.createdAt);
+export function getRoles(instanceId: string): Role[] {
+  return [...getStore(instanceId)].sort((a, b) => a.createdAt - b.createdAt);
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +80,8 @@ function uid(): string {
   return `r_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
 }
 
-export function addRole(name: string, description: string): Role {
+export function addRole(instanceId: string, name: string, description: string): Role {
+  const store = getStore(instanceId);
   const r: Role = {
     id: uid(),
     name: name.trim(),
@@ -80,26 +90,30 @@ export function addRole(name: string, description: string): Role {
     createdAt: Date.now(),
     assignees: [],
   };
-  roles = [...roles, r];
+  store.push(r);
   return r;
 }
 
-export function deleteRole(roleId: string): void {
-  roles = roles.filter(r => r.id !== roleId);
+export function deleteRole(instanceId: string, roleId: string): void {
+  const store = getStore(instanceId);
+  const filtered = store.filter(r => r.id !== roleId);
+  rolesByInstance.set(instanceId, filtered);
 }
 
-export function joinRole(roleId: string): void {
-  roles = roles.map(r =>
+export function joinRole(instanceId: string, roleId: string): void {
+  const store = getStore(instanceId);
+  rolesByInstance.set(instanceId, store.map(r =>
     r.id === roleId && !r.assignees.includes(CURRENT_USER)
       ? { ...r, assignees: [...r.assignees, CURRENT_USER] }
       : r
-  );
+  ));
 }
 
-export function leaveRole(roleId: string): void {
-  roles = roles.map(r =>
+export function leaveRole(instanceId: string, roleId: string): void {
+  const store = getStore(instanceId);
+  rolesByInstance.set(instanceId, store.map(r =>
     r.id === roleId
       ? { ...r, assignees: r.assignees.filter(a => a !== CURRENT_USER) }
       : r
-  );
+  ));
 }

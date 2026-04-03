@@ -11,7 +11,7 @@ export interface TimeSlot {
   endTime: string;    // "HH:MM"
 }
 
-/** participantId → slotId → availability */
+/** participantId -> slotId -> availability */
 export type ResponseMap = Record<string, Record<string, Availability>>;
 
 export interface EventState {
@@ -27,24 +27,34 @@ export const CURRENT_USER = 'me';
 const ALL_PARTICIPANTS = ['me', 'alice', 'bob', 'carol'];
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Per-instance store (keyed by instanceId)
 // ---------------------------------------------------------------------------
+const stateByInstance = new Map<string, EventState>();
 
-// Pre-seed some slots and responses so the grid looks alive on first open
-let state: EventState = {
-  title: null,
-  description: '',
-  slots: [],
-  responses: {},
-  confirmedSlotId: null,
-  organizerId: CURRENT_USER,
-};
+function getStore(instanceId: string): EventState {
+  if (!stateByInstance.has(instanceId)) {
+    stateByInstance.set(instanceId, {
+      title: null,
+      description: '',
+      slots: [],
+      responses: {},
+      confirmedSlotId: null,
+      organizerId: CURRENT_USER,
+    });
+  }
+  return stateByInstance.get(instanceId)!;
+}
+
+function setStore(instanceId: string, s: EventState): void {
+  stateByInstance.set(instanceId, s);
+}
 
 // ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 
-export function getState(): EventState {
+export function getState(instanceId: string): EventState {
+  const state = getStore(instanceId);
   return {
     ...state,
     slots: state.slots.map(s => ({ ...s })),
@@ -52,26 +62,28 @@ export function getState(): EventState {
   };
 }
 
-export function isOrganizer(): boolean {
-  return state.organizerId === CURRENT_USER;
+export function isOrganizer(instanceId: string): boolean {
+  return getStore(instanceId).organizerId === CURRENT_USER;
 }
 
 export function getParticipants(): string[] {
   return [...ALL_PARTICIPANTS];
 }
 
-export function setupEvent(title: string, description: string): void {
-  state = { ...state, title: title.trim(), description: description.trim() };
+export function setupEvent(instanceId: string, title: string, description: string): void {
+  const state = getStore(instanceId);
+  setStore(instanceId, { ...state, title: title.trim(), description: description.trim() });
 }
 
-export function addSlot(date: string, startTime: string, endTime: string): TimeSlot {
+export function addSlot(instanceId: string, date: string, startTime: string, endTime: string): TimeSlot {
+  const state = getStore(instanceId);
   const slot: TimeSlot = {
     id: `slot_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
     date,
     startTime,
     endTime,
   };
-  state = { ...state, slots: [...state.slots, slot] };
+  const newState = { ...state, slots: [...state.slots, slot] };
 
   // Auto-fill simulated responses for non-me participants
   const PATTERNS: Availability[][] = [
@@ -80,21 +92,22 @@ export function addSlot(date: string, startTime: string, endTime: string): TimeS
     ['no',    'maybe', 'yes',   'maybe'],
   ];
   const simParticipants = ALL_PARTICIPANTS.filter(p => p !== CURRENT_USER);
-  const slotIndex = state.slots.length - 1;
+  const slotIndex = newState.slots.length - 1;
 
-  const newResponses: ResponseMap = JSON.parse(JSON.stringify(state.responses));
+  const newResponses: ResponseMap = JSON.parse(JSON.stringify(newState.responses));
   simParticipants.forEach((p, pi) => {
     if (!newResponses[p]) newResponses[p] = {};
     const av = PATTERNS[pi % PATTERNS.length][slotIndex % 4];
     newResponses[p][slot.id] = av;
   });
-  state = { ...state, responses: newResponses };
+  setStore(instanceId, { ...newState, responses: newResponses });
 
   return { ...slot };
 }
 
-export function removeSlot(slotId: string): void {
-  state = {
+export function removeSlot(instanceId: string, slotId: string): void {
+  const state = getStore(instanceId);
+  setStore(instanceId, {
     ...state,
     slots: state.slots.filter(s => s.id !== slotId),
     responses: Object.fromEntries(
@@ -103,28 +116,32 @@ export function removeSlot(slotId: string): void {
         return [p, rest];
       })
     ),
-  };
+  });
 }
 
-export function setAvailability(slotId: string, availability: Availability): void {
+export function setAvailability(instanceId: string, slotId: string, availability: Availability): void {
+  const state = getStore(instanceId);
   const newResponses: ResponseMap = JSON.parse(JSON.stringify(state.responses));
   if (!newResponses[CURRENT_USER]) newResponses[CURRENT_USER] = {};
   newResponses[CURRENT_USER][slotId] = availability;
-  state = { ...state, responses: newResponses };
+  setStore(instanceId, { ...state, responses: newResponses });
 }
 
-export function confirmSlot(slotId: string): void {
-  if (!isOrganizer()) return;
-  state = { ...state, confirmedSlotId: slotId };
+export function confirmSlot(instanceId: string, slotId: string): void {
+  if (!isOrganizer(instanceId)) return;
+  const state = getStore(instanceId);
+  setStore(instanceId, { ...state, confirmedSlotId: slotId });
 }
 
-export function unconfirm(): void {
-  if (!isOrganizer()) return;
-  state = { ...state, confirmedSlotId: null };
+export function unconfirm(instanceId: string): void {
+  if (!isOrganizer(instanceId)) return;
+  const state = getStore(instanceId);
+  setStore(instanceId, { ...state, confirmedSlotId: null });
 }
 
 /** Returns yes+maybe count per slot, sorted best-first */
-export function slotScores(): { slotId: string; yes: number; maybe: number; total: number }[] {
+export function slotScores(instanceId: string): { slotId: string; yes: number; maybe: number; total: number }[] {
+  const state = getStore(instanceId);
   return state.slots.map(s => {
     let yes = 0, maybe = 0;
     for (const p of ALL_PARTICIPANTS) {

@@ -44,9 +44,14 @@ export const ALLOWED_CHILDREN: Partial<Record<ElementType, ElementType[]>> = {
 };
 
 // ---------------------------------------------------------------------------
-// Mutable state
+// Per-instance store (keyed by instanceId)
 // ---------------------------------------------------------------------------
-let elements: DocElement[] = [
+interface DocStore {
+  elements: DocElement[];
+  proposals: Proposal[];
+}
+
+const SEED_ELEMENTS: DocElement[] = [
   { id: 'title', type: 'title',      text: 'Community Action Plan',                              owner: 'system', parentId: null,  order: 0 },
   { id: 's1',    type: 'section',    text: 'Introduction',                                       owner: 'alice',  parentId: null,  order: 1 },
   { id: 'p1',    type: 'paragraph',  text: 'Background',                                         owner: 'alice',  parentId: 's1',  order: 1 },
@@ -58,7 +63,7 @@ let elements: DocElement[] = [
   { id: 'sen3',  type: 'sentence',   text: 'Launch a community survey by Q2.',                   owner: 'me',     parentId: 'p2',  order: 1 },
 ];
 
-let proposals: Proposal[] = [
+const SEED_PROPOSALS: Proposal[] = [
   {
     id: 'prop1',
     targetId: 'sen1',
@@ -70,41 +75,53 @@ let proposals: Proposal[] = [
   },
 ];
 
+const storesByInstance = new Map<string, DocStore>();
+
+function getStore(instanceId: string): DocStore {
+  if (!storesByInstance.has(instanceId)) {
+    storesByInstance.set(instanceId, {
+      elements: SEED_ELEMENTS.map(e => ({ ...e })),
+      proposals: SEED_PROPOSALS.map(p => ({ ...p, supporters: [...p.supporters], rejecters: [...p.rejecters] })),
+    });
+  }
+  return storesByInstance.get(instanceId)!;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-function getDescendants(id: string): DocElement[] {
-  const children = elements.filter(e => e.parentId === id);
-  return [...children, ...children.flatMap(c => getDescendants(c.id))];
+function getDescendants(store: DocStore, id: string): DocElement[] {
+  const children = store.elements.filter(e => e.parentId === id);
+  return [...children, ...children.flatMap(c => getDescendants(store, c.id))];
 }
 
-function hasOthersDescendants(id: string): boolean {
-  return getDescendants(id).some(e => e.owner !== CURRENT_USER);
+function hasOthersDescendants(store: DocStore, id: string): boolean {
+  return getDescendants(store, id).some(e => e.owner !== CURRENT_USER);
 }
 
-function nextOrder(parentId: string | null): number {
-  const siblings = elements.filter(e => e.parentId === parentId && e.type !== 'title');
+function nextOrder(store: DocStore, parentId: string | null): number {
+  const siblings = store.elements.filter(e => e.parentId === parentId && e.type !== 'title');
   return siblings.length > 0 ? Math.max(...siblings.map(e => e.order)) + 1 : 1;
 }
 
-function internalDelete(id: string): void {
-  const toRemove = new Set([id, ...getDescendants(id).map(e => e.id)]);
-  elements  = elements.filter(e => !toRemove.has(e.id));
-  proposals = proposals.filter(p => !toRemove.has(p.targetId));
+function internalDelete(store: DocStore, id: string): void {
+  const toRemove = new Set([id, ...getDescendants(store, id).map(e => e.id)]);
+  store.elements  = store.elements.filter(e => !toRemove.has(e.id));
+  store.proposals = store.proposals.filter(p => !toRemove.has(p.targetId));
 }
 
-function applyOrDiscard(proposalId: string): void {
-  const p = proposals.find(q => q.id === proposalId);
+function applyOrDiscard(store: DocStore, proposalId: string): void {
+  const p = store.proposals.find(q => q.id === proposalId);
   if (!p) return;
   if (p.supporters.length >= MAJORITY) {
     if (p.kind === 'delete') {
-      internalDelete(p.targetId);
+      internalDelete(store, p.targetId);
     } else if (p.kind === 'edit' && p.proposedText !== undefined) {
-      elements = elements.map(e => e.id === p.targetId ? { ...e, text: p.proposedText! } : e);
+      store.elements = store.elements.map(e => e.id === p.targetId ? { ...e, text: p.proposedText! } : e);
     }
-    proposals = proposals.filter(q => q.id !== proposalId);
+    store.proposals = store.proposals.filter(q => q.id !== proposalId);
   } else if (p.rejecters.length >= MAJORITY) {
-    proposals = proposals.filter(q => q.id !== proposalId);
+    store.proposals = store.proposals.filter(q => q.id !== proposalId);
   }
 }
 
@@ -112,30 +129,34 @@ function applyOrDiscard(proposalId: string): void {
 // Public API — capability checks
 // ---------------------------------------------------------------------------
 
-export function canDirectEdit(id: string): boolean {
-  const el = elements.find(e => e.id === id);
+export function canDirectEdit(instanceId: string, id: string): boolean {
+  const store = getStore(instanceId);
+  const el = store.elements.find(e => e.id === id);
   if (!el) return false;
   if (el.type === 'title') return true; // anyone can edit the title text
   return el.owner === CURRENT_USER;
 }
 
-export function canDirectDelete(id: string): boolean {
-  const el = elements.find(e => e.id === id);
+export function canDirectDelete(instanceId: string, id: string): boolean {
+  const store = getStore(instanceId);
+  const el = store.elements.find(e => e.id === id);
   if (!el || el.type === 'title') return false;
   if (el.owner !== CURRENT_USER) return false;
-  return !hasOthersDescendants(id);
+  return !hasOthersDescendants(store, id);
 }
 
-export function canProposeEdit(id: string): boolean {
-  const el = elements.find(e => e.id === id);
+export function canProposeEdit(instanceId: string, id: string): boolean {
+  const store = getStore(instanceId);
+  const el = store.elements.find(e => e.id === id);
   if (!el || el.type === 'title') return false;
   return el.owner !== CURRENT_USER;
 }
 
-export function canProposeDelete(id: string): boolean {
-  const el = elements.find(e => e.id === id);
+export function canProposeDelete(instanceId: string, id: string): boolean {
+  const store = getStore(instanceId);
+  const el = store.elements.find(e => e.id === id);
   if (!el || el.type === 'title') return false;
-  if (el.owner === CURRENT_USER) return hasOthersDescendants(id);
+  if (el.owner === CURRENT_USER) return hasOthersDescendants(store, id);
   return true;
 }
 
@@ -143,42 +164,49 @@ export function canProposeDelete(id: string): boolean {
 // Public API — mutations
 // ---------------------------------------------------------------------------
 
-export function getDocument(): DocumentState {
+export function getDocument(instanceId: string): DocumentState {
+  const store = getStore(instanceId);
   return {
-    elements:  elements.map(e => ({ ...e })),
-    proposals: proposals.map(p => ({ ...p, supporters: [...p.supporters], rejecters: [...p.rejecters] })),
+    elements:  store.elements.map(e => ({ ...e })),
+    proposals: store.proposals.map(p => ({ ...p, supporters: [...p.supporters], rejecters: [...p.rejecters] })),
   };
 }
 
-export function addElement(type: ElementType, parentId: string | null, text: string): void {
+export function addElement(instanceId: string, type: ElementType, parentId: string | null, text: string): void {
+  const store = getStore(instanceId);
   const id = `el_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  elements = [...elements, { id, type, text: text.trim(), owner: CURRENT_USER, parentId, order: nextOrder(parentId) }];
+  store.elements = [...store.elements, { id, type, text: text.trim(), owner: CURRENT_USER, parentId, order: nextOrder(store, parentId) }];
 }
 
-export function updateElement(id: string, text: string): void {
-  if (!canDirectEdit(id)) return;
-  elements = elements.map(e => e.id === id ? { ...e, text: text.trim() } : e);
+export function updateElement(instanceId: string, id: string, text: string): void {
+  const store = getStore(instanceId);
+  if (!canDirectEdit(instanceId, id)) return;
+  store.elements = store.elements.map(e => e.id === id ? { ...e, text: text.trim() } : e);
 }
 
-export function deleteElement(id: string): void {
-  if (!canDirectDelete(id)) return;
-  internalDelete(id);
+export function deleteElement(instanceId: string, id: string): void {
+  const store = getStore(instanceId);
+  if (!canDirectDelete(instanceId, id)) return;
+  internalDelete(store, id);
 }
 
-export function proposeEdit(targetId: string, proposedText: string): void {
+export function proposeEdit(instanceId: string, targetId: string, proposedText: string): void {
+  const store = getStore(instanceId);
   const id = `prop_${Date.now()}`;
-  proposals = [...proposals, { id, targetId, kind: 'edit', proposedText: proposedText.trim(), proposer: CURRENT_USER, supporters: [CURRENT_USER], rejecters: [] }];
-  applyOrDiscard(id);
+  store.proposals = [...store.proposals, { id, targetId, kind: 'edit', proposedText: proposedText.trim(), proposer: CURRENT_USER, supporters: [CURRENT_USER], rejecters: [] }];
+  applyOrDiscard(store, id);
 }
 
-export function proposeDelete(targetId: string): void {
+export function proposeDelete(instanceId: string, targetId: string): void {
+  const store = getStore(instanceId);
   const id = `prop_${Date.now()}`;
-  proposals = [...proposals, { id, targetId, kind: 'delete', proposer: CURRENT_USER, supporters: [CURRENT_USER], rejecters: [] }];
-  applyOrDiscard(id);
+  store.proposals = [...store.proposals, { id, targetId, kind: 'delete', proposer: CURRENT_USER, supporters: [CURRENT_USER], rejecters: [] }];
+  applyOrDiscard(store, id);
 }
 
-export function voteProposal(proposalId: string, vote: 'support' | 'reject'): void {
-  proposals = proposals.map(p => {
+export function voteProposal(instanceId: string, proposalId: string, vote: 'support' | 'reject'): void {
+  const store = getStore(instanceId);
+  store.proposals = store.proposals.map(p => {
     if (p.id !== proposalId) return p;
     const supporters = p.supporters.filter(s => s !== CURRENT_USER);
     const rejecters  = p.rejecters.filter(r => r !== CURRENT_USER);
@@ -186,5 +214,5 @@ export function voteProposal(proposalId: string, vote: 'support' | 'reject'): vo
     else rejecters.push(CURRENT_USER);
     return { ...p, supporters, rejecters };
   });
-  applyOrDiscard(proposalId);
+  applyOrDiscard(store, proposalId);
 }

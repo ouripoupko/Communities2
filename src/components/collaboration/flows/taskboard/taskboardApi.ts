@@ -25,9 +25,9 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 export const STATUS_ORDER: TaskStatus[] = ['todo', 'in_progress', 'done'];
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Per-instance store (keyed by instanceId)
 // ---------------------------------------------------------------------------
-let tasks: Task[] = [
+const SEED_DATA: Task[] = [
   {
     id: 't1', title: 'Draft community newsletter',
     description: 'Write the monthly update for all members.',
@@ -60,6 +60,15 @@ let tasks: Task[] = [
   },
 ];
 
+const tasksByInstance = new Map<string, Task[]>();
+
+function getStore(instanceId: string): Task[] {
+  if (!tasksByInstance.has(instanceId)) {
+    tasksByInstance.set(instanceId, SEED_DATA.map(t => ({ ...t })));
+  }
+  return tasksByInstance.get(instanceId)!;
+}
+
 // ---------------------------------------------------------------------------
 // Capability checks
 // ---------------------------------------------------------------------------
@@ -86,11 +95,12 @@ export function canDelete(task: Task): boolean {
 // ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
-export function getTasks(): Task[] {
-  return tasks.map(t => ({ ...t }));
+export function getTasks(instanceId: string): Task[] {
+  return getStore(instanceId).map(t => ({ ...t }));
 }
 
-export function addTask(title: string, description: string): Task {
+export function addTask(instanceId: string, title: string, description: string): Task {
+  const store = getStore(instanceId);
   const task: Task = {
     id: `t_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
     title: title.trim(),
@@ -100,36 +110,41 @@ export function addTask(title: string, description: string): Task {
     status: 'todo',
     createdAt: Date.now(),
   };
-  tasks = [...tasks, task];
+  store.push(task);
   return { ...task };
 }
 
-export function claimTask(id: string): void {
-  tasks = tasks.map(t => t.id === id ? { ...t, ownerId: CURRENT_USER } : t);
+export function claimTask(instanceId: string, id: string): void {
+  const store = getStore(instanceId);
+  tasksByInstance.set(instanceId, store.map(t => t.id === id ? { ...t, ownerId: CURRENT_USER } : t));
 }
 
-export function releaseTask(id: string): void {
-  tasks = tasks.map(t =>
+export function releaseTask(instanceId: string, id: string): void {
+  const store = getStore(instanceId);
+  tasksByInstance.set(instanceId, store.map(t =>
     t.id === id && t.ownerId === CURRENT_USER ? { ...t, ownerId: null } : t
-  );
+  ));
 }
 
-export function advanceTask(id: string): void {
-  tasks = tasks.map(t => {
+export function advanceTask(instanceId: string, id: string): void {
+  const store = getStore(instanceId);
+  tasksByInstance.set(instanceId, store.map(t => {
     if (t.id !== id || t.ownerId !== CURRENT_USER) return t;
     const next = STATUS_ORDER[STATUS_ORDER.indexOf(t.status) + 1];
     return next ? { ...t, status: next } : t;
-  });
+  }));
 }
 
-export function revertTask(id: string): void {
-  tasks = tasks.map(t => {
+export function revertTask(instanceId: string, id: string): void {
+  const store = getStore(instanceId);
+  tasksByInstance.set(instanceId, store.map(t => {
     if (t.id !== id || t.ownerId !== CURRENT_USER) return t;
     const prev = STATUS_ORDER[STATUS_ORDER.indexOf(t.status) - 1];
     return prev ? { ...t, status: prev } : t;
-  });
+  }));
 }
 
-export function deleteTask(id: string): void {
-  tasks = tasks.filter(t => !(t.id === id && canDelete(t)));
+export function deleteTask(instanceId: string, id: string): void {
+  const store = getStore(instanceId);
+  tasksByInstance.set(instanceId, store.filter(t => !(t.id === id && canDelete(t))));
 }
