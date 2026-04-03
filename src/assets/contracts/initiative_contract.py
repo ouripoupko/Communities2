@@ -27,6 +27,15 @@ class Initiative:
             return {}
         return self.db['details'].get_dict()
 
+    # Pipeline stage
+    def set_stage(self, stage):
+        self.db['stage'] = stage
+
+    def get_stage(self):
+        if 'stage' not in self.db:
+            return 'problem'
+        return self.db['stage']
+
     # Contributions
     def add_contribution(self, contribution):
         self._append_to_list('contributions', contribution)

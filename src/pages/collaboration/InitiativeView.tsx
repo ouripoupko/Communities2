@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import CollaborationPage from './CollaborationPage';
+import PipelineView from '../../components/collaboration/PipelineView';
 import { useAppSelector } from '../../store/hooks';
 import { contractRead } from '../../services/api';
 import type { IMethod } from '../../services/interfaces';
@@ -35,8 +35,7 @@ const InitiativeView: React.FC = () => {
   }, [initiative?.title, serverUrl, publicKey, initiativeId]);
 
   return (
-    <CollaborationPage
-      type="initiative"
+    <PipelineView
       title={title}
       collaborationId={initiativeId!}
       communityId={communityId!}

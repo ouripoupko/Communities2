@@ -1,0 +1,342 @@
+@use '../../styles/variables' as *;
+
+$initiative-color: #ea580c;
+
+// ─── Pipeline progress bar ────────────────────────────────────────────────────
+
+.pipeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+  background: white;
+  border-radius: $radius-lg;
+  padding: $spacing-lg $spacing-xl;
+  margin-bottom: $spacing-lg;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.stage {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $spacing-xs;
+  flex-shrink: 0;
+}
+
+.stageNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: $radius-full;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  background: $gray-200;
+  color: $gray-600;
+  flex-shrink: 0;
+  transition: background $transition-base, color $transition-base;
+
+  &.completed {
+    background: $initiative-color;
+    color: white;
+  }
+
+  &.current {
+    background: $initiative-color;
+    color: white;
+    box-shadow: 0 0 0 3px rgba($initiative-color, 0.3);
+  }
+}
+
+.stageLabel {
+  font-size: $text-sm;
+  color: $gray-500;
+  font-weight: $font-normal;
+
+  &.currentLabel {
+    font-weight: $font-bold;
+    color: $gray-800;
+  }
+}
+
+.stageArrow {
+  color: $gray-300;
+  flex-shrink: 0;
+}
+
+// ─── Stage hint ───────────────────────────────────────────────────────────────
+
+.stageHint {
+  background: rgba($initiative-color, 0.06);
+  border-left: 3px solid $initiative-color;
+  border-radius: 0 $radius-md $radius-md 0;
+  padding: $spacing-md $spacing-lg;
+  margin-bottom: $spacing-xl;
+  font-size: $text-sm;
+  color: $gray-700;
+  font-style: italic;
+}
+
+// ─── Problem stage ────────────────────────────────────────────────────────────
+
+.problemStage {
+  margin-bottom: $spacing-xl;
+
+  .description {
+    font-size: $text-base;
+    color: $gray-700;
+    line-height: 1.6;
+    margin-bottom: $spacing-lg;
+  }
+
+  .evidence {
+    margin-bottom: $spacing-lg;
+
+    h4 {
+      font-size: $text-sm;
+      font-weight: $font-semibold;
+      color: $gray-600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: $spacing-sm;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-xs;
+    }
+
+    li a {
+      color: $primary;
+      font-size: $text-sm;
+      text-decoration: none;
+      word-break: break-all;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .countries {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+  }
+
+  .emptyNote {
+    color: $gray-400;
+    font-style: italic;
+    font-size: $text-sm;
+  }
+}
+
+.countryChip {
+  display: inline-flex;
+  align-items: center;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-full;
+  background: $gray-100;
+  color: $gray-700;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  border: 1px solid $gray-200;
+}
+
+// ─── Flow container ───────────────────────────────────────────────────────────
+
+.flowContainer {
+  margin-bottom: $spacing-xl;
+
+  .flowNote {
+    font-size: $text-base;
+    color: $gray-600;
+    font-style: italic;
+    padding: $spacing-2xl;
+    text-align: center;
+  }
+}
+
+// ─── Mandate stage ────────────────────────────────────────────────────────────
+
+.mandateStage {
+  text-align: center;
+  padding: $spacing-3xl $spacing-xl;
+  margin-bottom: $spacing-xl;
+
+  h2 {
+    font-size: $text-2xl;
+    font-weight: $font-bold;
+    color: $initiative-color;
+    margin-bottom: $spacing-md;
+  }
+
+  p {
+    font-size: $text-base;
+    color: $gray-600;
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+}
+
+// ─── Advance bar ─────────────────────────────────────────────────────────────
+
+.advanceBar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding-top: $spacing-lg;
+  border-top: 1px solid $gray-200;
+  margin-top: $spacing-xl;
+  flex-wrap: wrap;
+}
+
+.advanceButton {
+  padding: $spacing-sm $spacing-xl;
+  background: $initiative-color;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  transition: background $transition-base, opacity $transition-base;
+
+  &:hover:not(:disabled) {
+    background: darken($initiative-color, 8%);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.concernButton {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-lg;
+  background: transparent;
+  color: $warning;
+  border: 1px solid $warning;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background $transition-base;
+
+  &:hover {
+    background: rgba($warning, 0.08);
+  }
+}
+
+.finalStage {
+  font-size: $text-sm;
+  color: $gray-400;
+  font-style: italic;
+}
+
+// ─── Concerns panel ───────────────────────────────────────────────────────────
+
+.concernsPanel {
+  margin-top: $spacing-lg;
+  padding: $spacing-lg;
+  background: rgba($warning, 0.06);
+  border: 1px solid rgba($warning, 0.25);
+  border-radius: $radius-lg;
+}
+
+// ─── Mobile ───────────────────────────────────────────────────────────────────
+
+@media (max-width: $breakpoint-sm) {
+  .pipeline {
+    padding: $spacing-md;
+    gap: $spacing-xs;
+  }
+
+  .stageLabel {
+    display: none;
+  }
+
+  .advanceBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+// ─── Dark mode ────────────────────────────────────────────────────────────────
+
+@media (prefers-color-scheme: dark) {
+  .pipeline {
+    background: $dark-bg;
+  }
+
+  .stageNumber {
+    background: $dark-border;
+    color: $dark-text-secondary;
+  }
+
+  .stageLabel {
+    color: $dark-text-secondary;
+
+    &.currentLabel {
+      color: $dark-text;
+    }
+  }
+
+  .stageArrow {
+    color: $dark-border;
+  }
+
+  .stageHint {
+    background: rgba($initiative-color, 0.1);
+    color: $dark-text-secondary;
+  }
+
+  .problemStage {
+    .description {
+      color: $dark-text;
+    }
+
+    .evidence h4 {
+      color: $dark-text-secondary;
+    }
+
+    .emptyNote {
+      color: $dark-text-secondary;
+    }
+  }
+
+  .countryChip {
+    background: $dark-border;
+    color: $dark-text;
+    border-color: transparent;
+  }
+
+  .flowContainer .flowNote {
+    color: $dark-text-secondary;
+  }
+
+  .mandateStage p {
+    color: $dark-text-secondary;
+  }
+
+  .advanceBar {
+    border-top-color: $dark-border;
+  }
+
+  .concernsPanel {
+    background: rgba($warning, 0.08);
+    border-color: rgba($warning, 0.3);
+  }
+}
