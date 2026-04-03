@@ -4,7 +4,8 @@
       "Bash(npm run:*)",
       "Read(//c/Users/**)",
       "Bash(npx tsc:*)",
-      "Bash(ls -1 src/pages/*.tsx)"
+      "Bash(ls -1 src/pages/*.tsx)",
+      "Bash(grep -v \"^import\\\\|^//\\\\|^\\\\s*//\")"
     ]
   }
 }

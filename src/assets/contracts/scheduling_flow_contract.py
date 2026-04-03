@@ -1,56 +1,42 @@
 class SchedulingFlow:
 
     def __init__(self):
-        self.db = Storage('scheduling_flow')
+        self.config = Storage('config')
+        self.slots = Storage('slots')
+        self.availability = Storage('availability')
+        self.confirmed = Storage('confirmed')
 
-    def _get_list(self, key):
-        if key not in self.db:
-            return []
-        doc = self.db[key].get_dict()
-        items = doc.get('items', [])
-        return list(items) if isinstance(items, list) else []
-
-    def _set_list(self, key, items):
-        self.db[key] = {'items': items}
-
-    def _append_to_list(self, key, item):
-        items = self._get_list(key)
-        items.append(item)
-        self._set_list(key, items)
-
-    # Event config (title, description, organizer)
+    # Event config
     def set_config(self, config):
-        self.db['config'] = config
+        self.config['data'] = config
 
     def get_config(self):
-        if 'config' not in self.db:
+        if 'data' not in self.config:
             return {}
-        return self.db['config'].get_dict()
+        return self.config['data'].get_dict()
 
     # Time slots
     def add_slot(self, slot):
-        self._append_to_list('slots', slot)
+        self.slots.append(slot)
 
     def get_slots(self):
-        return self._get_list('slots')
+        return [self.slots[key].get_dict() for key in self.slots]
 
     def set_slots(self, slots):
-        self._set_list('slots', slots)
+        pass  # TODO
 
-    # Availability — one record per participant, keyed by identity
+    # Availability — one record per participant
     def set_my_availability(self, responses):
-        # responses is a dict of {slotId: availability}
-        self.db['avail_' + master()] = {'participantId': master(), 'responses': responses}
+        self.availability[master()] = {'participantId': master(), 'responses': responses}
 
     def get_all_availability(self):
-        prefix = 'avail_'
-        return [self.db[key].get_dict() for key in self.db if key.startswith(prefix)]
+        return [self.availability[key].get_dict() for key in self.availability]
 
     # Confirmed slot
     def set_confirmed_slot(self, slot_id):
-        self.db['confirmed_slot'] = {'slot_id': slot_id}
+        self.confirmed['data'] = {'slot_id': slot_id}
 
     def get_confirmed_slot(self):
-        if 'confirmed_slot' not in self.db:
+        if 'data' not in self.confirmed:
             return {}
-        return self.db['confirmed_slot'].get_dict()
+        return self.confirmed['data'].get_dict()

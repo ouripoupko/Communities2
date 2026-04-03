@@ -1,46 +1,33 @@
 class DocumentFlow:
 
     def __init__(self):
-        self.db = Storage('document_flow')
+        self.elements = Storage('elements')
+        self.proposals = Storage('proposals')
+        self.votes = Storage('votes')
 
-    def _get_list(self, key):
-        if key not in self.db:
-            return []
-        doc = self.db[key].get_dict()
-        items = doc.get('items', [])
-        return list(items) if isinstance(items, list) else []
-
-    def _set_list(self, key, items):
-        self.db[key] = {'items': items}
-
-    def _append_to_list(self, key, item):
-        items = self._get_list(key)
-        items.append(item)
-        self._set_list(key, items)
-
-    # Document elements (title, sections, paragraphs, sentences)
+    # Document elements
     def add_element(self, element):
-        self._append_to_list('elements', element)
+        self.elements.append(element)
 
     def get_elements(self):
-        return self._get_list('elements')
+        return [self.elements[key].get_dict() for key in self.elements]
 
     def set_elements(self, elements):
-        self._set_list('elements', elements)
+        pass  # TODO
 
     # Edit proposals
     def add_proposal(self, proposal):
-        self._append_to_list('proposals', proposal)
+        self.proposals.append(proposal)
 
     def get_proposals(self):
-        return self._get_list('proposals')
+        return [self.proposals[key].get_dict() for key in self.proposals]
 
     def set_proposals(self, proposals):
-        self._set_list('proposals', proposals)
+        pass  # TODO
 
     # Votes on proposals
     def add_vote(self, vote):
-        self._append_to_list('votes', vote)
+        self.votes.append(vote)
 
     def get_votes(self):
-        return self._get_list('votes')
+        return [self.votes[key].get_dict() for key in self.votes]

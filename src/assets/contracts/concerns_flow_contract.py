@@ -1,39 +1,25 @@
 class ConcernsFlow:
 
     def __init__(self):
-        self.db = Storage('concerns_flow')
-
-    def _get_list(self, key):
-        if key not in self.db:
-            return []
-        doc = self.db[key].get_dict()
-        items = doc.get('items', [])
-        return list(items) if isinstance(items, list) else []
-
-    def _set_list(self, key, items):
-        self.db[key] = {'items': items}
-
-    def _append_to_list(self, key, item):
-        items = self._get_list(key)
-        items.append(item)
-        self._set_list(key, items)
+        self.concerns = Storage('concerns')
+        self.votes = Storage('votes')
 
     # Concerns
     def add_concern(self, concern):
-        self._append_to_list('concerns', concern)
+        self.concerns.append(concern)
 
     def get_concerns(self):
-        return self._get_list('concerns')
+        return [self.concerns[key].get_dict() for key in self.concerns]
 
     def set_concerns(self, concerns):
-        self._set_list('concerns', concerns)
+        pass  # TODO
 
-    # Votes (participant × concern × vote type)
+    # Votes
     def add_vote(self, vote):
-        self._append_to_list('votes', vote)
+        self.votes.append(vote)
 
     def get_votes(self):
-        return self._get_list('votes')
+        return [self.votes[key].get_dict() for key in self.votes]
 
     def set_votes(self, votes):
-        self._set_list('votes', votes)
+        pass  # TODO

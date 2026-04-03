@@ -1,47 +1,32 @@
 class BudgetAllocationFlow:
 
     def __init__(self):
-        self.db = Storage('budget_allocation_flow')
+        self.fund_link = Storage('fund_link')
+        self.items = Storage('items')
+        self.allocations = Storage('allocations')
 
-    def _get_list(self, key):
-        if key not in self.db:
-            return []
-        doc = self.db[key].get_dict()
-        items = doc.get('items', [])
-        return list(items) if isinstance(items, list) else []
-
-    def _set_list(self, key, items):
-        self.db[key] = {'items': items}
-
-    def _append_to_list(self, key, item):
-        items = self._get_list(key)
-        items.append(item)
-        self._set_list(key, items)
-
-    # Linked fundraising fund reference {id, server, agent}
+    # Linked fundraising fund reference
     def set_fund_link(self, fund_link):
-        self.db['fund_link'] = fund_link
+        self.fund_link['data'] = fund_link
 
     def get_fund_link(self):
-        if 'fund_link' not in self.db:
+        if 'data' not in self.fund_link:
             return {}
-        return self.db['fund_link'].get_dict()
+        return self.fund_link['data'].get_dict()
 
     # Budget items
     def add_item(self, item):
-        self._append_to_list('items', item)
+        self.items.append(item)
 
     def get_items(self):
-        return self._get_list('items')
+        return [self.items[key].get_dict() for key in self.items]
 
     def set_items(self, items):
-        self._set_list('items', items)
+        pass  # TODO
 
-    # Allocations — one record per participant, keyed by identity
+    # Allocations — one record per participant
     def set_my_allocation(self, allocation):
-        # allocation is a dict of {itemId: points}
-        self.db['alloc_' + master()] = {'participantId': master(), 'allocation': allocation}
+        self.allocations[master()] = {'participantId': master(), 'allocation': allocation}
 
     def get_all_allocations(self):
-        prefix = 'alloc_'
-        return [self.db[key].get_dict() for key in self.db if key.startswith(prefix)]
+        return [self.allocations[key].get_dict() for key in self.allocations]
