@@ -147,7 +147,8 @@ export const readProfile = createAsyncThunk(
           firstName: '',
           lastName: '',
           userPhoto: '',
-          userBio: ''
+          userBio: '',
+          country: '',
         };
         // Note: profileContractId will be null here, but will be updated when contracts are refreshed
       }

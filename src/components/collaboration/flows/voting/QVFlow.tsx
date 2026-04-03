@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { FlowProps } from '../types';
 import { useFlowContract } from '../shared/useFlowContract';
 import CountryBadge from '../shared/CountryBadge';
@@ -20,7 +20,7 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId }) => {
   const [activeTab, setActiveTab] = useState<'proposals' | 'allocate' | 'results'>('proposals');
   const [proposals, setProposals] = useState<Record<string, Proposal>>({});
   const [config, setConfig] = useState<Config>({ credits_per_voter: 100, status: 'open' });
-  const [, setMyAllocation] = useState<Record<string, number>>({});
+  const draftInitialized = useRef(false);
   const [allAllocations, setAllAllocations] = useState<Record<string, Record<string, number>>>({});
   const [results, setResults] = useState<Record<string, number>>({});
   const [newText, setNewText] = useState('');
@@ -42,8 +42,10 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId }) => {
       setProposals((p as Record<string, Proposal>) || {});
       setConfig((c as Config) || { credits_per_voter: 100, status: 'open' });
       const myAlloc = (ma as Record<string, number>) || {};
-      setMyAllocation(myAlloc);
-      setDraft(myAlloc);
+      if (!draftInitialized.current) {
+        setDraft(myAlloc);
+        draftInitialized.current = true;
+      }
       setAllAllocations((aa as Record<string, Record<string, number>>) || {});
       setResults((r as Record<string, number>) || {});
     } catch (err) { console.error('Failed to fetch QV data:', err); }
@@ -74,7 +76,8 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId }) => {
         const { [proposalId]: _, ...rest } = prev;
         return rest;
       }
-      const otherTotal = totalDraftCredits - current;
+      const prevTotal = Object.values(prev).reduce((sum, c) => sum + c, 0);
+      const otherTotal = prevTotal - current;
       if (otherTotal + next > config.credits_per_voter) return prev;
       return { ...prev, [proposalId]: next };
     });

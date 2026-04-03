@@ -30,6 +30,7 @@ export function useFlowContract(
     if (contractId || isDeploying || deployAttempted.current) return;
     if (!serverUrl || !publicKey) return;
 
+    let cancelled = false;
     deployAttempted.current = true;
     dispatch(setDeploying({ instanceId }));
 
@@ -41,14 +42,18 @@ export function useFlowContract(
       code: contractCode,
     })
       .then((response) => {
+        if (cancelled) return;
         const id = (response as { id?: string }).id || (response as string);
         dispatch(setContract({ instanceId, contractId: id }));
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error(`Failed to deploy contract for ${instanceId}:`, err);
         dispatch(clearDeploying({ instanceId }));
         deployAttempted.current = false;
       });
+
+    return () => { cancelled = true; };
   }, [instanceId, contractId, isDeploying, serverUrl, publicKey, contractName, contractFileName, contractCode, dispatch]);
 
   return {

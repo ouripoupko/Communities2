@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, current } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 interface FlowContractsState {
@@ -39,7 +39,7 @@ const flowContractsSlice = createSlice({
     setContract(state, action: PayloadAction<{ instanceId: string; contractId: string }>) {
       state.contracts[action.payload.instanceId] = action.payload.contractId;
       state.deploying[action.payload.instanceId] = false;
-      saveToStorage(state.contracts);
+      saveToStorage(current(state).contracts);
     },
     setDeploying(state, action: PayloadAction<{ instanceId: string }>) {
       state.deploying[action.payload.instanceId] = true;
@@ -47,8 +47,13 @@ const flowContractsSlice = createSlice({
     clearDeploying(state, action: PayloadAction<{ instanceId: string }>) {
       state.deploying[action.payload.instanceId] = false;
     },
+    removeContract(state, action: PayloadAction<{ instanceId: string }>) {
+      delete state.contracts[action.payload.instanceId];
+      delete state.deploying[action.payload.instanceId];
+      saveToStorage(current(state).contracts);
+    },
   },
 });
 
-export const { setContract, setDeploying, clearDeploying } = flowContractsSlice.actions;
+export const { setContract, setDeploying, clearDeploying, removeContract } = flowContractsSlice.actions;
 export default flowContractsSlice.reducer;

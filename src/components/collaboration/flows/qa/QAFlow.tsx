@@ -51,9 +51,10 @@ const InlineTextForm: React.FC<{
 // ---------------------------------------------------------------------------
 const AnswerItem: React.FC<{
   answer: Answer;
+  instanceId: string;
   myUpvotedId: string | null;
   onRefresh: () => void;
-}> = ({ answer, myUpvotedId, onRefresh }) => {
+}> = ({ answer, instanceId, myUpvotedId, onRefresh }) => {
   const [editing, setEditing] = useState(false);
   const isOwn      = answer.createdBy === api.CURRENT_USER;
   const isUpvoted  = myUpvotedId === answer.id;
@@ -65,7 +66,7 @@ const AnswerItem: React.FC<{
       <div className={styles.upvoteColumn}>
         <button
           className={`${styles.upvoteBtn} ${isUpvoted ? styles.upvoteBtnActive : ''}`}
-          onClick={() => act(() => api.toggleUpvote(answer.id))}
+          onClick={() => act(() => api.toggleUpvote(instanceId, answer.id))}
           title={isUpvoted ? 'Remove upvote' : 'Upvote this answer'}
         >
           <ThumbsUp size={14} />
@@ -82,7 +83,7 @@ const AnswerItem: React.FC<{
             placeholder="Edit your answer…"
             initialValue={answer.text}
             submitLabel="Save"
-            onSubmit={text => { act(() => api.editAnswer(answer.id, text)); setEditing(false); }}
+            onSubmit={text => { act(() => api.editAnswer(instanceId, answer.id, text)); setEditing(false); }}
             onCancel={() => setEditing(false)}
           />
         ) : (
@@ -102,7 +103,7 @@ const AnswerItem: React.FC<{
                   </button>
                   <button
                     className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                    onClick={() => act(() => api.deleteAnswer(answer.id))}
+                    onClick={() => act(() => api.deleteAnswer(instanceId, answer.id))}
                   >
                     <Trash2 size={11} /> Delete
                   </button>
@@ -121,18 +122,19 @@ const AnswerItem: React.FC<{
 // ---------------------------------------------------------------------------
 const QuestionItem: React.FC<{
   question: Question;
+  instanceId: string;
   tick: number;
   onRefresh: () => void;
-}> = ({ question, tick, onRefresh }) => {
-  const answers = api.getSortedAnswers(question.id);
+}> = ({ question, instanceId, tick, onRefresh }) => {
+  const answers = api.getSortedAnswers(instanceId, question.id);
   void tick; // consumed only to trigger re-render
   const [expanded,     setExpanded]     = useState(true);
   const [showAll,      setShowAll]      = useState(false);
   const [addingAnswer, setAddingAnswer] = useState(false);
 
   const act = (fn: () => void) => { fn(); onRefresh(); };
-  const myUpvotedId = api.getMyUpvotedAnswerId(question.id);
-  const canAdd      = api.canAddAnswer(question.id);
+  const myUpvotedId = api.getMyUpvotedAnswerId(instanceId, question.id);
+  const canAdd      = api.canAddAnswer(instanceId, question.id);
 
   // Always show at least the top answer; rest are behind "show more"
   const topAnswer        = answers[0] ?? null;
@@ -160,7 +162,7 @@ const QuestionItem: React.FC<{
           {api.canDeleteQuestion(question) && (
             <button
               className={styles.questionDeleteBtn}
-              onClick={e => { e.stopPropagation(); act(() => api.deleteQuestion(question.id)); }}
+              onClick={e => { e.stopPropagation(); act(() => api.deleteQuestion(instanceId, question.id)); }}
               title="Delete question"
             >
               <Trash2 size={12} />
@@ -184,6 +186,7 @@ const QuestionItem: React.FC<{
             <AnswerItem
               key={topAnswer.id}
               answer={topAnswer}
+              instanceId={instanceId}
               myUpvotedId={myUpvotedId}
               onRefresh={onRefresh}
             />
@@ -204,6 +207,7 @@ const QuestionItem: React.FC<{
             <AnswerItem
               key={a.id}
               answer={a}
+              instanceId={instanceId}
               myUpvotedId={myUpvotedId}
               onRefresh={onRefresh}
             />
@@ -226,7 +230,7 @@ const QuestionItem: React.FC<{
                 placeholder="Write your answer…"
                 submitLabel="Post Answer"
                 onSubmit={text => {
-                  act(() => api.addAnswer(question.id, text));
+                  act(() => api.addAnswer(instanceId, question.id, text));
                   setAddingAnswer(false);
                 }}
                 onCancel={() => setAddingAnswer(false)}
@@ -249,16 +253,16 @@ const QuestionItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const QAFlow: React.FC<FlowProps> = () => {
-  const [questions, setQuestions] = useState(() => api.getQuestions());
+const QAFlow: React.FC<FlowProps> = ({ instanceId }) => {
+  const [questions, setQuestions] = useState(() => api.getQuestions(instanceId));
   const [addingQ,   setAddingQ]   = useState(false);
   // tick forces QuestionItems to re-derive sorted answers from the API after mutations
   const [tick, setTick] = useState(0);
 
   const refresh = useCallback(() => {
-    setQuestions(api.getQuestions());
+    setQuestions(api.getQuestions(instanceId));
     setTick(t => t + 1);
-  }, []);
+  }, [instanceId]);
 
   return (
     <div className={styles.container}>
@@ -274,7 +278,7 @@ const QAFlow: React.FC<FlowProps> = () => {
           placeholder="Ask a question…"
           submitLabel="Post Question"
           onSubmit={text => {
-            api.addQuestion(text);
+            api.addQuestion(instanceId, text);
             refresh();
             setAddingQ(false);
           }}
@@ -295,6 +299,7 @@ const QAFlow: React.FC<FlowProps> = () => {
             <QuestionItem
               key={q.id}
               question={q}
+              instanceId={instanceId}
               tick={tick}
               onRefresh={refresh}
             />

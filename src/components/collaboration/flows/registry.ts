@@ -82,7 +82,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: PieChart,
     component: BudgetFlow,
     group: 'Governance & Finance',
-    isAvailable: () => hasAvailableFunds(),
+    isAvailable: (existingFlowIds: string[]) => existingFlowIds.includes('fundraising') && hasAvailableFunds(),
   },
 
   // ── Communication ──────────────────────────────────────────────────────────

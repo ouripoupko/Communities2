@@ -23,7 +23,7 @@ const COLUMN_COLORS: Record<TaskStatus, string> = {
 // ---------------------------------------------------------------------------
 // Add-task form (inline at top of To Do column)
 // ---------------------------------------------------------------------------
-const AddTaskForm: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
+const AddTaskForm: React.FC<{ instanceId: string; onAdd: () => void }> = ({ instanceId, onAdd }) => {
   const [open,  setOpen]  = useState(false);
   const [title, setTitle] = useState('');
   const [desc,  setDesc]  = useState('');
@@ -31,7 +31,7 @@ const AddTaskForm: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
 
   const submit = () => {
     if (!title.trim()) { setError('Title is required.'); return; }
-    api.addTask(title, desc);
+    api.addTask(instanceId, title, desc);
     setTitle(''); setDesc(''); setError(''); setOpen(false);
     onAdd();
   };
@@ -74,7 +74,7 @@ const AddTaskForm: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
 // ---------------------------------------------------------------------------
 // Task card
 // ---------------------------------------------------------------------------
-const TaskCard: React.FC<{ task: Task; onRefresh: () => void }> = ({ task, onRefresh }) => {
+const TaskCard: React.FC<{ task: Task; instanceId: string; onRefresh: () => void }> = ({ task, instanceId, onRefresh }) => {
   const owner = ownerLabel(task.ownerId);
   const isOwn = task.ownerId === api.CURRENT_USER;
 
@@ -86,7 +86,7 @@ const TaskCard: React.FC<{ task: Task; onRefresh: () => void }> = ({ task, onRef
       <div className={styles.cardHeader}>
         <span className={styles.cardTitle}>{task.title}</span>
         {api.canDelete(task) && (
-          <button className={styles.cardDeleteBtn} onClick={() => act(() => api.deleteTask(task.id))}
+          <button className={styles.cardDeleteBtn} onClick={() => act(() => api.deleteTask(instanceId, task.id))}
             title="Delete task">
             <Trash2 size={12} />
           </button>
@@ -114,25 +114,25 @@ const TaskCard: React.FC<{ task: Task; onRefresh: () => void }> = ({ task, onRef
       <div className={styles.cardActions}>
         {api.canClaim(task) && (
           <button className={`${styles.actionBtn} ${styles.actionBtnClaim}`}
-            onClick={() => act(() => api.claimTask(task.id))}>
+            onClick={() => act(() => api.claimTask(instanceId, task.id))}>
             <UserCheck size={12} /> {task.ownerId ? 'Take over' : 'Claim'}
           </button>
         )}
         {api.canRelease(task) && (
           <button className={`${styles.actionBtn} ${styles.actionBtnRelease}`}
-            onClick={() => act(() => api.releaseTask(task.id))}>
+            onClick={() => act(() => api.releaseTask(instanceId, task.id))}>
             <LogOut size={12} /> Release
           </button>
         )}
         {api.canRevert(task) && (
           <button className={`${styles.actionBtn} ${styles.actionBtnRevert}`}
-            onClick={() => act(() => api.revertTask(task.id))}>
+            onClick={() => act(() => api.revertTask(instanceId, task.id))}>
             <ChevronLeft size={12} /> Back
           </button>
         )}
         {api.canAdvance(task) && (
           <button className={`${styles.actionBtn} ${styles.actionBtnAdvance}`}
-            onClick={() => act(() => api.advanceTask(task.id))}>
+            onClick={() => act(() => api.advanceTask(instanceId, task.id))}>
             {task.status === 'in_progress' ? 'Mark done' : 'Start'}
             <ChevronRight size={12} />
           </button>
@@ -148,8 +148,9 @@ const TaskCard: React.FC<{ task: Task; onRefresh: () => void }> = ({ task, onRef
 const Column: React.FC<{
   status: TaskStatus;
   tasks: Task[];
+  instanceId: string;
   onRefresh: () => void;
-}> = ({ status, tasks, onRefresh }) => (
+}> = ({ status, tasks, instanceId, onRefresh }) => (
   <div className={`${styles.column} ${COLUMN_COLORS[status]}`}>
     <div className={styles.colHeader}>
       <span className={styles.colTitle}>{api.STATUS_LABELS[status]}</span>
@@ -157,12 +158,12 @@ const Column: React.FC<{
     </div>
 
     <div className={styles.cardList}>
-      {status === 'todo' && <AddTaskForm onAdd={onRefresh} />}
+      {status === 'todo' && <AddTaskForm instanceId={instanceId} onAdd={onRefresh} />}
       {tasks.length === 0 && status !== 'todo' && (
         <p className={styles.emptyCol}>No tasks here</p>
       )}
       {tasks.map(t => (
-        <TaskCard key={t.id} task={t} onRefresh={onRefresh} />
+        <TaskCard key={t.id} task={t} instanceId={instanceId} onRefresh={onRefresh} />
       ))}
     </div>
   </div>
@@ -171,10 +172,10 @@ const Column: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const TaskboardFlow: React.FC<FlowProps> = () => {
-  const [tasks, setTasks] = useState<Task[]>(() => api.getTasks());
+const TaskboardFlow: React.FC<FlowProps> = ({ instanceId }) => {
+  const [tasks, setTasks] = useState<Task[]>(() => api.getTasks(instanceId));
 
-  const refresh = useCallback(() => setTasks(api.getTasks()), []);
+  const refresh = useCallback(() => setTasks(api.getTasks(instanceId)), [instanceId]);
 
   const byStatus = (s: TaskStatus) =>
     tasks.filter(t => t.status === s).sort((a, b) => a.createdAt - b.createdAt);
@@ -210,6 +211,7 @@ const TaskboardFlow: React.FC<FlowProps> = () => {
             key={status}
             status={status}
             tasks={byStatus(status)}
+            instanceId={instanceId}
             onRefresh={refresh}
           />
         ))}

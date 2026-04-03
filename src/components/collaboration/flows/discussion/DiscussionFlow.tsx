@@ -81,9 +81,10 @@ const ComposeBox: React.FC<{
 
 const CommentItem: React.FC<{
   node: CommentNode;
+  instanceId: string;
   depth: number;
   refresh: () => void;
-}> = ({ node, depth, refresh }) => {
+}> = ({ node, instanceId, depth, refresh }) => {
   const [replying,   setReplying]   = useState(false);
   const [collapsed,  setCollapsed]  = useState(false);
 
@@ -91,15 +92,15 @@ const CommentItem: React.FC<{
   const hasChildren = node.children.length > 0;
 
   const handleReply = useCallback((text: string) => {
-    api.addComment(text, node.id);
+    api.addComment(instanceId, text, node.id);
     refresh();
     setReplying(false);
-  }, [node.id, refresh]);
+  }, [instanceId, node.id, refresh]);
 
   const handleDelete = useCallback(() => {
-    api.deleteComment(node.id);
+    api.deleteComment(instanceId, node.id);
     refresh();
-  }, [node.id, refresh]);
+  }, [instanceId, node.id, refresh]);
 
   return (
     <div className={`${styles.commentItem} ${depth > 0 ? styles.nested : ''}`}>
@@ -163,7 +164,7 @@ const CommentItem: React.FC<{
       {!collapsed && node.children.length > 0 && (
         <div className={styles.children}>
           {node.children.map(child => (
-            <CommentItem key={child.id} node={child} depth={depth + 1} refresh={refresh} />
+            <CommentItem key={child.id} node={child} instanceId={instanceId} depth={depth + 1} refresh={refresh} />
           ))}
         </div>
       )}
@@ -174,17 +175,17 @@ const CommentItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Root flow component
 // ---------------------------------------------------------------------------
-const DiscussionFlow: React.FC<FlowProps> = () => {
-  const [flat, setFlat] = useState<Comment[]>(() => api.getComments());
+const DiscussionFlow: React.FC<FlowProps> = ({ instanceId }) => {
+  const [flat, setFlat] = useState<Comment[]>(() => api.getComments(instanceId));
 
-  const refresh = useCallback(() => setFlat(api.getComments()), []);
+  const refresh = useCallback(() => setFlat(api.getComments(instanceId)), [instanceId]);
 
   const tree = useMemo(() => buildTree(flat), [flat]);
 
   const handleTopLevel = useCallback((text: string) => {
-    api.addComment(text, null);
+    api.addComment(instanceId, text, null);
     refresh();
-  }, [refresh]);
+  }, [instanceId, refresh]);
 
   return (
     <div className={styles.container}>
@@ -203,7 +204,7 @@ const DiscussionFlow: React.FC<FlowProps> = () => {
       ) : (
         <div className={styles.commentList}>
           {tree.map(node => (
-            <CommentItem key={node.id} node={node} depth={0} refresh={refresh} />
+            <CommentItem key={node.id} node={node} instanceId={instanceId} depth={0} refresh={refresh} />
           ))}
         </div>
       )}

@@ -55,8 +55,9 @@ const AddRoleForm: React.FC<{
 // ---------------------------------------------------------------------------
 const RoleCard: React.FC<{
   role: Role;
+  instanceId: string;
   onRefresh: () => void;
-}> = ({ role, onRefresh }) => {
+}> = ({ role, instanceId, onRefresh }) => {
   const assigned = api.isAssigned(role);
   const act = (fn: () => void) => { fn(); onRefresh(); };
 
@@ -68,7 +69,7 @@ const RoleCard: React.FC<{
           {assigned ? (
             <button
               className={`${styles.assignBtn} ${styles.assignBtnLeave}`}
-              onClick={() => act(() => api.leaveRole(role.id))}
+              onClick={() => act(() => api.leaveRole(instanceId, role.id))}
               title="Leave this role"
             >
               <UserMinus size={13} /> Leave
@@ -76,7 +77,7 @@ const RoleCard: React.FC<{
           ) : (
             <button
               className={`${styles.assignBtn} ${styles.assignBtnJoin}`}
-              onClick={() => act(() => api.joinRole(role.id))}
+              onClick={() => act(() => api.joinRole(instanceId, role.id))}
               title="Join this role"
             >
               <UserPlus size={13} /> Join
@@ -85,7 +86,7 @@ const RoleCard: React.FC<{
           {api.canDelete(role) && (
             <button
               className={styles.deleteBtn}
-              onClick={() => act(() => api.deleteRole(role.id))}
+              onClick={() => act(() => api.deleteRole(instanceId, role.id))}
               title="Delete role"
             >
               <Trash2 size={13} />
@@ -119,11 +120,11 @@ const RoleCard: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const RolesFlow: React.FC<FlowProps> = () => {
-  const [roles,   setRoles]   = useState(() => api.getRoles());
+const RolesFlow: React.FC<FlowProps> = ({ instanceId }) => {
+  const [roles,   setRoles]   = useState(() => api.getRoles(instanceId));
   const [adding,  setAdding]  = useState(false);
 
-  const refresh = useCallback(() => setRoles(api.getRoles()), []);
+  const refresh = useCallback(() => setRoles(api.getRoles(instanceId)), [instanceId]);
 
   return (
     <div className={styles.container}>
@@ -135,7 +136,7 @@ const RolesFlow: React.FC<FlowProps> = () => {
       {adding ? (
         <AddRoleForm
           onSubmit={(name, desc) => {
-            api.addRole(name, desc);
+            api.addRole(instanceId, name, desc);
             refresh();
             setAdding(false);
           }}
@@ -152,7 +153,7 @@ const RolesFlow: React.FC<FlowProps> = () => {
       ) : (
         <div className={styles.roleList}>
           {roles.map(r => (
-            <RoleCard key={r.id} role={r} onRefresh={refresh} />
+            <RoleCard key={r.id} role={r} instanceId={instanceId} onRefresh={refresh} />
           ))}
         </div>
       )}

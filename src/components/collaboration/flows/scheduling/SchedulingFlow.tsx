@@ -29,14 +29,14 @@ function nextAvailability(current: Availability | undefined): Availability {
 // ---------------------------------------------------------------------------
 // Setup screen
 // ---------------------------------------------------------------------------
-const SetupScreen: React.FC<{ onDone: () => void }> = ({ onDone }) => {
+const SetupScreen: React.FC<{ instanceId: string; onDone: () => void }> = ({ instanceId, onDone }) => {
   const [title, setTitle]       = useState('');
   const [desc,  setDesc]        = useState('');
   const [error, setError]       = useState('');
 
   const submit = () => {
     if (!title.trim()) { setError('Please give the event a title.'); return; }
-    api.setupEvent(title, desc);
+    api.setupEvent(instanceId, title, desc);
     onDone();
   };
 
@@ -129,12 +129,13 @@ const AddSlotForm: React.FC<{ onAdd: (date: string, start: string, end: string) 
 // ---------------------------------------------------------------------------
 const AvailabilityGrid: React.FC<{
   eventState: EventState;
+  instanceId: string;
   participants: string[];
   scores: ReturnType<typeof api.slotScores>;
   onToggle: (slotId: string) => void;
   onConfirm: (slotId: string) => void;
   onRemoveSlot: (slotId: string) => void;
-}> = ({ eventState, participants, scores, onToggle, onConfirm, onRemoveSlot }) => {
+}> = ({ eventState, instanceId, participants, scores, onToggle, onConfirm, onRemoveSlot }) => {
   const { slots, responses, confirmedSlotId } = eventState;
   const bestTotal = scores[0]?.total ?? 0;
   const scoreMap  = new Map(scores.map(s => [s.slotId, s]));
@@ -158,7 +159,7 @@ const AvailabilityGrid: React.FC<{
                   <div className={styles.slotTime}>{time}</div>
                   {isBest && <span className={styles.bestBadge}>Best</span>}
                   {slot.id === confirmedSlotId && <span className={styles.confirmedBadge}><CheckCircle size={12} /> Confirmed</span>}
-                  {api.isOrganizer() && !confirmedSlotId && (
+                  {api.isOrganizer(instanceId) && !confirmedSlotId && (
                     <div className={styles.slotActions}>
                       <button className={styles.btnConfirmSlot} onClick={() => onConfirm(slot.id)}
                         title="Confirm this slot">
@@ -232,10 +233,11 @@ const AvailabilityGrid: React.FC<{
 // ---------------------------------------------------------------------------
 const ConfirmedBanner: React.FC<{
   slot: TimeSlot;
+  instanceId: string;
   participants: string[];
   responses: EventState['responses'];
   onUnconfirm: () => void;
-}> = ({ slot, participants, responses, onUnconfirm }) => {
+}> = ({ slot, instanceId, participants, responses, onUnconfirm }) => {
   const { date, time } = formatSlotHeader(slot);
   const attending = participants.filter(p => responses[p]?.[slot.id] === 'yes');
   const maybe     = participants.filter(p => responses[p]?.[slot.id] === 'maybe');
@@ -276,7 +278,7 @@ const ConfirmedBanner: React.FC<{
         )}
       </div>
 
-      {api.isOrganizer() && (
+      {api.isOrganizer(instanceId) && (
         <button className={styles.btnSecondary} onClick={onUnconfirm}>
           Reopen scheduling
         </button>
@@ -288,44 +290,44 @@ const ConfirmedBanner: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const SchedulingFlow: React.FC<FlowProps> = () => {
-  const [eventState,  setEventState]  = useState<EventState>(() => api.getState());
-  const [configured,  setConfigured]  = useState(() => api.getState().title !== null);
+const SchedulingFlow: React.FC<FlowProps> = ({ instanceId }) => {
+  const [eventState,  setEventState]  = useState<EventState>(() => api.getState(instanceId));
+  const [configured,  setConfigured]  = useState(() => api.getState(instanceId).title !== null);
   const participants = api.getParticipants();
 
-  const refresh = useCallback(() => setEventState(api.getState()), []);
+  const refresh = useCallback(() => setEventState(api.getState(instanceId)), [instanceId]);
 
   const handleToggle = useCallback((slotId: string) => {
     const current = eventState.responses[api.CURRENT_USER]?.[slotId];
-    api.setAvailability(slotId, nextAvailability(current));
+    api.setAvailability(instanceId, slotId, nextAvailability(current));
     refresh();
-  }, [eventState.responses, refresh]);
+  }, [instanceId, eventState.responses, refresh]);
 
   const handleAddSlot = useCallback((date: string, start: string, end: string) => {
-    api.addSlot(date, start, end);
+    api.addSlot(instanceId, date, start, end);
     refresh();
-  }, [refresh]);
+  }, [instanceId, refresh]);
 
   const handleRemoveSlot = useCallback((slotId: string) => {
-    api.removeSlot(slotId);
+    api.removeSlot(instanceId, slotId);
     refresh();
-  }, [refresh]);
+  }, [instanceId, refresh]);
 
   const handleConfirm = useCallback((slotId: string) => {
-    api.confirmSlot(slotId);
+    api.confirmSlot(instanceId, slotId);
     refresh();
-  }, [refresh]);
+  }, [instanceId, refresh]);
 
   const handleUnconfirm = useCallback(() => {
-    api.unconfirm();
+    api.unconfirm(instanceId);
     refresh();
-  }, [refresh]);
+  }, [instanceId, refresh]);
 
   if (!configured) {
-    return <SetupScreen onDone={() => { setConfigured(true); refresh(); }} />;
+    return <SetupScreen instanceId={instanceId} onDone={() => { setConfigured(true); refresh(); }} />;
   }
 
-  const scores         = api.slotScores();
+  const scores         = api.slotScores(instanceId);
   const confirmedSlot  = eventState.confirmedSlotId
     ? eventState.slots.find(s => s.id === eventState.confirmedSlotId)
     : null;
@@ -346,6 +348,7 @@ const SchedulingFlow: React.FC<FlowProps> = () => {
       {confirmedSlot ? (
         <ConfirmedBanner
           slot={confirmedSlot}
+          instanceId={instanceId}
           participants={participants}
           responses={eventState.responses}
           onUnconfirm={handleUnconfirm}
@@ -353,7 +356,7 @@ const SchedulingFlow: React.FC<FlowProps> = () => {
       ) : (
         <>
           {/* Add slot (organizer only) */}
-          {api.isOrganizer() && (
+          {api.isOrganizer(instanceId) && (
             <AddSlotForm onAdd={handleAddSlot} />
           )}
 
@@ -366,6 +369,7 @@ const SchedulingFlow: React.FC<FlowProps> = () => {
               </p>
               <AvailabilityGrid
                 eventState={eventState}
+                instanceId={instanceId}
                 participants={participants}
                 scores={scores}
                 onToggle={handleToggle}

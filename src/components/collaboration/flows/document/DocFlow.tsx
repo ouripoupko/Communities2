@@ -75,21 +75,22 @@ const InlineForm: React.FC<{
 // ---------------------------------------------------------------------------
 interface NodeProps {
   el: DocElement;
+  instanceId: string;
   docState: DocumentState;
   ui: UIMode;
   setUI: (m: UIMode) => void;
   refresh: () => void;
 }
 
-const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, refresh }) => {
+const ElementNode: React.FC<NodeProps> = ({ el, instanceId, docState, ui, setUI, refresh }) => {
   const isEditing       = ui.tag === 'editing'       && ui.id       === el.id;
   const isProposingEdit = ui.tag === 'proposingEdit' && ui.targetId === el.id;
   const isAddingHere    = ui.tag === 'adding'        && ui.parentId === el.id;
 
-  const directEdit   = api.canDirectEdit(el.id);
-  const directDelete = api.canDirectDelete(el.id);
-  const propEdit     = api.canProposeEdit(el.id);
-  const propDelete   = api.canProposeDelete(el.id);
+  const directEdit   = api.canDirectEdit(instanceId, el.id);
+  const directDelete = api.canDirectDelete(instanceId, el.id);
+  const propEdit     = api.canProposeEdit(instanceId, el.id);
+  const propDelete   = api.canProposeDelete(instanceId, el.id);
   const childTypes   = api.ALLOWED_CHILDREN[el.type] ?? [];
 
   const children = sortedChildren(docState.elements, el.id);
@@ -98,21 +99,21 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, refresh }) 
   const confirmEdit = () => {
     if (ui.tag !== 'editing') return;
     if (!ui.text.trim()) return;
-    api.updateElement(el.id, ui.text);
+    api.updateElement(instanceId, el.id, ui.text);
     refresh(); setUI({ tag: 'idle' });
   };
 
   const confirmProposeEdit = () => {
     if (ui.tag !== 'proposingEdit') return;
     if (!ui.text.trim()) return;
-    api.proposeEdit(el.id, ui.text);
+    api.proposeEdit(instanceId, el.id, ui.text);
     refresh(); setUI({ tag: 'idle' });
   };
 
   const confirmAdd = () => {
     if (ui.tag !== 'adding') return;
     if (!ui.text.trim()) return;
-    api.addElement(ui.childType, ui.parentId, ui.text);
+    api.addElement(instanceId, ui.childType, ui.parentId, ui.text);
     refresh(); setUI({ tag: 'idle' });
   };
 
@@ -144,7 +145,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, refresh }) 
             )}
             {directDelete && (
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
-                onClick={() => { api.deleteElement(el.id); refresh(); }}>
+                onClick={() => { api.deleteElement(instanceId, el.id); refresh(); }}>
                 Delete
               </button>
             )}
@@ -156,7 +157,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, refresh }) 
             )}
             {propDelete && (
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
-                onClick={() => { api.proposeDelete(el.id); refresh(); }}>
+                onClick={() => { api.proposeDelete(instanceId, el.id); refresh(); }}>
                 Propose Delete
               </button>
             )}
@@ -186,7 +187,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, refresh }) 
       {children.length > 0 && (
         <div className={styles.children}>
           {children.map(child => (
-            <ElementNode key={child.id} el={child} docState={docState}
+            <ElementNode key={child.id} el={child} instanceId={instanceId} docState={docState}
               ui={ui} setUI={setUI} refresh={refresh} />
           ))}
         </div>
@@ -216,10 +217,11 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, refresh }) 
 // ---------------------------------------------------------------------------
 const DocumentTab: React.FC<{
   docState: DocumentState;
+  instanceId: string;
   ui: UIMode;
   setUI: (m: UIMode) => void;
   refresh: () => void;
-}> = ({ docState, ui, setUI, refresh }) => {
+}> = ({ docState, instanceId, ui, setUI, refresh }) => {
   const title    = docState.elements.find(e => e.type === 'title');
   const sections = sortedChildren(docState.elements, null);
 
@@ -228,13 +230,13 @@ const DocumentTab: React.FC<{
 
   const confirmTitleEdit = () => {
     if (ui.tag !== 'editing') return;
-    api.updateElement('title', ui.text);
+    api.updateElement(instanceId, 'title', ui.text);
     refresh(); setUI({ tag: 'idle' });
   };
 
   const confirmAddSection = () => {
     if (ui.tag !== 'adding' || !ui.text.trim()) return;
-    api.addElement('section', null, ui.text);
+    api.addElement(instanceId, 'section', null, ui.text);
     refresh(); setUI({ tag: 'idle' });
   };
 
@@ -264,7 +266,7 @@ const DocumentTab: React.FC<{
 
       {/* Sections */}
       {sections.map(s => (
-        <ElementNode key={s.id} el={s} docState={docState}
+        <ElementNode key={s.id} el={s} instanceId={instanceId} docState={docState}
           ui={ui} setUI={setUI} refresh={refresh} />
       ))}
 
@@ -295,8 +297,9 @@ const DocumentTab: React.FC<{
 // ---------------------------------------------------------------------------
 const ProposalsTab: React.FC<{
   docState: DocumentState;
+  instanceId: string;
   refresh: () => void;
-}> = ({ docState, refresh }) => {
+}> = ({ docState, instanceId, refresh }) => {
   if (docState.proposals.length === 0) {
     return <p className={styles.noData}>No active proposals.</p>;
   }
@@ -345,12 +348,12 @@ const ProposalsTab: React.FC<{
             <div className={styles.proposalActions}>
               <button
                 className={`${styles.btnVote} ${myVote === 'support' ? styles.btnVoteActive : ''}`}
-                onClick={() => { api.voteProposal(p.id, 'support'); refresh(); }}>
+                onClick={() => { api.voteProposal(instanceId, p.id, 'support'); refresh(); }}>
                 Support ({p.supporters.length})
               </button>
               <button
                 className={`${styles.btnVote} ${styles.btnVoteReject} ${myVote === 'reject' ? styles.btnVoteActive : ''}`}
-                onClick={() => { api.voteProposal(p.id, 'reject'); refresh(); }}>
+                onClick={() => { api.voteProposal(instanceId, p.id, 'reject'); refresh(); }}>
                 Reject ({p.rejecters.length})
               </button>
             </div>
@@ -364,12 +367,12 @@ const ProposalsTab: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const DocFlow: React.FC<FlowProps> = () => {
+const DocFlow: React.FC<FlowProps> = ({ instanceId }) => {
   const [activeTab, setActiveTab] = useState<'document' | 'proposals'>('document');
-  const [docState,  setDocState]  = useState<DocumentState>(() => api.getDocument());
+  const [docState,  setDocState]  = useState<DocumentState>(() => api.getDocument(instanceId));
   const [ui,        setUI]        = useState<UIMode>({ tag: 'idle' });
 
-  const refresh = useCallback(() => setDocState(api.getDocument()), []);
+  const refresh = useCallback(() => setDocState(api.getDocument(instanceId)), [instanceId]);
 
   return (
     <div className={styles.container}>
@@ -395,10 +398,10 @@ const DocFlow: React.FC<FlowProps> = () => {
       </div>
 
       {activeTab === 'document' && (
-        <DocumentTab docState={docState} ui={ui} setUI={setUI} refresh={refresh} />
+        <DocumentTab docState={docState} instanceId={instanceId} ui={ui} setUI={setUI} refresh={refresh} />
       )}
       {activeTab === 'proposals' && (
-        <ProposalsTab docState={docState} refresh={refresh} />
+        <ProposalsTab docState={docState} instanceId={instanceId} refresh={refresh} />
       )}
     </div>
   );
