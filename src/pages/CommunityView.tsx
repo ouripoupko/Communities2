@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { Handshake, Users, Coins, Share2, IdCard, QrCode } from 'lucide-react';
+import { Handshake, Users, Coins, Share2, IdCard, QrCode, MessageSquare } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import PageHeader from '../components/PageHeader';
 
@@ -9,6 +9,8 @@ const Collaborations = lazy(() => import('../components/community/Collaborations
 const Members = lazy(() => import('../components/community/Members'));
 const Currency = lazy(() => import('../components/community/Currency'));
 const Share = lazy(() => import('../components/community/Share'));
+const ChatTopicList = lazy(() => import('../components/community/chat/ChatTopicList'));
+const ChatTopic = lazy(() => import('../components/community/chat/ChatTopic'));
 const IdentityCardDialog = lazy(() => import('../components/community/dialogs/IdentityCardDialog'));
 const QRScannerDialog = lazy(() => import('../components/community/dialogs/QRScannerDialog'));
 import styles from './Container.module.scss';
@@ -112,7 +114,8 @@ const CommunityView: React.FC = () => {
   }, [communityId, props, dispatch, publicKey, serverUrl, communityMembers, handleContractWrite]);
 
   const navItems = [
-    { path: 'collaborations', label: 'Collaborations', icon: Handshake },
+    { path: 'activity', label: 'Activity', icon: Handshake },
+    { path: 'chat', label: 'Chat', icon: MessageSquare },
     { path: 'members', label: 'Members', icon: Users },
     { path: 'currency', label: 'Currency', icon: Coins },
     { path: 'share', label: 'Share', icon: Share2 },
@@ -195,8 +198,11 @@ const CommunityView: React.FC = () => {
         <div className={styles.main}>
           <Suspense fallback={<div className={styles.loadingState}>Loading...</div>}>
             <Routes>
-              <Route path="issues" element={<Navigate to={`/community/${communityId}/collaborations`} replace />} />
-              <Route path="collaborations" element={<Collaborations communityId={communityId!} />} />
+              <Route path="issues" element={<Navigate to={`/community/${communityId}/activity`} replace />} />
+              <Route path="collaborations" element={<Navigate to={`/community/${communityId}/activity`} replace />} />
+              <Route path="activity" element={<Collaborations communityId={communityId!} />} />
+              <Route path="chat" element={<ChatTopicList communityId={communityId!} />} />
+              <Route path="chat/:topicId" element={<ChatTopic />} />
               <Route path="members" element={<Members communityId={communityId!} />} />
               <Route path="currency" element={<Currency communityId={communityId!} />} />
               <Route path="share" element={<Share communityId={communityId!} />} />
