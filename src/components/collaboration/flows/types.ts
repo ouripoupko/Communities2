@@ -4,6 +4,10 @@ export interface FlowProps {
   instanceId: string;
   collaborationId: string;
   collaborationType: 'initiative' | 'wish' | 'agreement';
+  /** Parent contract ID for shared contract mode (e.g. the initiative contract) */
+  parentContractId?: string;
+  /** Key under parent's details where the sub-contract info is stored */
+  stageKey?: string;
 }
 
 export interface FlowDefinition {

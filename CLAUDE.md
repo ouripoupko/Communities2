@@ -12,31 +12,55 @@
 
 ## Key Patterns
 
-- `FlowProps`: `{ instanceId, collaborationId, collaborationType }` — **all flows must destructure `instanceId`**
-- `useFlowContract` hook: `src/components/collaboration/flows/shared/useFlowContract.ts` — deploys contract, returns `{ contractId, isReady, isDeploying }`, includes unmount cancellation
+- `FlowProps`: `{ instanceId, collaborationId, collaborationType, parentContractId?, stageKey? }` — **all flows must destructure `instanceId`**
+- `useFlowContract` hook: `src/components/collaboration/flows/shared/useFlowContract.ts` — returns `{ contractId, isReady, isDeploying, hasError, retry }`, includes unmount cancellation and deploy failure handling. Supports two modes:
+  - **Per-user mode** (no `parentContractId`/`stageKey`): deploys a new contract per user (used by Collab flows)
+  - **Shared mode** (`parentContractId` + `stageKey` provided): reads parent contract's details for a stored sub-contract; if found, joins via `joinContract()`; if not, deploys and stores info on parent so others can join. Used by all PipelineView flows so all community members share one contract instance.
 - `flowContractsSlice`: `src/components/collaboration/flows/shared/flowContractsSlice.ts` (localStorage-backed, uses `current()` for serialization)
+- `preferencesSlice`: `src/store/slices/preferencesSlice.ts` — localStorage-backed starred/hidden community IDs with `toggleStar`, `toggleHide`, `unhide` reducers
 - `CountryBadge`: `src/components/collaboration/flows/shared/CountryBadge.tsx`
 - `useAppSelector`/`useAppDispatch` from `src/store/hooks.ts`
+- `useSwipeRef`: `src/hooks/useSwipeNavigation.ts` — callback ref hook for horizontal swipe detection, used in CommunityView tabs and PipelineView stages
 - Profiles available at `state.communities.profiles[publicKey]` — keyed by member's public key (same as `master()` in contracts)
 - User auth at `state.user.serverUrl` and `state.user.publicKey`
 - Country utilities: `src/utils/countries.ts` — `COUNTRY_COLORS`, `getCountryByCode()`
 
-## Activity Hub & Navigation
+## Homepage & Identity
 
-- `ActivityHub` (`src/components/community/ActivityHub.tsx`): dashboard with Initiative, Collab, Chat summary cards
-- CommunityView default tab renamed from "Collaborations" to "Activity" at route `/activity`
-- Old `/collaborations` route redirects to `/activity`
-- Three sections: Initiative (pipeline), Collab (teamwork templates), Chat (topics + messages)
-- Old components removed: `Collaborations.tsx`, `CollaborationCard.tsx`, `CollaborationFilterBar.tsx`, `CreateCollaborationButtons.tsx`
+- `IdentityView` (`src/pages/IdentityView.tsx`): homepage with "Gloki" wordmark header + slide-out menu, Communities as default view
+- No tab navigation — Profile, Join Community, Create Community accessed via `HomepageMenu` slide-out panel
+- `HomepageMenu` (`src/components/identity/HomepageMenu.tsx`): full-height right-sliding panel with menu items + hidden communities count badge
+- `AboutPage` / `ContactPage` (`src/components/identity/`): placeholder pages with back navigation
+- `Communities` (`src/components/identity/Communities.tsx`): 2-column compact card grid, star (pin to top) + hide via three-dot menu, sorted starred-first
+- `PageHeader` supports `layout="homepage"` (wordmark + menu) and `backButtonVariant="compact"` (icon-only)
+
+## Community Page & Navigation
+
+- `CommunityView` (`src/pages/CommunityView.tsx`): tabs are Initiative (Zap), Collab (Users2), Chat (MessageSquare), Currency (Coins), Members (Users)
+- Default route: `/initiative` — old routes (`/activity`, `/share`, `/collaborations`, `/issues`) redirect to `/initiative` or `/members`
+- `InitiativeList` (`src/components/community/InitiativeList.tsx`): full initiative list with "Start Initiative" button (extracted from ActivityHub)
+- `CollabList` (`src/components/community/CollabList.tsx`): full collab list with "Start Collab" button (extracted from ActivityHub)
+- `Members` (`src/components/community/Members.tsx`): Identity & Trust section (ID Card, Scanner, Share) at top, web of trust text, then member list
+- ID Card, QR Scanner, Share all moved from PageHeader/CommunityView into Members component
+- Swipe navigation between tabs via `useSwipeRef` on main content area
+- `ActivityHub` still exists but is no longer a tab — its sections were extracted into InitiativeList and CollabList
 
 ## Initiative Pipeline
 
-- `PipelineView` (`src/components/collaboration/PipelineView.tsx`): wraps initiative with 5-stage progress bar
+- `PipelineView` (`src/components/collaboration/PipelineView.tsx`): wraps initiative with 5-stage progress bar + "Global Problem"/"Global Solution" endpoint labels
 - Stages: Problem Definition → Discussion → Proposals (ApprovalFlow) → Vote (QVFlow) → Mandate
+- `viewStage` (read-only preview) vs `stage` (actual progress) — users can swipe/click to preview other stages without advancing
 - Stage stored on initiative contract via `set_stage`/`get_stage`
+- Step 1 (Problem): `ProblemVoteFlow` with upvote/downvote, 67% threshold + 50% concerns resolved metric
+- Step 2 (Discussion): `DiscussionFlow` embedded with context text, 33% participation threshold
+- Step 3 (Proposals): Problem context display above `ApprovalFlow`
+- Step 4 (Vote): `QVFlow` unchanged
+- Step 5 (Mandate): Pledge support button + mandate note (UI only, not yet wired to contract)
+- `ProblemVoteFlow` (`src/components/collaboration/flows/voting/ProblemVoteFlow.tsx`): upvote/downvote with tally, progress bar, uses `problem_vote_contract.py`
 - `CreateInitiativeDialog`: structured form with problem, evidence URLs, countries affected (KE, NG, MW, CD, OTHER)
 - ConcernsFlow available as sidebar at any stage
-- Stage advancement is manual (creator clicks "Move to next stage")
+- Advance bar only visible when viewing current stage
+- Swipe navigation between stages via `useSwipeRef`
 - `InitiativeView` now renders `PipelineView` instead of `CollaborationPage`
 
 ## Chat
@@ -90,9 +114,10 @@ Six flows use local in-memory Maps keyed by `instanceId` — **all API functions
 
 ## Known Architecture Limitations
 
-- Flow contracts are currently **single-user** — each user deploys their own contract via `useFlowContract`. Multi-user collaboration requires implementing a contract discovery/join mechanism so all community members read/write the same contract. The `joinContract()` API exists but is not yet wired into the flow system.
+- **Collab flow contracts are per-user** — each user deploys their own contract via `useFlowContract` (no `parentContractId`). For Collabs to become truly collaborative, they'd need a shared contract mechanism similar to what PipelineView uses. PipelineView flows already use shared mode.
 - **Community contracts are immutable after deploy** — if you add new methods to `community_contract.py` (like `add_collaboration`/`get_collaborations`), old communities won't have them. You must create a new community to test new contract methods. The server returns `null` for methods that don't exist on a deployed contract.
-- **Discussion stage in Pipeline** is currently a placeholder — needs the Chat message stream component embedded inline.
+- **Mandate pledges** (Pipeline Step 5) are UI-only — pledge button not yet wired to contract storage via `add_contribution`.
+- **Top 3 carry-over** from Proposals to Vote stage not yet implemented — QVFlow should auto-populate with top 3 approved proposals.
 - **Chat data is ephemeral** — stored in-memory only, lost on page refresh. Future: persist to blockchain or IndexedDB.
 
 ## Design Docs

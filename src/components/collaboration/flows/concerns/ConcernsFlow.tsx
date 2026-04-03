@@ -206,9 +206,9 @@ const CollapsibleSection: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const ConcernsFlow: React.FC<FlowProps> = ({ instanceId }) => {
-  const { contractId, isReady, isDeploying } = useFlowContract(
-    instanceId, 'concern_resolution', 'concerns_contract.py', concernsContractCode,
+const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey }) => {
+  const { contractId, isReady, isDeploying, hasError, retry } = useFlowContract(
+    instanceId, 'concern_resolution', 'concerns_contract.py', concernsContractCode, parentContractId, stageKey,
   );
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
   const publicKey = useAppSelector((s) => s.user.publicKey);
@@ -266,6 +266,12 @@ const ConcernsFlow: React.FC<FlowProps> = ({ instanceId }) => {
     await fetchData();
   };
 
+  if (hasError) return (
+    <div className={styles.loading}>
+      <p>Failed to deploy contract.</p>
+      <button onClick={retry} style={{ marginTop: 8, padding: '6px 16px', cursor: 'pointer' }}>Retry</button>
+    </div>
+  );
   if (isDeploying) return <div className={styles.loading}>Deploying contract...</div>;
   if (!isReady) return <div className={styles.loading}>Connecting...</div>;
   if (loading && concerns.length === 0) return <div className={styles.loading}>Loading...</div>;
