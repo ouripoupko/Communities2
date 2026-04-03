@@ -14,28 +14,49 @@ export interface PageHeaderProps {
   // Top row configuration
   showBackButton?: boolean;
   backButtonText?: string;
+  backButtonVariant?: 'default' | 'compact';
   onBackClick?: () => void;
   actionButtons?: ActionButton[];
-  
+
   // Bottom row configuration
   title: string;
   subtitle?: string;
   rightLabel?: React.ReactNode;
-  
+
   // Layout configuration
-  layout?: 'two-row' | 'single-row';
+  layout?: 'two-row' | 'single-row' | 'homepage';
+
+  // Homepage layout extras
+  onMenuClick?: () => void;
 }
 
 const PageHeader: React.FC<PageHeaderProps> = ({
   showBackButton = false,
   backButtonText = 'Back',
+  backButtonVariant = 'default',
   onBackClick,
   actionButtons = [],
   title,
   subtitle,
   rightLabel,
-  layout = 'two-row'
+  layout = 'two-row',
+  onMenuClick,
 }) => {
+  if (layout === 'homepage') {
+    return (
+      <div className={`${styles.header} ${styles.homepageHeader}`}>
+        <div className={styles.homepageRow}>
+          <span className={styles.wordmark}>Gloki</span>
+          {onMenuClick && (
+            <button className={styles.menuButton} onClick={onMenuClick}>
+              Menu
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (layout === 'single-row') {
     return (
       <div className={styles.header}>
@@ -77,9 +98,12 @@ const PageHeader: React.FC<PageHeaderProps> = ({
     <div className={styles.header}>
       <div className={styles.headerTop}>
         {showBackButton && onBackClick && (
-          <button onClick={onBackClick} className={styles.backButton}>
-            <ArrowLeft size={16} />
-            {backButtonText}
+          <button
+            onClick={onBackClick}
+            className={`${styles.backButton} ${backButtonVariant === 'compact' ? styles.backButtonCompact : ''}`}
+          >
+            <ArrowLeft size={backButtonVariant === 'compact' ? 18 : 16} />
+            {backButtonVariant === 'default' && backButtonText}
           </button>
         )}
         {actionButtons.length > 0 && (

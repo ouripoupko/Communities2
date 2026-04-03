@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { useSwipeRef } from '../../hooks/useSwipeNavigation';
 import { contractRead, contractWrite } from '../../services/api';
 import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 import type { IMethod } from '../../services/interfaces';
 import type { PipelineStage } from '../../types/initiative';
+import ProblemVoteFlow from './flows/voting/ProblemVoteFlow';
+import DiscussionFlow from './flows/discussion/DiscussionFlow';
 import ApprovalFlow from './flows/voting/ApprovalFlow';
 import QVFlow from './flows/voting/QVFlow';
 import ConcernsFlow from './flows/concerns/ConcernsFlow';
@@ -23,27 +26,27 @@ const STAGES: StageConfig[] = [
   {
     id: 'problem',
     label: 'Problem',
-    hint: 'Review the evidence. Does this problem truly cross borders?',
+    hint: 'Review the evidence. Does this problem truly cross borders? 67% community upvote required to advance. 50% of concerns must be resolved.',
   },
   {
     id: 'discussion',
     label: 'Discussion',
-    hint: 'Share perspectives. What does this look like in your country?',
+    hint: 'Add nuances and perspectives. What does this look like in your country? 33% community participation required to advance.',
   },
   {
     id: 'proposals',
     label: 'Proposals',
-    hint: 'Suggest solutions. What should be done about this?',
+    hint: 'Suggest solutions with evidence. Upvote the best ones. Top 3 proposals advance to voting.',
   },
   {
     id: 'vote',
     label: 'Vote',
-    hint: 'Allocate your voting credits to the proposals you support most.',
+    hint: 'Allocate your voting credits to the proposals you support most. Votes are weighted by the square root of credits.',
   },
   {
     id: 'mandate',
     label: 'Mandate',
-    hint: 'The community has spoken. This is your shared position.',
+    hint: 'The community has spoken. Pledge your support and track progress on the mandate.',
   },
 ];
 
@@ -61,11 +64,11 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
   const communityMembers = useAppSelector((s) => s.communities.communityMembers);
 
   const [stage, setStage] = useState<PipelineStage>('problem');
+  const [viewStage, setViewStage] = useState<PipelineStage>('problem');
   const [details, setDetails] = useState<Record<string, unknown>>({});
   const [showConcerns, setShowConcerns] = useState(false);
   const [advancing, setAdvancing] = useState(false);
 
-  // Fetch stage and details on mount
   useEffect(() => {
     if (!serverUrl || !publicKey || !collaborationId) return;
 
@@ -78,6 +81,7 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
       .then((result: unknown) => {
         if (typeof result === 'string' && STAGES.some((s) => s.id === result)) {
           setStage(result as PipelineStage);
+          setViewStage(result as PipelineStage);
         }
       })
       .catch(() => {});
@@ -96,16 +100,32 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
       .catch(() => {});
   }, [serverUrl, publicKey, collaborationId]);
 
-  // Fetch community members if not loaded
   useEffect(() => {
     if (!serverUrl || !publicKey || !communityId) return;
     if (communityMembers[communityId]) return;
     dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
   }, [serverUrl, publicKey, communityId, communityMembers, dispatch]);
 
+  const memberCount = Array.isArray(communityMembers[communityId])
+    ? communityMembers[communityId].length
+    : 0;
+
   const currentStageIndex = STAGES.findIndex((s) => s.id === stage);
-  const currentStageConfig = STAGES[currentStageIndex];
+  const viewStageIndex = STAGES.findIndex((s) => s.id === viewStage);
+  const viewStageConfig = STAGES[viewStageIndex];
   const nextStage = currentStageIndex < STAGES.length - 1 ? STAGES[currentStageIndex + 1] : null;
+  const isViewingCurrentStage = viewStage === stage;
+
+  const pipelineSwipeRef = useSwipeRef<HTMLDivElement>({
+    onSwipeLeft: () => {
+      const nextIdx = viewStageIndex + 1;
+      if (nextIdx < STAGES.length) setViewStage(STAGES[nextIdx].id);
+    },
+    onSwipeRight: () => {
+      const prevIdx = viewStageIndex - 1;
+      if (prevIdx >= 0) setViewStage(STAGES[prevIdx].id);
+    },
+  });
 
   const handleAdvance = async () => {
     if (!nextStage || !serverUrl || !publicKey || advancing) return;
@@ -118,6 +138,7 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
         method: { name: 'set_stage', values: { stage: nextStage.id } } as IMethod,
       });
       setStage(nextStage.id);
+      setViewStage(nextStage.id);
     } catch {
       // silently fail
     } finally {
@@ -125,8 +146,7 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
     }
   };
 
-  // Stable per-stage instance ID
-  const flowInstanceId = `${collaborationId}_${stage}`;
+  const flowInstanceId = `${collaborationId}_${viewStage}`;
 
   const evidenceLinks = Array.isArray(details.evidence)
     ? (details.evidence as string[])
@@ -140,29 +160,36 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
     <div className={cs.container}>
       <PageHeader
         showBackButton
-        backButtonText="Activity"
-        onBackClick={() => navigate(`/community/${communityId}/activity`)}
+        backButtonText="Initiatives"
+        onBackClick={() => navigate(`/community/${communityId}/initiative`)}
         title={title}
         layout="two-row"
       />
 
       <div className={cs.content}>
-        <div className={cs.main}>
+        <div className={cs.main} ref={pipelineSwipeRef}>
+          {/* Pipeline labels */}
+          <div className={styles.pipelineLabels}>
+            <span className={styles.pipelineEndLabel}>Global Problem</span>
+            <span className={styles.pipelineEndLabel}>Global Solution</span>
+          </div>
+
           {/* Pipeline progress bar */}
           <div className={styles.pipeline}>
             {STAGES.map((s, idx) => {
               const isCompleted = idx < currentStageIndex;
               const isCurrent = idx === currentStageIndex;
+              const isViewing = idx === viewStageIndex;
               return (
                 <React.Fragment key={s.id}>
-                  <div className={styles.stage}>
+                  <div className={styles.stage} onClick={() => setViewStage(s.id)}>
                     <span
-                      className={`${styles.stageNumber} ${isCompleted ? styles.completed : ''} ${isCurrent ? styles.current : ''}`}
+                      className={`${styles.stageNumber} ${isCompleted ? styles.completed : ''} ${isCurrent ? styles.current : ''} ${isViewing && !isCurrent ? styles.viewing : ''}`}
                     >
                       {idx + 1}
                     </span>
                     <span
-                      className={`${styles.stageLabel} ${isCurrent ? styles.currentLabel : ''}`}
+                      className={`${styles.stageLabel} ${isCurrent ? styles.currentLabel : ''} ${isViewing && !isCurrent ? styles.viewingLabel : ''}`}
                     >
                       {s.label}
                     </span>
@@ -176,56 +203,36 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
           </div>
 
           {/* Stage hint */}
-          {currentStageConfig && (
+          {viewStageConfig && (
             <div className={styles.stageHint}>
-              {currentStageConfig.hint}
+              {!isViewingCurrentStage && <span className={styles.previewBadge}>Preview</span>}
+              {viewStageConfig.hint}
             </div>
           )}
 
-          {/* Stage content */}
-          {stage === 'problem' && (
-            <div className={styles.problemStage}>
-              {description && <p className={styles.description}>{description}</p>}
-              {evidenceLinks.length > 0 && (
-                <div className={styles.evidence}>
-                  <h4>Evidence</h4>
-                  <ul>
-                    {evidenceLinks.map((link, i) => (
-                      <li key={i}>
-                        <a href={link} target="_blank" rel="noopener noreferrer">
-                          {link}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {countries.length > 0 && (
-                <div className={styles.countries}>
-                  {countries.map((code) => (
-                    <span key={code} className={styles.countryChip}>
-                      {code}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {!description && evidenceLinks.length === 0 && countries.length === 0 && (
-                <p className={styles.emptyNote}>No problem details have been added yet.</p>
-              )}
-            </div>
+          {/* ── Step 1: Problem ── */}
+          {viewStage === 'problem' && (
+            <ProblemVoteFlow
+              instanceId={`${collaborationId}_problem_vote`}
+              description={description}
+              evidenceLinks={evidenceLinks}
+              countries={countries}
+              communityMemberCount={memberCount}
+              parentContractId={collaborationId}
+              stageKey="problemVoteContractId"
+            />
           )}
 
-          {stage === 'discussion' && (
+          {/* ── Step 2: Discussion ── */}
+          {viewStage === 'discussion' && (
             <div className={styles.flowContainer}>
-              <p className={styles.flowNote}>
-                Discussion is open. Share your perspective on this problem.
-              </p>
-            </div>
-          )}
-
-          {stage === 'proposals' && (
-            <div className={styles.flowContainer}>
-              <ApprovalFlow
+              <div className={styles.discussionContext}>
+                <p>Add nuances and perspectives to this problem. What does it look like in your country? How does it affect your community?</p>
+                <p className={styles.discussionMetric}>
+                  <strong>{Math.ceil(memberCount * 0.33)} members</strong> (33% of community) must contribute for this stage to advance.
+                </p>
+              </div>
+              <DiscussionFlow
                 instanceId={flowInstanceId}
                 collaborationId={collaborationId}
                 collaborationType="initiative"
@@ -233,48 +240,80 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
             </div>
           )}
 
-          {stage === 'vote' && (
+          {/* ── Step 3: Proposals ── */}
+          {viewStage === 'proposals' && (
+            <div className={styles.flowContainer}>
+              {description && (
+                <div className={styles.problemContext}>
+                  <span className={styles.contextLabel}>The Problem:</span>
+                  <p>{description}</p>
+                </div>
+              )}
+              <ApprovalFlow
+                instanceId={flowInstanceId}
+                collaborationId={collaborationId}
+                collaborationType="initiative"
+                parentContractId={collaborationId}
+                stageKey="proposalsContractId"
+              />
+            </div>
+          )}
+
+          {/* ── Step 4: Vote ── */}
+          {viewStage === 'vote' && (
             <div className={styles.flowContainer}>
               <QVFlow
                 instanceId={flowInstanceId}
                 collaborationId={collaborationId}
                 collaborationType="initiative"
+                parentContractId={collaborationId}
+                stageKey="voteContractId"
               />
             </div>
           )}
 
-          {stage === 'mandate' && (
+          {/* ── Step 5: Mandate ── */}
+          {viewStage === 'mandate' && (
             <div className={styles.mandateStage}>
               <h2>Mandate Reached</h2>
               <p>
                 The community has voted and established a shared position on this issue.
-                This mandate represents the collective will of community members across
-                borders.
+                This mandate represents the collective will of community members across borders.
               </p>
+              <div className={styles.mandateActions}>
+                <button className={styles.pledgeBtn}>
+                  Pledge Support
+                </button>
+                <p className={styles.mandateNote}>
+                  Click to pledge your support and commit to action. Track your progress and report back to the community.
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Advance bar */}
-          <div className={styles.advanceBar}>
-            {nextStage ? (
+          {/* Advance bar — only show when viewing current stage */}
+          {isViewingCurrentStage && (
+            <div className={styles.advanceBar}>
+              {nextStage ? (
+                <button
+                  className={styles.advanceButton}
+                  onClick={handleAdvance}
+                  disabled={advancing}
+                >
+                  {advancing ? 'Moving...' : `Move to ${nextStage.label}`}
+                </button>
+              ) : (
+                <span className={styles.finalStage}>Final stage reached</span>
+              )}
               <button
-                className={styles.advanceButton}
-                onClick={handleAdvance}
-                disabled={advancing}
+                className={styles.concernButton}
+                onClick={() => setShowConcerns((v) => !v)}
               >
-                {advancing ? 'Moving...' : `Move to ${nextStage.label}`}
+                <AlertTriangle size={14} />
+                {showConcerns ? 'Hide Concerns' : 'Raise Concern'}
               </button>
-            ) : (
-              <span className={styles.finalStage}>Final stage reached</span>
-            )}
-            <button
-              className={styles.concernButton}
-              onClick={() => setShowConcerns((v) => !v)}
-            >
-              <AlertTriangle size={14} />
-              {showConcerns ? 'Hide Concerns' : 'Raise Concern'}
-            </button>
-          </div>
+            </div>
+          )}
 
           {/* Concerns panel */}
           {showConcerns && (
@@ -283,6 +322,8 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
                 instanceId={`${collaborationId}_concerns`}
                 collaborationId={collaborationId}
                 collaborationType="initiative"
+                parentContractId={collaborationId}
+                stageKey="concernsContractId"
               />
             </div>
           )}

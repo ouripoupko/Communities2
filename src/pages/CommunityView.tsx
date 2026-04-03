@@ -1,18 +1,16 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { Handshake, Users, Coins, Share2, IdCard, QrCode, MessageSquare } from 'lucide-react';
+import { Zap, Users2, MessageSquare, Users, Coins } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import PageHeader from '../components/PageHeader';
+import { useSwipeRef } from '../hooks/useSwipeNavigation';
 
-// Lazy load components to reduce initial bundle size
-const ActivityHub = lazy(() => import('../components/community/ActivityHub'));
+const InitiativeList = lazy(() => import('../components/community/InitiativeList'));
+const CollabList = lazy(() => import('../components/community/CollabList'));
 const Members = lazy(() => import('../components/community/Members'));
 const Currency = lazy(() => import('../components/community/Currency'));
-const Share = lazy(() => import('../components/community/Share'));
 const ChatTopicList = lazy(() => import('../components/community/chat/ChatTopicList'));
 const ChatTopic = lazy(() => import('../components/community/chat/ChatTopic'));
-const IdentityCardDialog = lazy(() => import('../components/community/dialogs/IdentityCardDialog'));
-const QRScannerDialog = lazy(() => import('../components/community/dialogs/QRScannerDialog'));
 import styles from './Container.module.scss';
 import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
 import { eventStreamService } from '../services/eventStream';
@@ -22,15 +20,11 @@ const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  // Get contracts and properties from Redux
   const { contracts, publicKey, serverUrl } = useAppSelector(state => state.user);
   const { communityProperties = {}, communityMembers = {} } = useAppSelector(state => state.communities);
   const [fetching, setFetching] = useState(false);
-  const [showIdentityCard, setShowIdentityCard] = useState(false);
-  const [showQRScanner, setShowQRScanner] = useState(false);
   const dispatch = useAppDispatch();
 
-  // Early return if communityId is missing
   if (!communityId) {
     return (
       <div className={styles.container}>
@@ -45,18 +39,9 @@ const CommunityView: React.FC = () => {
     );
   }
 
-  // Find the contract for this community
   const contract = useMemo(() => contracts.find((c) => c.id === communityId), [contracts, communityId]);
   const props = contract ? communityProperties[contract.id] || {} : null;
 
-  // Check if current user is a member of the community
-  const isCurrentUserMember = useMemo(() => {
-    if (!publicKey || !communityMembers[communityId]) return false;
-    const members = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
-    return members.includes(publicKey);
-  }, [publicKey, communityId, communityMembers]);
-
-  // Memoize the event handler - store updates only from SSE (decentralized: reacts to other devices)
   const handleContractWrite = useCallback((event: BlockchainEvent) => {
     if (event.contract === communityId && publicKey && serverUrl && communityId) {
       dispatch(fetchCommunityMembers({
@@ -74,8 +59,7 @@ const CommunityView: React.FC = () => {
 
   useEffect(() => {
     if (!communityId) return;
-    
-    // Only fetch properties if we don't have them yet
+
     if (!props || Object.keys(props).length === 0) {
       const userStr = localStorage.getItem('user');
       if (userStr) {
@@ -83,20 +67,19 @@ const CommunityView: React.FC = () => {
           const user = JSON.parse(userStr);
           if (user.serverUrl && user.publicKey) {
             setFetching(true);
-            dispatch(fetchCommunityProperties({ 
-              contractId: communityId, 
-              serverUrl: user.serverUrl, 
-              publicKey: user.publicKey 
+            dispatch(fetchCommunityProperties({
+              contractId: communityId,
+              serverUrl: user.serverUrl,
+              publicKey: user.publicKey
             }))
             .finally(() => setFetching(false));
           }
         } catch {
-          // JSON.parse failed - malformed user data, skip fetch
+          // skip
         }
       }
     }
 
-    // Initialize members data and event listener
     if (publicKey && serverUrl && communityId && !communityMembers[communityId]) {
       dispatch(fetchCommunityMembers({
         serverUrl: serverUrl,
@@ -105,7 +88,6 @@ const CommunityView: React.FC = () => {
       }));
     }
 
-    // Register event listener for contract_write events
     eventStreamService.addEventListener('contract_write', handleContractWrite);
 
     return () => {
@@ -113,13 +95,30 @@ const CommunityView: React.FC = () => {
     };
   }, [communityId, props, dispatch, publicKey, serverUrl, communityMembers, handleContractWrite]);
 
+  const tabPaths = ['initiative', 'collab', 'chat', 'currency', 'members'];
+
   const navItems = [
-    { path: 'activity', label: 'Activity', icon: Handshake },
+    { path: 'initiative', label: 'Initiative', icon: Zap },
+    { path: 'collab', label: 'Collab', icon: Users2 },
     { path: 'chat', label: 'Chat', icon: MessageSquare },
-    { path: 'members', label: 'Members', icon: Users },
     { path: 'currency', label: 'Currency', icon: Coins },
-    { path: 'share', label: 'Share', icon: Share2 },
+    { path: 'members', label: 'Members', icon: Users },
   ];
+
+  const currentTabIndex = tabPaths.findIndex((p) => location.pathname.includes(`/community/${communityId}/${p}`));
+
+  const swipeRef = useSwipeRef<HTMLDivElement>({
+    onSwipeLeft: () => {
+      if (currentTabIndex >= 0 && currentTabIndex < tabPaths.length - 1) {
+        navigate(`/community/${communityId}/${tabPaths[currentTabIndex + 1]}`);
+      }
+    },
+    onSwipeRight: () => {
+      if (currentTabIndex > 0) {
+        navigate(`/community/${communityId}/${tabPaths[currentTabIndex - 1]}`);
+      }
+    },
+  });
 
   if (fetching) {
     return (
@@ -146,21 +145,6 @@ const CommunityView: React.FC = () => {
     );
   }
 
-  const actionButtons = isCurrentUserMember ? [
-    {
-      icon: IdCard,
-      label: 'ID Card',
-      onClick: () => setShowIdentityCard(true),
-      title: 'Show Identity Card'
-    },
-    {
-      icon: QrCode,
-      label: 'Scan',
-      onClick: () => setShowQRScanner(true),
-      title: 'Scan QR Code'
-    }
-  ] : [];
-
   const rightLabel = (
     <span className={styles.stat}>
       <Users size={16} />
@@ -172,9 +156,8 @@ const CommunityView: React.FC = () => {
     <div className={styles.container}>
       <PageHeader
         showBackButton={true}
-        backButtonText="Back"
+        backButtonVariant="compact"
         onBackClick={() => navigate('/identity/communities')}
-        actionButtons={actionButtons}
         title={props.name}
         subtitle={props.description}
         rightLabel={rightLabel}
@@ -195,39 +178,26 @@ const CommunityView: React.FC = () => {
           ))}
         </nav>
 
-        <div className={styles.main}>
+        <div className={styles.main} ref={swipeRef}>
           <Suspense fallback={<div className={styles.loadingState}>Loading...</div>}>
             <Routes>
-              <Route path="issues" element={<Navigate to={`/community/${communityId}/activity`} replace />} />
-              <Route path="collaborations" element={<Navigate to={`/community/${communityId}/activity`} replace />} />
-              <Route path="activity" element={<ActivityHub communityId={communityId!} />} />
+              <Route path="activity" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
+              <Route path="issues" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
+              <Route path="collaborations" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
+              <Route path="share" element={<Navigate to={`/community/${communityId}/members`} replace />} />
+              <Route path="initiative" element={<InitiativeList communityId={communityId!} />} />
+              <Route path="collab" element={<CollabList communityId={communityId!} />} />
               <Route path="chat" element={<ChatTopicList communityId={communityId!} />} />
               <Route path="chat/:topicId" element={<ChatTopic />} />
               <Route path="members" element={<Members communityId={communityId!} />} />
               <Route path="currency" element={<Currency communityId={communityId!} />} />
-              <Route path="share" element={<Share communityId={communityId!} />} />
-              <Route path="*" element={<ActivityHub communityId={communityId!} />} />
+              <Route path="*" element={<InitiativeList communityId={communityId!} />} />
             </Routes>
           </Suspense>
         </div>
       </div>
-
-      {/* Dialogs */}
-      <Suspense fallback={null}>
-        <IdentityCardDialog
-          isOpen={showIdentityCard}
-          onClose={() => setShowIdentityCard(false)}
-          communityName={props.name || 'Community'}
-        />
-        
-        <QRScannerDialog
-          isOpen={showQRScanner}
-          onClose={() => setShowQRScanner(false)}
-          communityId={communityId!}
-        />
-      </Suspense>
     </div>
   );
 };
 
-export default CommunityView; 
+export default CommunityView;

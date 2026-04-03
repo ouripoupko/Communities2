@@ -7,6 +7,7 @@ import initiativeReducer from './slices/initiativeSlice';
 import wishReducer from './slices/wishSlice';
 import agreementReducer from './slices/agreementSlice';
 import flowContractsReducer from '../components/collaboration/flows/shared/flowContractsSlice';
+import preferencesReducer from './slices/preferencesSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     wish: wishReducer,
     agreement: agreementReducer,
     flowContracts: flowContractsReducer,
+    preferences: preferencesReducer,
   },
 });
 

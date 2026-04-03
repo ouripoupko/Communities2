@@ -264,6 +264,57 @@
   }
 }
 
+// Homepage layout
+.homepageHeader {
+  margin-bottom: 0;
+  padding: $spacing-lg $spacing-xl;
+}
+
+.homepageRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.wordmark {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: $primary;
+  letter-spacing: -0.5px;
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-lg;
+  background-color: transparent;
+  color: $gray-700;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover {
+    background-color: $gray-100;
+    color: $gray-900;
+  }
+}
+
+// Compact back button variant
+.backButtonCompact {
+  padding: $spacing-sm !important;
+  border: none !important;
+  border-radius: $radius-full !important;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 // Responsive design
 @media (max-width: $breakpoint-sm) {
   .header {
@@ -373,6 +424,20 @@
             border-color: #e11d48;
           }
         }
+      }
+    }
+
+    .wordmark {
+      color: $primary;
+    }
+
+    .menuButton {
+      color: $dark-text-secondary;
+      border-color: $dark-border;
+
+      &:hover {
+        background-color: $dark-border;
+        color: $dark-text;
       }
     }
   }

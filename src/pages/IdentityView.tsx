@@ -1,66 +1,57 @@
-import React from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Users, QrCode, LogOut } from 'lucide-react';
-import Profile from '../components/identity/Profile';
-import Communities from '../components/identity/Communities';
-import JoinCommunity from '../components/identity/JoinCommunity';
 import PageHeader from '../components/PageHeader';
+import Communities from '../components/identity/Communities';
+import Profile from '../components/identity/Profile';
+import JoinCommunity from '../components/identity/JoinCommunity';
+import HomepageMenu from '../components/identity/HomepageMenu';
+import AboutPage from '../components/identity/AboutPage';
+import ContactPage from '../components/identity/ContactPage';
 import styles from './Container.module.scss';
 
 const IdentityView: React.FC = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  const navItems = [
-    { path: 'profile', label: 'Profile', icon: User },
-    { path: 'communities', label: 'Communities', icon: Users },
-    { path: 'join', label: 'Join Community', icon: QrCode },
-  ];
-
-  const actionButtons = [
-    {
-      icon: LogOut,
-      label: 'Logout',
-      onClick: handleLogout,
-      variant: 'logout' as const
-    }
-  ];
+  const handleNavigate = (path: string) => {
+    navigate(`/identity/${path}`);
+  };
 
   return (
     <div className={styles.container}>
       <PageHeader
-        title="My Identity"
-        actionButtons={actionButtons}
-        layout="single-row"
+        title="Gloki"
+        layout="homepage"
+        onMenuClick={() => setMenuOpen(true)}
+      />
+
+      <HomepageMenu
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        onCreateCommunity={() => {
+          navigate('/identity/communities', { state: { createCommunity: true } });
+        }}
       />
 
       <div className={styles.content}>
-        <nav className={styles.nav}>
-          {navItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(`/identity/${item.path}`)}
-              className={`${styles.navItem} ${location.pathname.includes(`/identity/${item.path}`) ? styles.active : ''}`}
-            >
-              <item.icon size={20} />
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
-
         <div className={styles.main}>
           <Routes>
-            <Route path="profile" element={<Profile />} />
             <Route path="communities" element={<Communities />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="join" element={<JoinCommunity />} />
-            <Route path="*" element={<Profile />} />
+            <Route path="about" element={<AboutPage onBack={() => navigate('/identity/communities')} />} />
+            <Route path="contact" element={<ContactPage onBack={() => navigate('/identity/communities')} />} />
+            <Route path="hidden" element={<Communities showHidden />} />
+            <Route path="*" element={<Navigate to="/identity/communities" replace />} />
           </Routes>
         </div>
       </div>
@@ -69,4 +60,3 @@ const IdentityView: React.FC = () => {
 };
 
 export default IdentityView;
-

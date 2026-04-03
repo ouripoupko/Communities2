@@ -6,6 +6,70 @@
   max-width: 800px;
   margin: 0 auto;
 
+  .trustSection {
+    margin-bottom: $spacing-2xl;
+    padding: $spacing-xl;
+    background: $gray-50;
+    border-radius: $radius-lg;
+    border: 1px solid $gray-200;
+
+    .trustTitle {
+      font-size: $text-lg;
+      font-weight: $font-semibold;
+      color: $gray-800;
+      margin-bottom: $spacing-sm;
+    }
+
+    .trustText {
+      font-size: $text-sm;
+      color: $gray-600;
+      line-height: 1.6;
+      margin-bottom: $spacing-lg;
+    }
+
+    .trustActions {
+      display: flex;
+      gap: $spacing-sm;
+      flex-wrap: wrap;
+    }
+
+    .trustBtn {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+      padding: $spacing-sm $spacing-lg;
+      background: white;
+      border: 1px solid $gray-300;
+      border-radius: $radius-md;
+      color: $gray-700;
+      font-size: $text-sm;
+      font-weight: $font-medium;
+      cursor: pointer;
+      transition: all $transition-base;
+      min-height: 40px;
+
+      &:hover {
+        background: $gray-100;
+        border-color: $gray-400;
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      svg {
+        flex-shrink: 0;
+        color: $primary;
+      }
+    }
+
+    .shareEmbed {
+      margin-top: $spacing-lg;
+      padding-top: $spacing-lg;
+      border-top: 1px solid $gray-200;
+    }
+  }
+
   .header {
     margin-bottom: $spacing-2xl;
 
@@ -228,6 +292,34 @@
 // Dark mode support
 @media (prefers-color-scheme: dark) {
   .container {
+    .trustSection {
+      background: $dark-surface;
+      border-color: $dark-border;
+
+      .trustTitle {
+        color: $dark-text;
+      }
+
+      .trustText {
+        color: $dark-text-secondary;
+      }
+
+      .trustBtn {
+        background: $dark-bg;
+        border-color: $dark-border;
+        color: $dark-text-secondary;
+
+        &:hover {
+          background: $dark-border;
+          color: $dark-text;
+        }
+      }
+
+      .shareEmbed {
+        border-color: $dark-border;
+      }
+    }
+
     .header {
       h2 {
         color: $dark-text;

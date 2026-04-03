@@ -2,6 +2,23 @@
 
 $initiative-color: #ea580c;
 
+// ─── Pipeline labels ──────────────────────────────────────────────────────────
+
+.pipelineLabels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 $spacing-xl;
+  margin-bottom: $spacing-xs;
+}
+
+.pipelineEndLabel {
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: $gray-500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 // ─── Pipeline progress bar ────────────────────────────────────────────────────
 
 .pipeline {
@@ -24,6 +41,7 @@ $initiative-color: #ea580c;
   align-items: center;
   gap: $spacing-xs;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .stageNumber {
@@ -50,6 +68,12 @@ $initiative-color: #ea580c;
     color: white;
     box-shadow: 0 0 0 3px rgba($initiative-color, 0.3);
   }
+
+  &.viewing {
+    box-shadow: 0 0 0 2px rgba($primary, 0.4);
+    background: $primary;
+    color: white;
+  }
 }
 
 .stageLabel {
@@ -61,6 +85,23 @@ $initiative-color: #ea580c;
     font-weight: $font-bold;
     color: $gray-800;
   }
+
+  &.viewingLabel {
+    font-weight: $font-medium;
+    color: $primary;
+  }
+}
+
+.previewBadge {
+  display: inline-block;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: $primary;
+  background: rgba($primary, 0.1);
+  border-radius: $radius-sm;
+  padding: 2px $spacing-sm;
+  margin-right: $spacing-sm;
+  font-style: normal;
 }
 
 .stageArrow {
@@ -165,6 +206,59 @@ $initiative-color: #ea580c;
   }
 }
 
+// ─── Discussion context ──────────────────────────────────────────────────────
+
+.discussionContext {
+  padding: $spacing-lg;
+  background: $gray-50;
+  border-radius: $radius-md;
+  margin-bottom: $spacing-xl;
+  border: 1px solid $gray-200;
+
+  p {
+    font-size: $text-sm;
+    color: $gray-600;
+    line-height: 1.6;
+    margin-bottom: $spacing-sm;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .discussionMetric {
+    color: $initiative-color;
+    font-weight: $font-medium;
+  }
+}
+
+// ─── Problem context for proposals stage ─────────────────────────────────────
+
+.problemContext {
+  padding: $spacing-lg;
+  background: rgba($initiative-color, 0.05);
+  border-left: 3px solid $initiative-color;
+  border-radius: 0 $radius-md $radius-md 0;
+  margin-bottom: $spacing-xl;
+
+  .contextLabel {
+    font-size: $text-xs;
+    font-weight: $font-semibold;
+    color: $initiative-color;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: $spacing-xs;
+  }
+
+  p {
+    font-size: $text-sm;
+    color: $gray-700;
+    line-height: 1.5;
+    margin: 0;
+  }
+}
+
 // ─── Mandate stage ────────────────────────────────────────────────────────────
 
 .mandateStage {
@@ -185,6 +279,41 @@ $initiative-color: #ea580c;
     line-height: 1.6;
     max-width: 520px;
     margin: 0 auto;
+  }
+
+  .mandateActions {
+    margin-top: $spacing-2xl;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-md;
+  }
+
+  .pledgeBtn {
+    padding: $spacing-md $spacing-2xl;
+    background: $initiative-color;
+    color: white;
+    border: none;
+    border-radius: $radius-lg;
+    font-size: $text-base;
+    font-weight: $font-semibold;
+    cursor: pointer;
+    transition: background $transition-base, transform $transition-fast;
+
+    &:hover {
+      background: darken($initiative-color, 8%);
+      transform: scale(1.02);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
+  .mandateNote {
+    font-size: $text-sm !important;
+    color: $gray-500 !important;
+    max-width: 400px;
   }
 }
 
@@ -324,6 +453,27 @@ $initiative-color: #ea580c;
   }
 
   .flowContainer .flowNote {
+    color: $dark-text-secondary;
+  }
+
+  .discussionContext {
+    background: $dark-surface;
+    border-color: $dark-border;
+
+    p {
+      color: $dark-text-secondary;
+    }
+  }
+
+  .problemContext {
+    background: rgba($initiative-color, 0.08);
+
+    p {
+      color: $dark-text;
+    }
+  }
+
+  .pipelineEndLabel {
     color: $dark-text-secondary;
   }
 
