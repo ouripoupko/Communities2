@@ -1,0 +1,79 @@
+@use '../../styles/variables' as *;
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: 0 $spacing-lg;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  padding: $spacing-lg;
+  border: 1px solid $gray-100;
+  border-radius: $radius-lg;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow $transition-base;
+  width: 100%;
+
+  &:hover {
+    box-shadow: $shadow-md;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-surface;
+    border-color: $dark-border;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.cardIcon {
+  color: $primary;
+  flex-shrink: 0;
+}
+
+.communityName {
+  font-size: $text-xs;
+  color: $gray-400;
+}
+
+.cardTitle {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-900;
+
+  @media (prefers-color-scheme: dark) {
+    color: $dark-text;
+  }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-3xl $spacing-xl;
+  text-align: center;
+  color: $gray-400;
+  font-size: $text-sm;
+}
+
+.emptyIcon {
+  color: $gray-200;
+  margin-bottom: $spacing-lg;
+}
+
+.emptyHint {
+  font-size: $text-xs;
+  max-width: 300px;
+  margin-top: $spacing-xs;
+}
