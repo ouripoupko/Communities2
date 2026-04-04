@@ -4,7 +4,7 @@ import { useFlowContract } from '../shared/useFlowContract';
 import CountryBadge from '../shared/CountryBadge';
 import * as api from './qvApi';
 import { useAppSelector } from '../../../../store/hooks';
-import { COUNTRY_COLORS } from '../../../../utils/countries';
+import { getCountryColor, getCountryName } from '../../../../utils/countries';
 import qvContractCode from '../../../../assets/contracts/qv_contract.py?raw';
 import styles from './QVFlow.module.scss';
 
@@ -218,8 +218,8 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
                       <div className={styles.resultBar}>
                         {Object.entries(breakdown).map(([country, votes]) => (
                           <div key={country} className={styles.resultSegment}
-                            style={{ width: `${(votes / maxVotes) * 100}%`, backgroundColor: COUNTRY_COLORS[country] || COUNTRY_COLORS.OTHER }}
-                            title={`${country}: ${votes.toFixed(1)} votes`} />
+                            style={{ width: `${(votes / maxVotes) * 100}%`, backgroundColor: getCountryColor(country) }}
+                            title={`${getCountryName(country)}: ${votes.toFixed(1)} votes`} />
                         ))}
                       </div>
                       <div className={styles.resultCount}>{totalVotes.toFixed(1)} QV votes</div>

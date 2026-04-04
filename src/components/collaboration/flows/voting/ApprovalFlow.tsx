@@ -6,7 +6,7 @@ import { useFlowContract } from '../shared/useFlowContract';
 import CountryBadge from '../shared/CountryBadge';
 import * as api from './approvalApi';
 import { useAppSelector } from '../../../../store/hooks';
-import { COUNTRY_COLORS } from '../../../../utils/countries';
+import { getCountryColor, getCountryName } from '../../../../utils/countries';
 import approvalContractCode from '../../../../assets/contracts/approval_contract.py?raw';
 import styles from './ApprovalFlow.module.scss';
 
@@ -216,9 +216,9 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
                             className={styles.resultSegment}
                             style={{
                               width: `${(count / maxApprovals) * 100}%`,
-                              backgroundColor: COUNTRY_COLORS[country] || COUNTRY_COLORS.OTHER,
+                              backgroundColor: getCountryColor(country),
                             }}
-                            title={`${country}: ${count}`}
+                            title={`${getCountryName(country)}: ${count}`}
                           />
                         ))}
                       </div>
