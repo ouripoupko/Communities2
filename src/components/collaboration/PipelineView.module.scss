@@ -23,73 +23,92 @@ $initiative-color: #ea580c;
 
 .pipeline {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: $spacing-xs;
-  background: white;
-  border-radius: $radius-lg;
-  padding: $spacing-lg $spacing-xl;
+  padding: $spacing-lg 0;
+  gap: 0;
   margin-bottom: $spacing-lg;
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  white-space: nowrap;
 }
 
-.stage {
+.connector {
+  flex: 1;
+  height: 2px;
+  background: $gray-200;
+  margin-top: 16px;
+  max-width: 40px;
+
+  &.connectorCompleted {
+    background: $success;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-border;
+  }
+}
+
+.stageBtn {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   gap: $spacing-xs;
-  flex-shrink: 0;
+  background: none;
+  border: none;
   cursor: pointer;
+  padding: 0;
+  min-width: 48px;
 }
 
-.stageNumber {
-  display: inline-flex;
+.stageDot {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-full;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: $radius-full;
-  font-size: $text-sm;
+  font-size: $text-xs;
   font-weight: $font-semibold;
-  background: $gray-200;
-  color: $gray-600;
-  flex-shrink: 0;
-  transition: background $transition-base, color $transition-base;
+  border: 2px solid $gray-200;
+  color: $gray-400;
+  background: white;
+  transition: all $transition-base;
 
   &.completed {
-    background: $initiative-color;
+    background: $success;
+    border-color: $success;
     color: white;
   }
 
   &.current {
-    background: $initiative-color;
+    background: $primary;
+    border-color: $primary;
     color: white;
-    box-shadow: 0 0 0 3px rgba($initiative-color, 0.3);
   }
 
-  &.viewing {
-    box-shadow: 0 0 0 2px rgba($primary, 0.4);
-    background: $primary;
-    color: white;
+  &.viewing:not(.current):not(.completed) {
+    border-color: $primary;
+    color: $primary;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-surface;
+    border-color: $dark-border;
+    color: $dark-text-secondary;
   }
 }
 
 .stageLabel {
-  font-size: $text-sm;
-  color: $gray-500;
-  font-weight: $font-normal;
+  font-size: $text-xs;
+  color: $gray-400;
+  white-space: nowrap;
+}
 
-  &.currentLabel {
-    font-weight: $font-bold;
-    color: $gray-800;
-  }
+.currentLabel {
+  color: $primary;
+  font-weight: $font-medium;
+}
 
-  &.viewingLabel {
-    font-weight: $font-medium;
-    color: $primary;
-  }
+.viewingLabel {
+  color: $primary;
 }
 
 .previewBadge {
@@ -102,11 +121,6 @@ $initiative-color: #ea580c;
   padding: 2px $spacing-sm;
   margin-right: $spacing-sm;
   font-style: normal;
-}
-
-.stageArrow {
-  color: $gray-300;
-  flex-shrink: 0;
 }
 
 // ─── Stage hint ───────────────────────────────────────────────────────────────
@@ -389,8 +403,7 @@ $initiative-color: #ea580c;
 
 @media (max-width: $breakpoint-sm) {
   .pipeline {
-    padding: $spacing-md;
-    gap: $spacing-xs;
+    padding: $spacing-md 0;
   }
 
   .stageLabel {
@@ -406,25 +419,12 @@ $initiative-color: #ea580c;
 // ─── Dark mode ────────────────────────────────────────────────────────────────
 
 @media (prefers-color-scheme: dark) {
-  .pipeline {
-    background: $dark-bg;
-  }
-
-  .stageNumber {
-    background: $dark-border;
-    color: $dark-text-secondary;
-  }
-
   .stageLabel {
     color: $dark-text-secondary;
-
-    &.currentLabel {
-      color: $dark-text;
-    }
   }
 
-  .stageArrow {
-    color: $dark-border;
+  .currentLabel {
+    color: $primary;
   }
 
   .stageHint {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { useSwipeRef } from '../../hooks/useSwipeNavigation';
 import { contractRead, contractWrite } from '../../services/api';
@@ -182,21 +182,21 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
               const isViewing = idx === viewStageIndex;
               return (
                 <React.Fragment key={s.id}>
-                  <div className={styles.stage} onClick={() => setViewStage(s.id)}>
-                    <span
-                      className={`${styles.stageNumber} ${isCompleted ? styles.completed : ''} ${isCurrent ? styles.current : ''} ${isViewing && !isCurrent ? styles.viewing : ''}`}
+                  {idx > 0 && (
+                    <div className={`${styles.connector} ${isCompleted ? styles.connectorCompleted : ''}`} />
+                  )}
+                  <button className={styles.stageBtn} onClick={() => setViewStage(s.id)}>
+                    <div
+                      className={`${styles.stageDot} ${isCompleted ? styles.completed : ''} ${isCurrent ? styles.current : ''} ${isViewing ? styles.viewing : ''}`}
                     >
-                      {idx + 1}
-                    </span>
+                      {isCompleted ? '✓' : idx + 1}
+                    </div>
                     <span
                       className={`${styles.stageLabel} ${isCurrent ? styles.currentLabel : ''} ${isViewing && !isCurrent ? styles.viewingLabel : ''}`}
                     >
                       {s.label}
                     </span>
-                  </div>
-                  {idx < STAGES.length - 1 && (
-                    <ChevronRight size={16} className={styles.stageArrow} />
-                  )}
+                  </button>
                 </React.Fragment>
               );
             })}
