@@ -5,7 +5,8 @@ import { useEventStream, useEventStreamConnection } from '../../hooks/useEventSt
 import { User, Camera, Save, Key, Server } from 'lucide-react';
 import styles from './Profile.module.scss';
 import { setValues } from '../../services/contracts/gloki';
-import { PILOT_COUNTRIES, OTHER_COUNTRY } from '../../utils/countries';
+import SearchableSelect from '../shared/SearchableSelect';
+import { COUNTRIES, OTHER_COUNTRY } from '../../utils/countries';
 
 const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
@@ -258,23 +259,16 @@ const Profile: React.FC = () => {
 
             <div className="form-group">
               <label htmlFor="country">Country</label>
-              <select
-                id="country"
+              <SearchableSelect
+                options={[
+                  ...COUNTRIES.map((c) => ({ value: c.code, label: c.name, icon: c.flag })),
+                  { value: OTHER_COUNTRY.code, label: OTHER_COUNTRY.name, icon: OTHER_COUNTRY.flag },
+                ]}
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
+                onChange={(val) => setCountry(val)}
+                placeholder="Select your country"
                 disabled={!isEditing}
-                className="input-field"
-              >
-                <option value="">Select your country</option>
-                {PILOT_COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {c.name}
-                  </option>
-                ))}
-                <option value={OTHER_COUNTRY.code}>
-                  {OTHER_COUNTRY.flag} {OTHER_COUNTRY.name}
-                </option>
-              </select>
+              />
             </div>
 
             <div className="form-group">
