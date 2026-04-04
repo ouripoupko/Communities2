@@ -107,7 +107,8 @@ export async function deployContract({
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(contractData),
-    }
+    },
+    30000
   );
 }
 
