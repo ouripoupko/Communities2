@@ -12,18 +12,8 @@ interface UseFlowContractResult {
   retry: () => void;
 }
 
-/**
- * Manages contract lifecycle for a flow instance.
- *
- * Per-user mode (no parentContractId/stageKey):
- *   Deploys a new contract on first use; returns cached contractId on subsequent uses.
- *
- * Shared mode (parentContractId + stageKey provided):
- *   Reads the parent contract's details for a stored sub-contract under stageKey.
- *   If found → joins the existing contract via joinContract().
- *   If not found → deploys a new contract and stores its info on the parent so others can join.
- *   All community members end up reading/writing the same contract instance.
- */
+const DEPLOY_TIMEOUT_MS = 30_000;
+
 export function useFlowContract(
   instanceId: string,
   contractName: string,
@@ -49,15 +39,35 @@ export function useFlowContract(
     setHasError(false);
   }, []);
 
+  // ── Stale deploying recovery ────────────────────────────────────────────────
+  // If Redux says deploying but we haven't attempted in this mount, the flag
+  // is stale from a previous session/mount. Clear it so we can retry.
+  useEffect(() => {
+    if (isDeploying && !attempted.current && !contractId) {
+      console.log(`[FlowContract] Clearing stale deploying flag for ${instanceId}`);
+      dispatch(clearDeploying({ instanceId }));
+    }
+  }, [isDeploying, contractId, instanceId, dispatch]);
+
   // ── Per-user deploy mode ───────────────────────────────────────────────────
   useEffect(() => {
     if (isShared) return;
     if (contractId || isDeploying || attempted.current || failed.current) return;
     if (!serverUrl || !publicKey) return;
 
-    let cancelled = false;
     attempted.current = true;
     dispatch(setDeploying({ instanceId }));
+    console.log(`[FlowContract] Deploying ${contractName} for ${instanceId}...`);
+
+    // Deploy timeout — force error if promise doesn't settle
+    const timeoutId = setTimeout(() => {
+      if (!failed.current) {
+        console.warn(`[FlowContract] TIMEOUT: Deploy of ${contractName} for ${instanceId} did not complete within ${DEPLOY_TIMEOUT_MS / 1000}s`);
+        failed.current = true;
+        setHasError(true);
+        dispatch(clearDeploying({ instanceId }));
+      }
+    }, DEPLOY_TIMEOUT_MS);
 
     deployContract({
       serverUrl,
@@ -67,19 +77,24 @@ export function useFlowContract(
       code: contractCode,
     })
       .then((response) => {
-        if (cancelled) return;
+        clearTimeout(timeoutId);
+        if (failed.current) return; // Timeout already fired
+        console.log(`[FlowContract] Deploy response received:`, JSON.stringify(response).slice(0, 200));
         const id = (response as { id?: string }).id || (response as string);
+        console.log(`[FlowContract] Contract ID extracted: ${id}`);
+        // Always cache — contract exists on server regardless of component lifecycle
         dispatch(setContract({ instanceId, contractId: id }));
       })
       .catch((err) => {
-        if (cancelled) return;
-        console.error(`Failed to deploy contract for ${instanceId}:`, err);
+        clearTimeout(timeoutId);
+        if (failed.current) return; // Timeout already fired
+        console.error(`[FlowContract] ERROR deploying ${contractName} for ${instanceId}:`, err);
         failed.current = true;
         setHasError(true);
         dispatch(clearDeploying({ instanceId }));
       });
 
-    return () => { cancelled = true; };
+    return () => { clearTimeout(timeoutId); };
   }, [isShared, instanceId, contractId, isDeploying, serverUrl, publicKey, contractName, contractFileName, contractCode, dispatch, hasError]);
 
   // ── Shared contract mode ───────────────────────────────────────────────────
@@ -88,9 +103,19 @@ export function useFlowContract(
     if (contractId || isDeploying || attempted.current || failed.current) return;
     if (!serverUrl || !publicKey || !parentContractId) return;
 
-    let cancelled = false;
     attempted.current = true;
     dispatch(setDeploying({ instanceId }));
+    console.log(`[FlowContract] Setting up shared ${contractName} for ${instanceId} (parent: ${parentContractId}, stage: ${stageKey})...`);
+
+    // Deploy timeout
+    const timeoutId = setTimeout(() => {
+      if (!failed.current) {
+        console.warn(`[FlowContract] TIMEOUT: Shared setup of ${contractName} for ${instanceId} did not complete within ${DEPLOY_TIMEOUT_MS / 1000}s`);
+        failed.current = true;
+        setHasError(true);
+        dispatch(clearDeploying({ instanceId }));
+      }
+    }, DEPLOY_TIMEOUT_MS);
 
     (async () => {
       try {
@@ -101,7 +126,7 @@ export function useFlowContract(
           contractId: parentContractId,
           method: { name: 'get_details', values: {} } as IMethod,
         });
-        if (cancelled) return;
+        if (failed.current) return; // Timeout already fired
 
         const stored = details && typeof details === 'object'
           ? (details as Record<string, unknown>)[stageKey!] as
@@ -109,6 +134,7 @@ export function useFlowContract(
           : undefined;
 
         if (stored?.contractId && stored?.address && stored?.agent) {
+          console.log(`[FlowContract] Found existing shared contract: ${stored.contractId}`);
           // Sub-contract exists → join it
           try {
             await joinContract({
@@ -121,9 +147,10 @@ export function useFlowContract(
           } catch {
             // May fail if already joined — that's OK
           }
-          if (cancelled) return;
+          if (failed.current) return;
           dispatch(setContract({ instanceId, contractId: stored.contractId }));
         } else {
+          console.log(`[FlowContract] No shared contract found, deploying new...`);
           // No sub-contract yet → deploy and store info on parent
           const response = await deployContract({
             serverUrl,
@@ -132,9 +159,10 @@ export function useFlowContract(
             contract: contractFileName,
             code: contractCode,
           });
-          if (cancelled) return;
+          if (failed.current) return;
 
           const newId = (response as { id?: string }).id || (response as string);
+          console.log(`[FlowContract] Deployed shared contract: ${newId}`);
 
           // Write the sub-contract info to the parent so other users can join
           const currentDetails = details && typeof details === 'object'
@@ -154,19 +182,21 @@ export function useFlowContract(
               },
             } as IMethod,
           });
-          if (cancelled) return;
+          if (failed.current) return;
           dispatch(setContract({ instanceId, contractId: newId }));
         }
+        clearTimeout(timeoutId);
       } catch (err) {
-        if (cancelled) return;
-        console.error(`Failed to setup shared contract for ${instanceId}:`, err);
+        clearTimeout(timeoutId);
+        if (failed.current) return;
+        console.error(`[FlowContract] ERROR setting up shared contract for ${instanceId}:`, err);
         failed.current = true;
         setHasError(true);
         dispatch(clearDeploying({ instanceId }));
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => { clearTimeout(timeoutId); };
   }, [isShared, instanceId, contractId, isDeploying, serverUrl, publicKey, parentContractId, stageKey, contractName, contractFileName, contractCode, dispatch, hasError]);
 
   return {
