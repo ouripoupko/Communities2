@@ -8,6 +8,26 @@
   gap: $spacing-sm;
 }
 
+// ─── Threshold banner ────────────────────────────
+.thresholdBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  padding: $spacing-md $spacing-lg;
+  background: rgba($primary, 0.06);
+  border: 1px solid rgba($primary, 0.15);
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-600;
+  line-height: 1.4;
+
+  svg {
+    flex-shrink: 0;
+    color: $primary;
+    margin-top: 1px;
+  }
+}
+
 // ─── Cards ────────────────────────────────────
 .card {
   display: flex;
@@ -75,6 +95,21 @@
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+// ─── Sample data ─────────────────────────────
+.sampleBanner {
+  font-size: $text-xs;
+  color: $gray-400;
+  text-align: center;
+  padding: $spacing-sm;
+  font-style: italic;
+}
+
+.sampleCard {
+  opacity: 0.7;
+  border-style: dashed;
+  pointer-events: none;
 }
 
 // ─── Inline voting (Stage 1) ─────────────────
@@ -221,6 +256,12 @@
 
   .progressBar {
     background: $dark-border;
+  }
+
+  .thresholdBanner {
+    background: rgba($primary, 0.1);
+    border-color: rgba($primary, 0.2);
+    color: $dark-text-secondary;
   }
 
   .empty {

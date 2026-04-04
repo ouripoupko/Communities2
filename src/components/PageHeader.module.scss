@@ -268,6 +268,8 @@
 .homepageHeader {
   margin-bottom: 0;
   padding: $spacing-lg $spacing-xl;
+  background-color: $gray-800;
+  border-bottom: none;
 }
 
 .homepageRow {
@@ -280,8 +282,12 @@
 .wordmark {
   font-size: $text-2xl;
   font-weight: $font-bold;
-  color: $primary;
+  color: white;
   letter-spacing: -0.5px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .menuButton {
@@ -289,8 +295,8 @@
   align-items: center;
   padding: $spacing-sm $spacing-lg;
   background-color: transparent;
-  color: $gray-700;
-  border: 1px solid $gray-300;
+  color: rgba(white, 0.8);
+  border: 1px solid rgba(white, 0.2);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
@@ -298,8 +304,8 @@
   transition: all $transition-base;
 
   &:hover {
-    background-color: $gray-100;
-    color: $gray-900;
+    background-color: rgba(white, 0.1);
+    color: white;
   }
 }
 
@@ -428,16 +434,16 @@
     }
 
     .wordmark {
-      color: $primary;
+      color: white;
     }
 
     .menuButton {
-      color: $dark-text-secondary;
-      border-color: $dark-border;
+      color: rgba(white, 0.8);
+      border-color: rgba(white, 0.2);
 
       &:hover {
-        background-color: $dark-border;
-        color: $dark-text;
+        background-color: rgba(white, 0.1);
+        color: white;
       }
     }
   }

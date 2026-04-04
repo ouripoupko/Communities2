@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import styles from './PageHeader.module.scss';
 
@@ -42,11 +43,13 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   layout = 'two-row',
   onMenuClick,
 }) => {
+  const navigate = useNavigate();
+
   if (layout === 'homepage') {
     return (
       <div className={`${styles.header} ${styles.homepageHeader}`}>
         <div className={styles.homepageRow}>
-          <span className={styles.wordmark}>Gloki</span>
+          <button className={styles.wordmark} onClick={() => navigate('/stage/problem')}>Gloki</button>
           {onMenuClick && (
             <button className={styles.menuButton} onClick={onMenuClick}>
               Menu

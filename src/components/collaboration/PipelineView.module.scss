@@ -123,6 +123,28 @@ $initiative-color: #ea580c;
   font-style: normal;
 }
 
+// ─── Stage heading ───────────────────────────────────────────────────────────
+
+.stageHeading {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-md;
+  margin-bottom: $spacing-md;
+
+  h2 {
+    font-size: $text-xl;
+    font-weight: $font-bold;
+    color: $gray-800;
+    margin: 0;
+  }
+
+  .stageStep {
+    font-size: $text-xs;
+    color: $gray-400;
+    font-weight: $font-medium;
+  }
+}
+
 // ─── Stage hint ───────────────────────────────────────────────────────────────
 
 .stageHint {
@@ -483,6 +505,10 @@ $initiative-color: #ea580c;
 
   .currentLabel {
     color: $primary;
+  }
+
+  .stageHeading h2 {
+    color: $dark-text;
   }
 
   .stageHint {

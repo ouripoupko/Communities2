@@ -213,41 +213,11 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
 
       <div className={cs.content}>
         <div className={cs.main} ref={pipelineSwipeRef}>
-          {/* Pipeline labels */}
-          <div className={styles.pipelineLabels}>
-            <span className={styles.pipelineEndLabel}>Global Problem</span>
-            <span className={styles.pipelineEndLabel}>Global Solution</span>
+          {/* Stage heading */}
+          <div className={styles.stageHeading}>
+            <h2>{viewStageConfig?.label}</h2>
+            <span className={styles.stageStep}>Step {viewStageIndex + 1} of {STAGES.length}</span>
           </div>
-
-          {/* Pipeline progress bar */}
-          <div className={styles.pipeline}>
-            {STAGES.map((s, idx) => {
-              const isCompleted = idx < currentStageIndex;
-              const isCurrent = idx === currentStageIndex;
-              const isViewing = idx === viewStageIndex;
-              return (
-                <React.Fragment key={s.id}>
-                  {idx > 0 && (
-                    <div className={`${styles.connector} ${isCompleted ? styles.connectorCompleted : ''}`} />
-                  )}
-                  <button className={styles.stageBtn} onClick={() => setViewStage(s.id)}>
-                    <div
-                      className={`${styles.stageDot} ${isCompleted ? styles.completed : ''} ${isCurrent ? styles.current : ''} ${isViewing ? styles.viewing : ''}`}
-                    >
-                      {isCompleted ? '✓' : idx + 1}
-                    </div>
-                    <span
-                      className={`${styles.stageLabel} ${isCurrent ? styles.currentLabel : ''} ${isViewing && !isCurrent ? styles.viewingLabel : ''}`}
-                    >
-                      {s.label}
-                    </span>
-                  </button>
-                </React.Fragment>
-              );
-            })}
-          </div>
-
-          {/* Stage hint */}
           {viewStageConfig && (
             <div className={styles.stageHint}>
               {!isViewingCurrentStage && <span className={styles.previewBadge}>Preview</span>}

@@ -1,62 +1,17 @@
-// Profile.module.scss
-// Hierarchical SCSS structure for Profile component
+// Profile.module.scss — Compact profile layout
 @use '../../styles/variables' as *;
 
 .container {
-  max-width: 800px;
+  max-width: 480px;
   margin: 0 auto;
-
-  .header {
-    margin-bottom: $spacing-2xl;
-
-    h1 {
-      font-size: $text-3xl;
-      font-weight: $font-bold;
-      color: $gray-800;
-      margin-bottom: $spacing-sm;
-    }
-
-    p {
-      color: $gray-600;
-    }
-
-    .profileName {
-      font-size: $text-lg;
-      font-weight: $font-semibold;
-      color: $primary;
-      margin-top: $spacing-sm;
-    }
-
-    .eventStreamStatus {
-      margin-top: $spacing-sm;
-
-      .statusIndicator {
-        display: inline-flex;
-        align-items: center;
-        gap: $spacing-xs;
-        padding: $spacing-xs $spacing-sm;
-        border-radius: $radius-sm;
-        font-size: $text-xs;
-        font-weight: $font-medium;
-
-        &.connected {
-          background-color: #dcfce7;
-          color: #166534;
-        }
-
-        &.disconnected {
-          background-color: #fef2f2;
-          color: $error;
-        }
-      }
-    }
-  }
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
 
   .loadingMessage {
     text-align: center;
     padding: $spacing-2xl;
     color: $gray-600;
-    font-size: $text-base;
   }
 
   .errorMessage {
@@ -66,266 +21,326 @@
     padding: $spacing-lg;
     border-radius: $radius-md;
     font-size: $text-sm;
-    margin-bottom: $spacing-lg;
-    border: 1px solid;
-    background-color: #fef2f2;
-    border-color: #fecaca;
-    color: $error;
-
-    .errorIcon {
-      font-size: $text-xl;
-      flex-shrink: 0;
-      margin-top: 0.125rem;
-    }
-
-    .errorContent {
-      flex: 1;
-
-      .errorTitle {
-        font-weight: $font-semibold;
-        margin-bottom: $spacing-xs;
-      }
-
-      .errorDescription {
-        line-height: 1.4;
-      }
-
-      .errorHelp {
-        margin-top: $spacing-sm;
-        font-size: 0.8rem;
-        color: #991b1b;
-        font-style: italic;
-      }
-    }
-  }
-
-  .imageUploadError {
-    position: absolute;
-    top: -60px;
-    left: 50%;
-    transform: translateX(-50%);
     background-color: #fef2f2;
     border: 1px solid #fecaca;
-    border-radius: $radius-md;
-    padding: $spacing-sm;
-    font-size: $text-xs;
     color: $error;
+
+    .errorIcon { font-size: $text-lg; flex-shrink: 0; }
+    .errorContent { flex: 1; }
+    .errorTitle { font-weight: $font-semibold; margin-bottom: $spacing-xs; }
+    .errorDescription { line-height: 1.4; }
+    .errorHelp { margin-top: $spacing-sm; font-size: $text-xs; color: #991b1b; font-style: italic; }
+  }
+}
+
+// ─── Profile card ────────────────────────────
+.profileCard {
+  background: white;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-sm;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.profileTop {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.profilePicture {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: $radius-full;
+  overflow: hidden;
+  border: 2px solid $gray-200;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .profilePicturePlaceholder {
+    width: 100%;
+    height: 100%;
+    background: $gray-100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $gray-400;
+  }
+
+  .uploadButton {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 24px;
+    height: 24px;
+    background: $primary;
+    color: white;
+    border: none;
+    border-radius: $radius-full;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    &:hover { background: $primary-dark; }
+  }
+}
+
+.profileSummary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.profileName {
+  font-size: $text-lg;
+  font-weight: $font-semibold;
+  color: $gray-800;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: $radius-full;
+  flex-shrink: 0;
+  &.connected { background: $success; }
+  &.disconnected { background: $error; }
+}
+
+.editBtn {
+  padding: $spacing-xs $spacing-md;
+  background: transparent;
+  color: $primary;
+  border: 1px solid $primary;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: all $transition-base;
+  &:hover { background: rgba($primary, 0.06); }
+}
+
+// ─── Form ────────────────────────────────────
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-md;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+
+  label {
+    font-size: $text-xs;
+    font-weight: $font-medium;
+    color: $gray-500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  input {
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $gray-200;
+    border-radius: $radius-md;
+    font-size: $text-sm;
+    color: $gray-800;
+    background: white;
+    transition: border-color $transition-base;
+
+    &:focus {
+      outline: none;
+      border-color: $primary;
+    }
+
+    &:disabled {
+      background: $gray-50;
+      color: $gray-600;
+    }
+  }
+}
+
+.inlineError {
+  font-size: $text-xs;
+  color: $error;
+  padding: $spacing-sm $spacing-md;
+  background: #fef2f2;
+  border-radius: $radius-sm;
+  border: 1px solid #fecaca;
+}
+
+.actionRow {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.saveBtn {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: $primary-dark; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.cancelBtn {
+  padding: $spacing-sm $spacing-lg;
+  background: transparent;
+  color: $gray-500;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  cursor: pointer;
+  &:hover { background: $gray-50; }
+}
+
+// ─── Identity section ────────────────────────
+.identityToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $spacing-md $spacing-lg;
+  background: white;
+  border: 1px solid $gray-100;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-600;
+  cursor: pointer;
+  transition: background $transition-base;
+  &:hover { background: $gray-50; }
+}
+
+.identitySection {
+  background: white;
+  border-radius: $radius-md;
+  padding: $spacing-md;
+  box-shadow: $shadow-sm;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
+  background: $gray-50;
+  border-radius: $radius-sm;
+}
+
+.infoLabel {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: $gray-500;
+}
+
+.infoValue {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  code {
+    font-family: monospace;
+    font-size: $text-xs;
+    color: $gray-700;
+    background: $gray-100;
+    padding: 2px $spacing-xs;
+    border-radius: $radius-sm;
+    flex: 1;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  .copyButton {
+    padding: 2px $spacing-sm;
+    background: $gray-100;
+    color: $gray-600;
+    border: 1px solid $gray-200;
+    border-radius: $radius-sm;
+    font-size: $text-xs;
+    cursor: pointer;
     white-space: nowrap;
-    z-index: 10;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: $spacing-2xl;
-
-    .profileSection {
-      background: white;
-      border-radius: $radius-lg;
-      padding: $spacing-2xl;
-      box-shadow: $shadow-base;
-
-      .profilePictureSection {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: $spacing-lg;
-
-        .profilePicture {
-          position: relative;
-          width: 120px;
-          height: 120px;
-          border-radius: $radius-full;
-          overflow: hidden;
-          border: 3px solid $gray-200;
-
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-          }
-
-          .profilePicturePlaceholder {
-            width: 100%;
-            height: 100%;
-            background-color: $gray-100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: $gray-400;
-          }
-
-          .uploadButton {
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 32px;
-            height: 32px;
-            background-color: $primary;
-            color: white;
-            border: none;
-            border-radius: $radius-full;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background-color $transition-base;
-
-            &:hover {
-              background-color: $primary-dark;
-            }
-          }
-        }
-      }
-
-      .profileForm {
-        display: flex;
-        flex-direction: column;
-        gap: $spacing-xl;
-      }
-    }
-
-    .identitySection {
-      background: white;
-      border-radius: $radius-lg;
-      padding: $spacing-2xl;
-      box-shadow: $shadow-base;
-
-      h3 {
-        font-size: $text-xl;
-        font-weight: $font-semibold;
-        color: $gray-800;
-        margin-bottom: $spacing-xl;
-      }
-
-      .identityInfo {
-        display: flex;
-        flex-direction: column;
-        gap: $spacing-lg;
-
-        .infoItem {
-          display: flex;
-          flex-direction: column;
-          gap: $spacing-sm;
-          padding: $spacing-lg;
-          background-color: $gray-50;
-          border-radius: $radius-md;
-          border: 1px solid $gray-200;
-
-          .infoLabel {
-            display: flex;
-            align-items: center;
-            gap: $spacing-sm;
-            font-weight: $font-medium;
-            color: $gray-700;
-            font-size: $text-sm;
-          }
-
-          .infoValue {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: $spacing-lg;
-
-            code {
-              font-family: monospace;
-              background-color: $gray-100;
-              padding: $spacing-xs $spacing-sm;
-              border-radius: $radius-sm;
-              font-size: $text-sm;
-              color: $gray-800;
-              flex: 1;
-              word-break: break-all;
-            }
-
-            .copyButton {
-              padding: $spacing-xs $spacing-md;
-              background-color: $gray-100;
-              color: $gray-700;
-              border: 1px solid $gray-300;
-              border-radius: $radius-sm;
-              font-size: $text-xs;
-              cursor: pointer;
-              transition: all $transition-base;
-              white-space: nowrap;
-
-              &:hover {
-                background-color: $gray-200;
-                color: $gray-800;
-              }
-            }
-          }
-        }
-      }
-    }
+    &:hover { background: $gray-200; }
   }
 }
 
-// Responsive Design
-@media (max-width: $breakpoint-md) {
-  .container {
-    .content {
-      grid-template-columns: 1fr;
-      gap: $spacing-lg;
-
-      .profileSection,
-      .identitySection {
-        padding: $spacing-xl;
-      }
-    }
-  }
-}
-
-// Dark mode support
+// ─── Dark mode ───────────────────────────────
 @media (prefers-color-scheme: dark) {
-  .container {
-    .header {
-      h1 {
-        color: $dark-text;
-      }
+  .profileCard,
+  .identitySection {
+    background: $dark-bg;
+  }
 
-      p {
-        color: $dark-text-secondary;
-      }
-    }
+  .profileName { color: $dark-text; }
 
-    .content {
-      .profileSection,
-      .identitySection {
-        background-color: $dark-bg;
-
-        h3 {
-          color: $dark-text;
-        }
-      }
-
-      .identitySection .identityInfo .infoItem {
-        background-color: $dark-surface;
-        border-color: $dark-border;
-
-        .infoLabel {
-          color: $dark-text;
-        }
-
-        .infoValue {
-          code {
-            background-color: $dark-border;
-            color: $dark-text;
-          }
-
-          .copyButton {
-            background-color: $dark-surface;
-            color: $dark-text;
-            border-color: $dark-border;
-
-            &:hover {
-              background-color: $dark-border;
-            }
-          }
-        }
-      }
+  .formField {
+    label { color: $dark-text-secondary; }
+    input {
+      background: $dark-surface;
+      border-color: $dark-border;
+      color: $dark-text;
+      &:disabled { background: $dark-bg; color: $dark-text-secondary; }
     }
   }
-}
 
+  .identityToggle {
+    background: $dark-bg;
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+    &:hover { background: $dark-surface; }
+  }
+
+  .infoItem {
+    background: $dark-surface;
+  }
+
+  .infoLabel { color: $dark-text-secondary; }
+
+  .infoValue {
+    code { background: $dark-border; color: $dark-text; }
+    .copyButton {
+      background: $dark-surface;
+      color: $dark-text-secondary;
+      border-color: $dark-border;
+      &:hover { background: $dark-border; }
+    }
+  }
+
+  .editBtn {
+    color: $primary;
+    border-color: $primary;
+  }
+
+  .cancelBtn {
+    color: $dark-text-secondary;
+    border-color: $dark-border;
+    &:hover { background: $dark-surface; }
+  }
+
+  .inlineError {
+    background: rgba($error, 0.1);
+    border-color: rgba($error, 0.3);
+  }
+}

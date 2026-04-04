@@ -26,6 +26,28 @@ interface TallyData {
   total: number;
 }
 
+// Sample data for development — shown when no real initiatives exist at a stage
+const SAMPLE_INITIATIVES: Record<string, Array<{ id: string; title: string; description: string; communityName: string; authorName: string; stage: string; tally?: { up: number; down: number; total: number } }>> = {
+  problem: [
+    { id: 'sample-1', title: 'Access to Clean Drinking Water', description: 'Over 2 billion people worldwide lack access to safely managed drinking water. This affects health, education, and economic development across multiple countries.', communityName: 'Global Health Network', authorName: 'Maria S.', stage: 'problem', tally: { up: 42, down: 5, total: 47 } },
+    { id: 'sample-2', title: 'Misinformation and Democratic Erosion', description: 'AI-generated misinformation is undermining democratic processes globally. Voters are being manipulated and public trust in institutions is declining.', communityName: 'Democracy Watch', authorName: 'James T.', stage: 'problem', tally: { up: 28, down: 12, total: 40 } },
+    { id: 'sample-3', title: 'Youth Unemployment Crisis', description: 'Youth unemployment rates exceed 30% in many countries. Millions of young people face economic exclusion, leading to social instability and brain drain.', communityName: 'Future Economy Forum', authorName: 'Aisha K.', stage: 'problem', tally: { up: 35, down: 3, total: 38 } },
+  ],
+  discussion: [
+    { id: 'sample-4', title: 'Ocean Plastic Pollution', description: 'Over 8 million tons of plastic enter the oceans each year. Marine ecosystems are collapsing and microplastics are entering the food chain.', communityName: 'Ocean Alliance', authorName: 'Lin W.', stage: 'discussion' },
+    { id: 'sample-5', title: 'Global Teacher Shortage', description: 'UNESCO estimates a shortage of 69 million teachers by 2030. Rural and disadvantaged communities are disproportionately affected.', communityName: 'Education for All', authorName: 'Priya M.', stage: 'discussion' },
+  ],
+  proposals: [
+    { id: 'sample-6', title: 'Antibiotic Resistance', description: 'Drug-resistant infections kill 1.27 million people annually. Without coordinated global action, routine surgeries and minor infections could become deadly again.', communityName: 'Global Health Network', authorName: 'Dr. Chen L.', stage: 'proposals' },
+  ],
+  vote: [
+    { id: 'sample-7', title: 'Digital Privacy Standards', description: 'Personal data is harvested at an unprecedented scale with minimal regulation in most countries. A global framework for digital rights is urgently needed.', communityName: 'Digital Rights Coalition', authorName: 'Sam R.', stage: 'vote' },
+  ],
+  mandate: [
+    { id: 'sample-8', title: 'Universal Climate Adaptation Fund', description: 'Communities worldwide voted to establish a decentralized climate adaptation fund. Local communities can apply directly for resilience infrastructure and disaster preparedness resources.', communityName: 'Climate Action Network', authorName: 'Elena V.', stage: 'mandate' },
+  ],
+};
+
 const STAGE_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ size?: number }>; description: string; emptyHint: string }> = {
   problem: {
     label: 'Problem',
@@ -243,6 +265,10 @@ const StageFeedView: React.FC = () => {
   // Loading: stages not yet fetched for any initiative
   const isLoading = allInitiatives.length > 0 && Object.keys(stages).length < allInitiatives.length;
 
+  // Show sample data when no real initiatives exist at this stage
+  const usingSampleData = stageInitiatives.length === 0 && !isLoading;
+  const sampleItems = SAMPLE_INITIATIVES[stage] || [];
+
   const StageIcon = config.icon;
 
   const handleMenuNavigate = (path: string) => {
@@ -273,110 +299,204 @@ const StageFeedView: React.FC = () => {
       />
 
       <div className={styles.feedContainer}>
-        {stageInitiatives.length === 0 ? (
+        {stage === 'problem' && (
+          <div className={styles.thresholdBanner}>
+            <AlertCircle size={16} />
+            <span>25% of all Gloki users must participate. 67% must approve a problem for it to advance to discussion.</span>
+          </div>
+        )}
+        {stage === 'discussion' && (
+          <div className={styles.thresholdBanner}>
+            <MessageCircle size={16} />
+            <span>33% of community members must contribute perspectives before a problem advances to proposals.</span>
+          </div>
+        )}
+        {stage === 'proposals' && (
+          <div className={styles.thresholdBanner}>
+            <Lightbulb size={16} />
+            <span>Submit solution proposals and approve the ones you support. Top proposals advance to the formal vote.</span>
+          </div>
+        )}
+        {stage === 'vote' && (
+          <div className={styles.thresholdBanner}>
+            <Vote size={16} />
+            <span>Distribute your voting credits across proposals. Requires membership in a web of trust community.</span>
+          </div>
+        )}
+        {stage === 'mandate' && (
+          <div className={styles.thresholdBanner}>
+            <ScrollText size={16} />
+            <span>Completed mandates representing the collective will of community members across borders.</span>
+          </div>
+        )}
+
+        {isLoading && stageInitiatives.length === 0 && (
           <div className={styles.empty}>
             <StageIcon size={48} />
-            <h3>{isLoading ? 'Loading initiatives...' : `No ${config.label} items`}</h3>
-            <p>{isLoading ? 'Fetching data from communities...' : config.emptyHint}</p>
+            <h3>Loading initiatives...</h3>
+            <p>Fetching data from communities...</p>
           </div>
-        ) : (
-          stageInitiatives.map((item) => {
-            const tally = tallies[item.id];
-            const memberCount = Array.isArray(communityMembers[item.communityId])
-              ? communityMembers[item.communityId].length
-              : 0;
-            const threshold = Math.ceil(memberCount * 0.67);
+        )}
 
-            return (
-              <div key={item.id} className={styles.card} onClick={() => handleCardClick(item)}>
-                <div className={styles.cardMeta}>
-                  <button
-                    className={styles.communityBadge}
-                    onClick={(e) => handleCommunityClick(e, item.communityId)}
-                  >
-                    {item.communityName}
-                  </button>
-                  {item.authorName && (
-                    <span className={styles.author}>{item.authorName}</span>
-                  )}
-                  {item.createdAt && (
-                    <span className={styles.time}>{formatTimeAgo(item.createdAt)}</span>
-                  )}
-                </div>
+        {usingSampleData && (
+          <div className={styles.sampleBanner}>Sample data — create a community and start an initiative to see real content here</div>
+        )}
 
-                <h3 className={styles.cardTitle}>{item.title || 'Untitled Initiative'}</h3>
-                {item.description && (
-                  <p className={styles.cardDescription}>{item.description}</p>
+        {(stageInitiatives.length > 0 ? stageInitiatives : usingSampleData ? [] : []).map((item) => {
+          const tally = tallies[item.id];
+          const memberCount = Array.isArray(communityMembers[item.communityId])
+            ? communityMembers[item.communityId].length
+            : 0;
+          const threshold = Math.ceil(memberCount * 0.67);
+
+          return (
+            <div key={item.id} className={styles.card} onClick={() => handleCardClick(item)}>
+              <div className={styles.cardMeta}>
+                <button
+                  className={styles.communityBadge}
+                  onClick={(e) => handleCommunityClick(e, item.communityId)}
+                >
+                  {item.communityName}
+                </button>
+                {item.authorName && (
+                  <span className={styles.author}>{item.authorName}</span>
                 )}
-
-                {/* Stage-specific inline content */}
-                {stage === 'problem' && tally && (
-                  <div className={styles.voteRow}>
-                    <div className={styles.voteButtons}>
-                      <button
-                        className={styles.voteUp}
-                        onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'up'); }}
-                        disabled={!!votingInProgress[item.id]}
-                      >
-                        Approve {tally.up}
-                      </button>
-                      <button
-                        className={styles.voteDown}
-                        onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'down'); }}
-                        disabled={!!votingInProgress[item.id]}
-                      >
-                        Reject {tally.down}
-                      </button>
-                    </div>
-                    {memberCount > 0 && (
-                      <div className={styles.progressRow}>
-                        <div className={styles.progressBar}>
-                          <div
-                            className={`${styles.progressFill} ${tally.up >= threshold ? styles.progressMet : ''}`}
-                            style={{ width: `${Math.min((tally.up / threshold) * 100, 100)}%` }}
-                          />
-                        </div>
-                        <span className={styles.progressLabel}>
-                          {tally.up >= threshold
-                            ? 'Threshold met'
-                            : `${Math.max(threshold - tally.up, 0)} more needed`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {stage === 'discussion' && (
-                  <div className={styles.stageInfo}>
-                    <MessageCircle size={14} />
-                    <span>Tap to join the discussion</span>
-                  </div>
-                )}
-
-                {stage === 'proposals' && (
-                  <div className={styles.stageInfo}>
-                    <Lightbulb size={14} />
-                    <span>Tap to view and submit proposals</span>
-                  </div>
-                )}
-
-                {stage === 'vote' && (
-                  <div className={styles.stageInfo}>
-                    <Vote size={14} />
-                    <span>Tap to cast your vote</span>
-                  </div>
-                )}
-
-                {stage === 'mandate' && (
-                  <div className={styles.stageInfo}>
-                    <ScrollText size={14} />
-                    <span>Community decision reached</span>
-                  </div>
+                {item.createdAt && (
+                  <span className={styles.time}>{formatTimeAgo(item.createdAt)}</span>
                 )}
               </div>
-            );
-          })
-        )}
+
+              <h3 className={styles.cardTitle}>{item.title || 'Untitled Initiative'}</h3>
+              {item.description && (
+                <p className={styles.cardDescription}>{item.description}</p>
+              )}
+
+              {/* Stage-specific inline content */}
+              {stage === 'problem' && (
+                <div className={styles.voteRow}>
+                  <div className={styles.voteButtons}>
+                    <button
+                      className={styles.voteUp}
+                      onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'up'); }}
+                      disabled={!!votingInProgress[item.id]}
+                    >
+                      Approve {tally ? tally.up : 0}
+                    </button>
+                    <button
+                      className={styles.voteDown}
+                      onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'down'); }}
+                      disabled={!!votingInProgress[item.id]}
+                    >
+                      Reject {tally ? tally.down : 0}
+                    </button>
+                  </div>
+                  {memberCount > 0 && threshold > 0 && (
+                    <div className={styles.progressRow}>
+                      <div className={styles.progressBar}>
+                        <div
+                          className={`${styles.progressFill} ${tally && tally.up >= threshold ? styles.progressMet : ''}`}
+                          style={{ width: `${Math.min(((tally?.up || 0) / threshold) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <span className={styles.progressLabel}>
+                        {tally && tally.up >= threshold
+                          ? 'Threshold met'
+                          : `${Math.max(threshold - (tally?.up || 0), 0)} more needed`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {stage === 'discussion' && (
+                <div className={styles.stageInfo}>
+                  <MessageCircle size={14} />
+                  <span>Tap to join the discussion</span>
+                </div>
+              )}
+
+              {stage === 'proposals' && (
+                <div className={styles.stageInfo}>
+                  <Lightbulb size={14} />
+                  <span>Tap to view and submit proposals</span>
+                </div>
+              )}
+
+              {stage === 'vote' && (
+                <div className={styles.stageInfo}>
+                  <Vote size={14} />
+                  <span>Tap to cast your vote</span>
+                </div>
+              )}
+
+              {stage === 'mandate' && (
+                <div className={styles.stageInfo}>
+                  <ScrollText size={14} />
+                  <span>Community decision reached</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Sample cards when no real data */}
+        {usingSampleData && sampleItems.map((sample) => (
+          <div key={sample.id} className={`${styles.card} ${styles.sampleCard}`}>
+            <div className={styles.cardMeta}>
+              <span className={styles.communityBadge}>{sample.communityName}</span>
+              <span className={styles.author}>{sample.authorName}</span>
+            </div>
+
+            <h3 className={styles.cardTitle}>{sample.title}</h3>
+            <p className={styles.cardDescription}>{sample.description}</p>
+
+            {stage === 'problem' && sample.tally && (
+              <div className={styles.voteRow}>
+                <div className={styles.voteButtons}>
+                  <button className={styles.voteUp} disabled>Approve {sample.tally.up}</button>
+                  <button className={styles.voteDown} disabled>Reject {sample.tally.down}</button>
+                </div>
+                <div className={styles.progressRow}>
+                  <div className={styles.progressBar}>
+                    <div
+                      className={styles.progressFill}
+                      style={{ width: `${Math.min((sample.tally.up / 60) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <span className={styles.progressLabel}>{60 - sample.tally.up} more needed</span>
+                </div>
+              </div>
+            )}
+
+            {stage === 'discussion' && (
+              <div className={styles.stageInfo}>
+                <MessageCircle size={14} />
+                <span>Tap to join the discussion</span>
+              </div>
+            )}
+
+            {stage === 'proposals' && (
+              <div className={styles.stageInfo}>
+                <Lightbulb size={14} />
+                <span>Tap to view and submit proposals</span>
+              </div>
+            )}
+
+            {stage === 'vote' && (
+              <div className={styles.stageInfo}>
+                <Vote size={14} />
+                <span>Tap to cast your vote</span>
+              </div>
+            )}
+
+            {stage === 'mandate' && (
+              <div className={styles.stageInfo}>
+                <ScrollText size={14} />
+                <span>Community decision reached</span>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       <StageFooter />

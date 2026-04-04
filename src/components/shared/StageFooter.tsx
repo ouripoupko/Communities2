@@ -15,6 +15,9 @@ const StageFooter: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Hide on community pages (they have their own footer)
+  if (location.pathname.startsWith('/community/')) return null;
+
   const activeStage = STAGES.find((s) => location.pathname.startsWith(s.path))?.id ?? null;
 
   return (
