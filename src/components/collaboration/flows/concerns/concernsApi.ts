@@ -85,7 +85,6 @@ export async function addConcern(
   server: string,
   agent: string,
   contractId: string,
-  concerns: Concern[],
   currentUser: string,
   title: string,
   description: string,
@@ -102,7 +101,7 @@ export async function addConcern(
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_concerns', values: { concerns: [...concerns, newConcern] } } as IMethod,
+    method: { name: 'add_concern', values: { concern: newConcern } } as IMethod,
   });
 }
 

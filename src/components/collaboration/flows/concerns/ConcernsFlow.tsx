@@ -206,7 +206,7 @@ const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, 
   useEffect(() => { void load(); }, [load]);
 
   const handleAdd = useCallback(async (title: string, desc: string) => {
-    await api.addConcern(flowServer, flowAgent, instanceId, concerns, currentUser, title, desc);
+    await api.addConcern(flowServer, flowAgent, instanceId, currentUser, title, desc);
     await load();
   }, [flowServer, flowAgent, instanceId, concerns, currentUser, load]);
 

@@ -52,7 +52,7 @@
 .addTabMenu {
   position: absolute;
   top: calc(100% + $spacing-xs);
-  left: 0;
+  right: 0;
   min-width: 180px;
   background: white;
   border: 1px solid $gray-200;
