@@ -150,13 +150,17 @@ const StageFeedView: React.FC = () => {
         .then((result: unknown) => {
           if (typeof result === 'string') {
             setStages((prev) => ({ ...prev, [item.id]: result }));
+          } else {
+            setStages((prev) => ({ ...prev, [item.id]: '_unknown' }));
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setStages((prev) => ({ ...prev, [item.id]: '_unknown' }));
+        });
     });
   }, [serverUrl, publicKey, allInitiatives]);
 
-  // Filter initiatives to current stage
+  // Filter initiatives to current stage (excludes _unknown)
   const stageInitiatives = useMemo(
     () => allInitiatives.filter((item) => stages[item.id] === stage),
     [allInitiatives, stages, stage],

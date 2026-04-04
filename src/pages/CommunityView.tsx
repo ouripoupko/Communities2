@@ -84,9 +84,13 @@ const CommunityFeed: React.FC<{ communityId: string }> = ({ communityId }) => {
         .then((result: unknown) => {
           if (typeof result === 'string') {
             setStages((prev) => ({ ...prev, [item.id]: result }));
+          } else {
+            setStages((prev) => ({ ...prev, [item.id]: 'problem' }));
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setStages((prev) => ({ ...prev, [item.id]: 'problem' }));
+        });
     });
   }, [serverUrl, publicKey, initiatives]);
 
