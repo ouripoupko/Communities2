@@ -12,6 +12,7 @@ import DiscussionFlow from './flows/discussion/DiscussionFlow';
 import ApprovalFlow from './flows/voting/ApprovalFlow';
 import QVFlow from './flows/voting/QVFlow';
 import ConcernsFlow from './flows/concerns/ConcernsFlow';
+import ModificationSuggestions from './flows/modifications/ModificationSuggestions';
 import PageHeader from '../PageHeader';
 import ErrorBoundary from '../shared/ErrorBoundary';
 import cs from '../../pages/Container.module.scss';
@@ -284,6 +285,12 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
                   collaborationId={collaborationId}
                   collaborationType="initiative"
                 />
+                <ModificationSuggestions
+                  instanceId={`${collaborationId}_discussion_mods`}
+                  parentContractId={collaborationId}
+                  stageKey="discussionModsContractId"
+                  fieldLabel="problem"
+                />
               </div>
             </ErrorBoundary>
           )}
@@ -304,6 +311,12 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
                   collaborationType="initiative"
                   parentContractId={collaborationId}
                   stageKey="proposalsContractId"
+                />
+                <ModificationSuggestions
+                  instanceId={`${collaborationId}_proposals_mods`}
+                  parentContractId={collaborationId}
+                  stageKey="proposalsModsContractId"
+                  fieldLabel="solution"
                 />
               </div>
             </ErrorBoundary>
