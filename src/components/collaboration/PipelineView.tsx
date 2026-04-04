@@ -13,6 +13,7 @@ import ApprovalFlow from './flows/voting/ApprovalFlow';
 import QVFlow from './flows/voting/QVFlow';
 import ConcernsFlow from './flows/concerns/ConcernsFlow';
 import PageHeader from '../PageHeader';
+import ErrorBoundary from '../shared/ErrorBoundary';
 import cs from '../../pages/Container.module.scss';
 import styles from './PipelineView.module.scss';
 
@@ -26,27 +27,27 @@ const STAGES: StageConfig[] = [
   {
     id: 'problem',
     label: 'Problem',
-    hint: 'Review the evidence. Does this problem truly cross borders? 67% community upvote required to advance. 50% of concerns must be resolved.',
+    hint: 'Does this problem affect people across multiple countries? Review the evidence, then vote. The community needs 67% upvotes to move forward.',
   },
   {
     id: 'discussion',
     label: 'Discussion',
-    hint: 'Add nuances and perspectives. What does this look like in your country? 33% community participation required to advance.',
+    hint: 'Share how this problem looks in your country. What context or nuances should the community consider? At least 33% of members need to contribute before moving on.',
   },
   {
     id: 'proposals',
     label: 'Proposals',
-    hint: 'Suggest solutions with evidence. Upvote the best ones. Top 3 proposals advance to voting.',
+    hint: 'Suggest solutions backed by evidence. Review others\' proposals and approve the ones you support. The most-approved proposals advance to the final vote.',
   },
   {
     id: 'vote',
     label: 'Vote',
-    hint: 'Allocate your voting credits to the proposals you support most. Votes are weighted by the square root of credits.',
+    hint: 'Distribute your voting credits across the proposals you support. Spreading your credits is strategic — concentrating them gives diminishing returns.',
   },
   {
     id: 'mandate',
     label: 'Mandate',
-    hint: 'The community has spoken. Pledge your support and track progress on the mandate.',
+    hint: 'The community has reached a decision. This mandate represents your collective position. Pledge your support and commit to action.',
   },
 ];
 
@@ -68,6 +69,8 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
   const [details, setDetails] = useState<Record<string, unknown>>({});
   const [showConcerns, setShowConcerns] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [problemTally, setProblemTally] = useState<{ up: number; down: number; total: number }>({ up: 0, down: 0, total: 0 });
+  const [confirmAdvance, setConfirmAdvance] = useState(false);
 
   useEffect(() => {
     if (!serverUrl || !publicKey || !collaborationId) return;
@@ -106,6 +109,28 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
     dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
   }, [serverUrl, publicKey, communityId, communityMembers, dispatch]);
 
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !collaborationId || stage !== 'problem') return;
+    const fetchProblemTally = async () => {
+      try {
+        const pvContractIdRaw = await contractRead({
+          serverUrl, publicKey, contractId: collaborationId,
+          method: { name: 'Storage', values: { key: 'problemVoteContractId' } } as IMethod,
+        });
+        const pvContractId = typeof pvContractIdRaw === 'string' ? pvContractIdRaw : null;
+        if (!pvContractId) return;
+        const tally = await contractRead({
+          serverUrl, publicKey, contractId: pvContractId,
+          method: { name: 'get_tally', values: {} } as IMethod,
+        });
+        if (tally && typeof tally === 'object') {
+          setProblemTally(tally as { up: number; down: number; total: number });
+        }
+      } catch { /* non-blocking */ }
+    };
+    fetchProblemTally();
+  }, [serverUrl, publicKey, collaborationId, stage]);
+
   const memberCount = Array.isArray(communityMembers[communityId])
     ? communityMembers[communityId].length
     : 0;
@@ -129,7 +154,12 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
 
   const handleAdvance = async () => {
     if (!nextStage || !serverUrl || !publicKey || advancing) return;
+    if (!confirmAdvance) {
+      setConfirmAdvance(true);
+      return;
+    }
     setAdvancing(true);
+    setConfirmAdvance(false);
     try {
       await contractWrite({
         serverUrl,
@@ -139,12 +169,23 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
       });
       setStage(nextStage.id);
       setViewStage(nextStage.id);
-    } catch {
-      // silently fail
-    } finally {
-      setAdvancing(false);
-    }
+    } catch { /* silently fail */ }
+    finally { setAdvancing(false); }
   };
+
+  const getStageReadiness = (): { ready: boolean; reason: string } => {
+    if (stage === 'problem' && memberCount > 0) {
+      const threshold = Math.ceil(memberCount * 0.67);
+      if (problemTally.up < threshold) {
+        return {
+          ready: false,
+          reason: `${Math.max(threshold - problemTally.up, 0)} more upvote${threshold - problemTally.up !== 1 ? 's' : ''} needed to reach 67% threshold (${problemTally.up}/${threshold})`,
+        };
+      }
+    }
+    return { ready: true, reason: '' };
+  };
+  const stageReadiness = getStageReadiness();
 
   const flowInstanceId = `${collaborationId}_${viewStage}`;
 
@@ -212,64 +253,72 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
 
           {/* ── Step 1: Problem ── */}
           {viewStage === 'problem' && (
-            <ProblemVoteFlow
-              instanceId={`${collaborationId}_problem_vote`}
-              description={description}
-              evidenceLinks={evidenceLinks}
-              countries={countries}
-              communityMemberCount={memberCount}
-              parentContractId={collaborationId}
-              stageKey="problemVoteContractId"
-            />
+            <ErrorBoundary fallbackMessage="The voting section encountered an error.">
+              <ProblemVoteFlow
+                instanceId={`${collaborationId}_problem_vote`}
+                description={description}
+                evidenceLinks={evidenceLinks}
+                countries={countries}
+                communityMemberCount={memberCount}
+                parentContractId={collaborationId}
+                stageKey="problemVoteContractId"
+              />
+            </ErrorBoundary>
           )}
 
           {/* ── Step 2: Discussion ── */}
           {viewStage === 'discussion' && (
-            <div className={styles.flowContainer}>
-              <div className={styles.discussionContext}>
-                <p>Add nuances and perspectives to this problem. What does it look like in your country? How does it affect your community?</p>
-                <p className={styles.discussionMetric}>
-                  <strong>{Math.ceil(memberCount * 0.33)} members</strong> (33% of community) must contribute for this stage to advance.
-                </p>
+            <ErrorBoundary fallbackMessage="The discussion section encountered an error.">
+              <div className={styles.flowContainer}>
+                <div className={styles.discussionContext}>
+                  <p>Add nuances and perspectives to this problem. What does it look like in your country? How does it affect your community?</p>
+                  <p className={styles.discussionMetric}>
+                    <strong>{Math.ceil(memberCount * 0.33)} members</strong> (33% of community) must contribute for this stage to advance.
+                  </p>
+                </div>
+                <DiscussionFlow
+                  instanceId={flowInstanceId}
+                  collaborationId={collaborationId}
+                  collaborationType="initiative"
+                />
               </div>
-              <DiscussionFlow
-                instanceId={flowInstanceId}
-                collaborationId={collaborationId}
-                collaborationType="initiative"
-              />
-            </div>
+            </ErrorBoundary>
           )}
 
           {/* ── Step 3: Proposals ── */}
           {viewStage === 'proposals' && (
-            <div className={styles.flowContainer}>
-              {description && (
-                <div className={styles.problemContext}>
-                  <span className={styles.contextLabel}>The Problem:</span>
-                  <p>{description}</p>
-                </div>
-              )}
-              <ApprovalFlow
-                instanceId={flowInstanceId}
-                collaborationId={collaborationId}
-                collaborationType="initiative"
-                parentContractId={collaborationId}
-                stageKey="proposalsContractId"
-              />
-            </div>
+            <ErrorBoundary fallbackMessage="The proposals section encountered an error.">
+              <div className={styles.flowContainer}>
+                {description && (
+                  <div className={styles.problemContext}>
+                    <span className={styles.contextLabel}>The Problem:</span>
+                    <p>{description}</p>
+                  </div>
+                )}
+                <ApprovalFlow
+                  instanceId={flowInstanceId}
+                  collaborationId={collaborationId}
+                  collaborationType="initiative"
+                  parentContractId={collaborationId}
+                  stageKey="proposalsContractId"
+                />
+              </div>
+            </ErrorBoundary>
           )}
 
           {/* ── Step 4: Vote ── */}
           {viewStage === 'vote' && (
-            <div className={styles.flowContainer}>
-              <QVFlow
-                instanceId={flowInstanceId}
-                collaborationId={collaborationId}
-                collaborationType="initiative"
-                parentContractId={collaborationId}
-                stageKey="voteContractId"
-              />
-            </div>
+            <ErrorBoundary fallbackMessage="The voting section encountered an error.">
+              <div className={styles.flowContainer}>
+                <QVFlow
+                  instanceId={flowInstanceId}
+                  collaborationId={collaborationId}
+                  collaborationType="initiative"
+                  parentContractId={collaborationId}
+                  stageKey="voteContractId"
+                />
+              </div>
+            </ErrorBoundary>
           )}
 
           {/* ── Step 5: Mandate ── */}
@@ -295,20 +344,41 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
           {isViewingCurrentStage && (
             <div className={styles.advanceBar}>
               {nextStage ? (
-                <button
-                  className={styles.advanceButton}
-                  onClick={handleAdvance}
-                  disabled={advancing}
-                >
-                  {advancing ? 'Moving...' : `Move to ${nextStage.label}`}
-                </button>
+                <div className={styles.advanceSection}>
+                  {!stageReadiness.ready && (
+                    <div className={styles.advanceWarning}>
+                      <AlertTriangle size={14} />
+                      <span>{stageReadiness.reason}</span>
+                    </div>
+                  )}
+                  {confirmAdvance ? (
+                    <div className={styles.confirmRow}>
+                      <span className={styles.confirmText}>
+                        {stageReadiness.ready
+                          ? `Advance to ${nextStage.label}?`
+                          : `Threshold not met. Advance to ${nextStage.label} anyway?`}
+                      </span>
+                      <button className={styles.confirmYes} onClick={handleAdvance} disabled={advancing}>
+                        {advancing ? 'Moving...' : 'Confirm'}
+                      </button>
+                      <button className={styles.confirmNo} onClick={() => setConfirmAdvance(false)}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className={`${styles.advanceButton} ${!stageReadiness.ready ? styles.advanceButtonWarn : ''}`}
+                      onClick={handleAdvance}
+                      disabled={advancing}
+                    >
+                      {advancing ? 'Moving...' : `Move to ${nextStage.label}`}
+                    </button>
+                  )}
+                </div>
               ) : (
                 <span className={styles.finalStage}>Final stage reached</span>
               )}
-              <button
-                className={styles.concernButton}
-                onClick={() => setShowConcerns((v) => !v)}
-              >
+              <button className={styles.concernButton} onClick={() => setShowConcerns((v) => !v)}>
                 <AlertTriangle size={14} />
                 {showConcerns ? 'Hide Concerns' : 'Raise Concern'}
               </button>
@@ -318,13 +388,15 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
           {/* Concerns panel */}
           {showConcerns && (
             <div className={styles.concernsPanel}>
-              <ConcernsFlow
-                instanceId={`${collaborationId}_concerns`}
-                collaborationId={collaborationId}
-                collaborationType="initiative"
-                parentContractId={collaborationId}
-                stageKey="concernsContractId"
-              />
+              <ErrorBoundary fallbackMessage="The concerns section encountered an error.">
+                <ConcernsFlow
+                  instanceId={`${collaborationId}_concerns`}
+                  collaborationId={collaborationId}
+                  collaborationType="initiative"
+                  parentContractId={collaborationId}
+                  stageKey="concernsContractId"
+                />
+              </ErrorBoundary>
             </div>
           )}
         </div>

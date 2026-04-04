@@ -289,3 +289,34 @@
   color: $gray-400;
   margin-top: $spacing-xs;
 }
+
+// ─── Help section ──────────────────────────────────────────────────────
+.helpSection {
+  margin-bottom: $spacing-lg;
+}
+
+.helpToggle {
+  background: none;
+  border: none;
+  color: $primary;
+  font-size: $text-sm;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: $spacing-xs 0;
+  &:hover { color: $primary-dark; }
+}
+
+.helpBox {
+  margin-top: $spacing-sm;
+  padding: $spacing-md $spacing-lg;
+  background: rgba($primary, 0.05);
+  border-left: 3px solid $primary;
+  border-radius: 0 $radius-md $radius-md 0;
+  p {
+    font-size: $text-sm;
+    color: $gray-600;
+    line-height: 1.5;
+    margin-bottom: $spacing-sm;
+    &:last-child { margin-bottom: 0; }
+  }
+}

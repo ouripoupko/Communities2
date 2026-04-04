@@ -33,6 +33,32 @@
         color: $gray-600;
         font-size: $text-base;
       }
+
+      .helpToggle {
+        background: none;
+        border: none;
+        color: $primary;
+        font-size: $text-sm;
+        cursor: pointer;
+        margin-top: $spacing-sm;
+        text-decoration: underline;
+        &:hover { color: $primary-dark; }
+      }
+
+      .helpBox {
+        margin-top: $spacing-md;
+        padding: $spacing-lg;
+        background: $gray-50;
+        border-radius: $radius-md;
+        text-align: left;
+        p {
+          font-size: $text-sm;
+          color: $gray-600;
+          line-height: 1.5;
+          margin-bottom: $spacing-sm;
+          &:last-child { margin-bottom: 0; }
+        }
+      }
     }
 
     .form {
@@ -52,6 +78,15 @@
           font-weight: $font-medium;
           color: $gray-700;
           font-size: $text-sm;
+          flex-wrap: wrap;
+        }
+
+        .fieldHint {
+          display: block;
+          font-size: $text-xs;
+          color: $gray-400;
+          font-weight: $font-normal;
+          margin-top: 2px;
         }
 
         .inputWithButton {

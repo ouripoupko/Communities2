@@ -23,7 +23,10 @@ const AddConcernForm: React.FC<{
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
-    if (!text.trim()) { setError('Description is required.'); return; }
+    if (!text.trim() || text.trim().length > 1000) {
+      setError('Concern must be between 1 and 1000 characters.');
+      return;
+    }
     setSubmitting(true);
     try {
       await onAdd(text.trim(), severity);
@@ -51,6 +54,7 @@ const AddConcernForm: React.FC<{
         placeholder="Describe your concern *"
         value={text}
         autoFocus
+        maxLength={1000}
         onChange={(e) => { setText(e.target.value); setError(''); }}
       />
       <div className={styles.severityRow}>
@@ -164,6 +168,7 @@ const ConcernCard: React.FC<{
               type="text"
               placeholder="Propose a resolution..."
               value={resText}
+              maxLength={500}
               onChange={(e) => setResText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitResolution(); }}
             />

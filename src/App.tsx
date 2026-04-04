@@ -2,6 +2,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 
 // Get the base path from Vite's import.meta.env.BASE_URL
 const getBasename = () => {
@@ -39,19 +40,21 @@ function AppContent() {
   }
 
   return (
-    <Router basename={getBasename()}>
-      <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/identity" replace />} />
-          <Route path="/identity/*" element={<IdentityView />} />
-          <Route path="/community/:communityId/*" element={<CommunityView />} />
-          <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
-          <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />
-          <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
-          <Route path="/agreement/:communityId/:agreementId" element={<AgreementView />} />
-        </Routes>
-      </Suspense>
-    </Router>
+    <ErrorBoundary fallbackMessage="Gloki encountered an unexpected error. Please refresh the page.">
+      <Router basename={getBasename()}>
+        <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/identity" replace />} />
+            <Route path="/identity/*" element={<IdentityView />} />
+            <Route path="/community/:communityId/*" element={<CommunityView />} />
+            <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
+            <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />
+            <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
+            <Route path="/agreement/:communityId/:agreementId" element={<AgreementView />} />
+          </Routes>
+        </Suspense>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

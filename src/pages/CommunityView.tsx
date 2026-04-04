@@ -3,6 +3,7 @@ import { Routes, Route, useParams, useNavigate, useLocation, Navigate } from 're
 import { Zap, Users2, MessageSquare, Users, Coins } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import PageHeader from '../components/PageHeader';
+import ErrorBoundary from '../components/shared/ErrorBoundary';
 import { useSwipeRef } from '../hooks/useSwipeNavigation';
 
 const InitiativeList = lazy(() => import('../components/community/InitiativeList'));
@@ -180,19 +181,21 @@ const CommunityView: React.FC = () => {
 
         <div className={styles.main} ref={swipeRef}>
           <Suspense fallback={<div className={styles.loadingState}>Loading...</div>}>
-            <Routes>
-              <Route path="activity" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
-              <Route path="issues" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
-              <Route path="collaborations" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
-              <Route path="share" element={<Navigate to={`/community/${communityId}/members`} replace />} />
-              <Route path="initiative" element={<InitiativeList communityId={communityId!} />} />
-              <Route path="collab" element={<CollabList communityId={communityId!} />} />
-              <Route path="chat" element={<ChatTopicList communityId={communityId!} />} />
-              <Route path="chat/:topicId" element={<ChatTopic />} />
-              <Route path="members" element={<Members communityId={communityId!} />} />
-              <Route path="currency" element={<Currency communityId={communityId!} />} />
-              <Route path="*" element={<InitiativeList communityId={communityId!} />} />
-            </Routes>
+            <ErrorBoundary fallbackMessage="This section encountered an error. Try navigating to a different tab.">
+              <Routes>
+                <Route path="activity" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
+                <Route path="issues" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
+                <Route path="collaborations" element={<Navigate to={`/community/${communityId}/initiative`} replace />} />
+                <Route path="share" element={<Navigate to={`/community/${communityId}/members`} replace />} />
+                <Route path="initiative" element={<InitiativeList communityId={communityId!} />} />
+                <Route path="collab" element={<CollabList communityId={communityId!} />} />
+                <Route path="chat" element={<ChatTopicList communityId={communityId!} />} />
+                <Route path="chat/:topicId" element={<ChatTopic />} />
+                <Route path="members" element={<Members communityId={communityId!} />} />
+                <Route path="currency" element={<Currency communityId={communityId!} />} />
+                <Route path="*" element={<InitiativeList communityId={communityId!} />} />
+              </Routes>
+            </ErrorBoundary>
           </Suspense>
         </div>
       </div>

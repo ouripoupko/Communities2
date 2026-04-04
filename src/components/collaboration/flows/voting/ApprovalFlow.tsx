@@ -31,6 +31,7 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
   const profiles = useAppSelector((s) => s.communities.profiles);
 
   const [activeTab, setActiveTab] = useState<'proposals' | 'results'>('proposals');
+  const [showHelp, setShowHelp] = useState(false);
   const [proposals, setProposals] = useState<Record<string, Proposal>>({});
   const [approvals, setApprovals] = useState<Record<string, Record<string, boolean>>>({});
   const [newText, setNewText] = useState('');
@@ -60,10 +61,11 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
   }, [isReady, fetchData]);
 
   const handleAdd = async () => {
-    if (!serverUrl || !publicKey || !contractId || !newText.trim()) return;
+    const trimmed = newText.trim();
+    if (!serverUrl || !publicKey || !contractId || !trimmed || trimmed.length > 500) return;
     setSubmitting(true);
     try {
-      await api.addProposal(serverUrl, publicKey, contractId, newText.trim());
+      await api.addProposal(serverUrl, publicKey, contractId, trimmed);
       setNewText('');
       await fetchData();
     } catch (err) {
@@ -140,6 +142,17 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
         </button>
       </div>
 
+      <div className={styles.helpSection}>
+        <button className={styles.helpToggle} onClick={() => setShowHelp(v => !v)}>
+          {showHelp ? 'Hide explanation' : 'How does approval voting work?'}
+        </button>
+        {showHelp && (
+          <div className={styles.helpBox}>
+            <p>Review the proposals below and approve as many as you support. Each proposal you approve gets one vote from you. The proposals with the most approvals rise to the top.</p>
+          </div>
+        )}
+      </div>
+
       {activeTab === 'proposals' && (
         <>
           {/* Add proposal */}
@@ -151,6 +164,7 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
               value={newText}
               onChange={(e) => setNewText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              maxLength={500}
               disabled={submitting}
             />
             <button

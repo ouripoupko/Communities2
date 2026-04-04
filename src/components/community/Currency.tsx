@@ -170,11 +170,11 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
             <div className={styles.balanceStats}>
               <div className={styles.statRow}>
                 <div className={styles.stat}>
-                  <span className={styles.label}>Median Mint Rate:</span>
+                  <span className={styles.label}>Daily Credit Creation Rate:</span>
                   <span className={styles.value}>{medianMintRate} credits/day</span>
                 </div>
                 <div className={styles.stat}>
-                  <span className={styles.label}>Median Burn Rate:</span>
+                  <span className={styles.label}>Daily Credit Removal Rate:</span>
                   <span className={styles.value}>{medianBurnRate} credits/day</span>
                 </div>
               </div>
@@ -230,10 +230,10 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
           </div>
 
           <div className={styles.actionCard}>
-            <h3>Your Stored Parameters</h3>
+            <h3>Your Currency Preferences</h3>
             <div className={styles.preferences}>
               <div className={styles.preferenceItem}>
-                <label htmlFor="mintPreference">Mint Rate (credits/day)</label>
+                <label htmlFor="mintPreference">Credit Creation Rate (credits/day)</label>
                 <input
                   id="mintPreference"
                   type="number"
@@ -260,7 +260,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 <TrendingUp size={16} className={styles.mintIcon} />
               </div>
               <div className={styles.preferenceItem}>
-                <label htmlFor="burnPreference">Burn Rate (credits/day)</label>
+                <label htmlFor="burnPreference">Credit Removal Rate (credits/day)</label>
                 <input
                   id="burnPreference"
                   type="number"
@@ -293,7 +293,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 disabled={!hasChanges}
                 className={`${styles.updateButton} ${!hasChanges ? styles.disabled : ''}`}
               >
-                Update Parameters
+                Save Preferences
               </button>
               <button
                 onClick={handleRevertPreferences}

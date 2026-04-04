@@ -18,6 +18,7 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
   const profiles = useAppSelector((s) => s.communities.profiles);
 
   const [activeTab, setActiveTab] = useState<'proposals' | 'allocate' | 'results'>('proposals');
+  const [showHelp, setShowHelp] = useState(false);
   const [proposals, setProposals] = useState<Record<string, Proposal>>({});
   const [config, setConfig] = useState<Config>({ credits_per_voter: 100, status: 'open' });
   const draftInitialized = useRef(false);
@@ -55,10 +56,11 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
   useEffect(() => { if (isReady) fetchData(); }, [isReady, fetchData]);
 
   const handleAddProposal = async () => {
-    if (!serverUrl || !publicKey || !contractId || !newText.trim()) return;
+    const trimmed = newText.trim();
+    if (!serverUrl || !publicKey || !contractId || !trimmed || trimmed.length > 500) return;
     setSubmitting(true);
     try {
-      await api.addProposal(serverUrl, publicKey, contractId, newText.trim());
+      await api.addProposal(serverUrl, publicKey, contractId, trimmed);
       setNewText('');
       await fetchData();
     } catch (err) { console.error('Failed to add proposal:', err); }
@@ -125,9 +127,21 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
         {(['proposals', 'allocate', 'results'] as const).map((t) => (
           <button key={t} className={`${styles.tab} ${activeTab === t ? styles.tabActive : ''}`}
             onClick={() => setActiveTab(t)}>
-            {t === 'proposals' ? 'Proposals' : t === 'allocate' ? 'Allocate' : 'Results'}
+            {t === 'proposals' ? 'Proposals' : t === 'allocate' ? 'Vote' : 'Results'}
           </button>
         ))}
+      </div>
+
+      <div className={styles.helpSection}>
+        <button className={styles.helpToggle} onClick={() => setShowHelp(v => !v)}>
+          {showHelp ? 'Hide explanation' : 'How does weighted voting work?'}
+        </button>
+        {showHelp && (
+          <div className={styles.helpBox}>
+            <p><strong>Weighted voting</strong> lets you spread your influence across multiple proposals instead of picking just one.</p>
+            <p>You get <strong>{config.credits_per_voter} credits</strong> to distribute. The more credits you put on one proposal, the stronger your support — but with diminishing returns. Putting 4 credits on a proposal gives ~2 votes; 9 credits gives ~3 votes. This encourages spreading support rather than going all-in on one option.</p>
+          </div>
+        )}
       </div>
 
       {activeTab === 'proposals' && (
@@ -136,6 +150,7 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
             <input className={styles.addInput} type="text" placeholder="Add a proposal..."
               value={newText} onChange={(e) => setNewText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddProposal(); }}
+              maxLength={500}
               disabled={submitting} />
             <button className={styles.addBtn} onClick={handleAddProposal}
               disabled={submitting || !newText.trim()}>
@@ -165,7 +180,7 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
       {activeTab === 'allocate' && (
         <>
           <div className={styles.budget}>
-            <span className={styles.budgetLabel}>Credit Budget:</span>
+            <span className={styles.budgetLabel}>Your Voting Budget:</span>
             <span className={styles.budgetRemaining}>{remaining}</span>
             <span>/ {config.credits_per_voter} remaining</span>
           </div>
@@ -184,7 +199,7 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
                         <button className={styles.stepperBtn} onClick={() => adjustCredit(p.id, -1)} disabled={credits === 0}>-</button>
                         <span className={styles.creditDisplay}>{credits}</span>
                         <button className={styles.stepperBtn} onClick={() => adjustCredit(p.id, 1)} disabled={remaining <= 0}>+</button>
-                        <span className={styles.voteDisplay}>{votes.toFixed(1)} votes</span>
+                        <span className={styles.voteDisplay}>{votes.toFixed(1)} influence</span>
                       </div>
                     </div>
                   );
@@ -222,7 +237,7 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
                             title={`${getCountryName(country)}: ${votes.toFixed(1)} votes`} />
                         ))}
                       </div>
-                      <div className={styles.resultCount}>{totalVotes.toFixed(1)} QV votes</div>
+                      <div className={styles.resultCount}>{totalVotes.toFixed(1)} weighted votes</div>
                     </div>
                   );
                 })}
