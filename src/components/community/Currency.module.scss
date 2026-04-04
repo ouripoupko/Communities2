@@ -21,13 +21,44 @@
     }
   }
 
+  .explainer {
+    display: flex;
+    gap: $spacing-lg;
+    padding: $spacing-lg;
+    background: rgba($primary, 0.06);
+    border: 1px solid rgba($primary, 0.15);
+    border-radius: $radius-lg;
+    margin-bottom: $spacing-lg;
+
+    .explainerIcon {
+      color: $primary;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .explainerText {
+      h3 {
+        font-size: $text-base;
+        font-weight: $font-semibold;
+        color: $gray-800;
+        margin: 0 0 $spacing-xs 0;
+      }
+
+      p {
+        font-size: $text-sm;
+        color: $gray-600;
+        margin: 0;
+        line-height: 1.5;
+      }
+    }
+  }
+
   .content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: $spacing-2xl;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-lg;
 
     .balanceSection {
-      grid-column: 1 / -1;
 
       .balanceCard {
         background: white;
@@ -284,9 +315,6 @@
 @media (max-width: $breakpoint-md) {
   .container {
     .content {
-      grid-template-columns: 1fr;
-      gap: $spacing-lg;
-
       .balanceSection .balanceCard {
         .balanceAmount .amount {
           font-size: 2.5rem;
@@ -356,6 +384,16 @@
         .preferences .preferenceItem label {
           color: $dark-text;
         }
+      }
+    }
+
+    .explainer {
+      background: rgba($primary, 0.1);
+      border-color: rgba($primary, 0.2);
+
+      .explainerText {
+        h3 { color: $dark-text; }
+        p { color: $dark-text-secondary; }
       }
     }
 

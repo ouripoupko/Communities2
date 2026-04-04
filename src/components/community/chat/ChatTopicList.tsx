@@ -38,7 +38,12 @@ const ChatTopicList: React.FC<ChatTopicListProps> = ({ communityId }) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [newTitle, setNewTitle] = useState('');
 
-  const topics = getTopics(communityId);
+  let topics: ReturnType<typeof getTopics> = [];
+  try {
+    topics = getTopics(communityId);
+  } catch {
+    // chatApi may fail on corrupt state
+  }
 
   const handleCreate = () => {
     const trimmed = newTitle.trim();
@@ -91,7 +96,7 @@ const ChatTopicList: React.FC<ChatTopicListProps> = ({ communityId }) => {
       ) : (
         <div className={styles.topicList}>
           {topics.map(topic => {
-            const profile = profiles[topic.author];
+            const profile = profiles?.[topic.author];
             const fullName = profile
               ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
               : null;

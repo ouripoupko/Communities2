@@ -16,6 +16,7 @@ const Members = lazy(() => import('../components/community/Members'));
 const Currency = lazy(() => import('../components/community/Currency'));
 const ChatTopicList = lazy(() => import('../components/community/chat/ChatTopicList'));
 const ChatTopic = lazy(() => import('../components/community/chat/ChatTopic'));
+const CollaborationPage = lazy(() => import('./collaboration/CollaborationPage'));
 
 // ─── Stage metadata ──────────────────────────
 const STAGE_META: Record<string, { icon: React.ComponentType<{ size?: number }>; color: string; label: string }> = {
@@ -46,6 +47,29 @@ function formatTimeAgo(timestamp: number): string {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
+
+// ─── Collab page wrapper ────────────────────
+const CollabPage: React.FC<{ communityId: string }> = ({ communityId }) => {
+  const { collabId } = useParams<{ collabId: string }>();
+  const { communityCollaborations } = useAppSelector((s) => s.communities);
+
+  const collabs = communityCollaborations[communityId] ?? [];
+  const collab = collabs.find((c) => c.id === collabId);
+  const title = collab?.title || 'Collab';
+
+  if (!collabId) return <div>Collab not found.</div>;
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CollaborationPage
+        type="initiative"
+        title={title}
+        collaborationId={collabId}
+        communityId={communityId}
+      />
+    </Suspense>
+  );
+};
 
 // ─── Community activity feed ─────────────────
 const CommunityFeed: React.FC<{ communityId: string }> = ({ communityId }) => {
@@ -278,6 +302,45 @@ const CommunityView: React.FC = () => {
         <span className={styles.memberCount}>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
       </div>
 
+      {/* Inline nav tabs */}
+      <nav className={styles.inlineNav}>
+        <button
+          className={`${styles.navTab} ${activeTab === 'collab' ? styles.navTabActive : ''}`}
+          onClick={() => navigate(`/community/${communityId}/collab`)}
+        >
+          <Users2 size={16} />
+          <span>Collab</span>
+        </button>
+        <button
+          className={`${styles.navTab} ${activeTab === 'chat' ? styles.navTabActive : ''}`}
+          onClick={() => navigate(`/community/${communityId}/chat`)}
+        >
+          <MessageSquare size={16} />
+          <span>Chat</span>
+        </button>
+        <button
+          className={`${styles.navTab} ${activeTab === 'currency' ? styles.navTabActive : ''}`}
+          onClick={() => navigate(`/community/${communityId}/currency`)}
+        >
+          <Coins size={16} />
+          <span>Currency</span>
+        </button>
+        <button
+          className={`${styles.navTab} ${activeTab === 'members' ? styles.navTabActive : ''}`}
+          onClick={() => navigate(`/community/${communityId}/members`)}
+        >
+          <Users size={16} />
+          <span>Members</span>
+        </button>
+        <button
+          className={`${styles.navTab} ${showOptions ? styles.navTabActive : ''}`}
+          onClick={() => setShowOptions(!showOptions)}
+        >
+          <Settings size={16} />
+          <span>Options</span>
+        </button>
+      </nav>
+
       {/* Main content */}
       <div className={styles.body}>
         <Suspense fallback={<div className={styles.loadingState}>Loading...</div>}>
@@ -289,6 +352,7 @@ const CommunityView: React.FC = () => {
               <Route path="collaborations" element={<Navigate to={`/community/${communityId}`} replace />} />
               <Route path="share" element={<Navigate to={`/community/${communityId}/members`} replace />} />
               <Route path="collab" element={<CollabList communityId={communityId!} />} />
+              <Route path="collab/:collabId" element={<CollabPage communityId={communityId!} />} />
               <Route path="chat" element={<ChatTopicList communityId={communityId!} />} />
               <Route path="chat/:topicId" element={<ChatTopic />} />
               <Route path="members" element={<Members communityId={communityId!} />} />
@@ -298,45 +362,6 @@ const CommunityView: React.FC = () => {
           </ErrorBoundary>
         </Suspense>
       </div>
-
-      {/* Community footer */}
-      <nav className={styles.communityFooter}>
-        <button
-          className={`${styles.footerTab} ${activeTab === 'collab' ? styles.footerTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/collab`)}
-        >
-          <Users2 size={20} />
-          <span>Collab</span>
-        </button>
-        <button
-          className={`${styles.footerTab} ${activeTab === 'chat' ? styles.footerTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/chat`)}
-        >
-          <MessageSquare size={20} />
-          <span>Chat</span>
-        </button>
-        <button
-          className={`${styles.footerTab} ${activeTab === 'currency' ? styles.footerTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/currency`)}
-        >
-          <Coins size={20} />
-          <span>Currency</span>
-        </button>
-        <button
-          className={`${styles.footerTab} ${activeTab === 'members' ? styles.footerTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/members`)}
-        >
-          <Users size={20} />
-          <span>Members</span>
-        </button>
-        <button
-          className={`${styles.footerTab} ${showOptions ? styles.footerTabActive : ''}`}
-          onClick={() => setShowOptions(!showOptions)}
-        >
-          <Settings size={20} />
-          <span>Options</span>
-        </button>
-      </nav>
 
       {/* Options popup */}
       {showOptions && (

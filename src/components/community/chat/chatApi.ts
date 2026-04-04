@@ -55,52 +55,72 @@ function getTopicMessages(topicId: string): ChatMessage[] {
 
 /** Returns topics for a community sorted by lastActivity descending. */
 export function getTopics(communityId: string): ChatTopic[] {
-  return [...getCommunityTopics(communityId)].sort(
-    (a, b) => b.lastActivity - a.lastActivity
-  );
+  try {
+    return [...getCommunityTopics(communityId)].sort(
+      (a, b) => b.lastActivity - a.lastActivity
+    );
+  } catch (err) {
+    console.error('[chatApi] getTopics failed:', err);
+    return [];
+  }
 }
 
 /** Creates a new topic in the community and returns it. */
 export function createTopic(communityId: string, title: string, author: string): ChatTopic {
-  const now = Date.now();
-  const topic: ChatTopic = {
-    id: genId('topic'),
-    communityId,
-    title: title.trim(),
-    author,
-    createdAt: now,
-    lastActivity: now,
-    messageCount: 0,
-  };
-  getCommunityTopics(communityId).push(topic);
-  return { ...topic };
+  try {
+    const now = Date.now();
+    const topic: ChatTopic = {
+      id: genId('topic'),
+      communityId,
+      title: title.trim(),
+      author,
+      createdAt: now,
+      lastActivity: now,
+      messageCount: 0,
+    };
+    getCommunityTopics(communityId).push(topic);
+    return { ...topic };
+  } catch (err) {
+    console.error('[chatApi] createTopic failed:', err);
+    throw err;
+  }
 }
 
 /** Returns all messages for a topic in chronological order. */
 export function getMessages(topicId: string): ChatMessage[] {
-  return [...getTopicMessages(topicId)].sort((a, b) => a.timestamp - b.timestamp);
+  try {
+    return [...getTopicMessages(topicId)].sort((a, b) => a.timestamp - b.timestamp);
+  } catch (err) {
+    console.error('[chatApi] getMessages failed:', err);
+    return [];
+  }
 }
 
 /** Adds a message to a topic and updates the topic's lastActivity and messageCount. */
 export function addMessage(topicId: string, text: string, author: string): ChatMessage {
-  const message: ChatMessage = {
-    id: genId('msg'),
-    topicId,
-    author,
-    text: text.trim(),
-    timestamp: Date.now(),
-  };
-  getTopicMessages(topicId).push(message);
+  try {
+    const message: ChatMessage = {
+      id: genId('msg'),
+      topicId,
+      author,
+      text: text.trim(),
+      timestamp: Date.now(),
+    };
+    getTopicMessages(topicId).push(message);
 
-  // Update topic metadata — find it across all communities
-  for (const topics of topicsByCommunity.values()) {
-    const topic = topics.find(t => t.id === topicId);
-    if (topic) {
-      topic.lastActivity = message.timestamp;
-      topic.messageCount += 1;
-      break;
+    // Update topic metadata — find it across all communities
+    for (const topics of topicsByCommunity.values()) {
+      const topic = topics.find(t => t.id === topicId);
+      if (topic) {
+        topic.lastActivity = message.timestamp;
+        topic.messageCount += 1;
+        break;
+      }
     }
-  }
 
-  return { ...message };
+    return { ...message };
+  } catch (err) {
+    console.error('[chatApi] addMessage failed:', err);
+    throw err;
+  }
 }

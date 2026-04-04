@@ -156,6 +156,20 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
         <p>Manage your community currency and transactions</p>
       </div>
 
+      <div className={styles.explainer}>
+        <div className={styles.explainerIcon}>
+          <Coins size={24} />
+        </div>
+        <div className={styles.explainerText}>
+          <h3>How Community Currency Works</h3>
+          <p>
+            Community currency lets members allocate value to initiatives and proposals,
+            creating a transparent resource allocation system governed by the community.
+            Credits are created and removed at rates set collectively through median voting.
+          </p>
+        </div>
+      </div>
+
       <div className={styles.content}>
         <div className={styles.balanceSection}>
           <div className={styles.balanceCard}>

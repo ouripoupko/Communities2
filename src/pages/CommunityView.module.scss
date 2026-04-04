@@ -60,7 +60,6 @@
 .body {
   flex: 1;
   padding: $spacing-lg;
-  padding-bottom: 72px; // room for footer
 }
 
 // ─── Activity feed ───────────────────────────
@@ -146,53 +145,47 @@
   pointer-events: none;
 }
 
-// ─── Community footer ────────────────────────
-.communityFooter {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+// ─── Inline nav tabs ────────────────────────
+.inlineNav {
   display: flex;
-  justify-content: space-around;
   align-items: center;
-  background: $gray-50;
-  border-top: 1px solid $gray-200;
-  padding: $spacing-xs 0;
-  padding-bottom: max($spacing-xs, env(safe-area-inset-bottom));
-  z-index: 100;
+  gap: 0;
+  background: white;
+  border-bottom: 1px solid $gray-200;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-.footerTab {
+.navTab {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: $spacing-xs $spacing-sm;
-  min-width: 56px;
+  gap: $spacing-xs;
+  padding: $spacing-md $spacing-lg;
   background: none;
   border: none;
+  border-bottom: 2px solid transparent;
   color: $gray-400;
-  font-size: 10px;
+  font-size: $text-sm;
   font-weight: $font-medium;
   cursor: pointer;
-  transition: color $transition-base;
+  transition: all $transition-base;
+  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
 
-  svg {
-    transition: transform $transition-base;
-  }
-
-  &:active svg {
-    transform: scale(0.9);
+  &:hover {
+    color: $gray-600;
+    background: $gray-50;
   }
 }
 
-.footerTabActive {
+.navTabActive {
   color: $primary;
-
-  svg {
-    transform: scale(1.05);
-  }
+  border-bottom-color: $primary;
 }
 
 // ─── Options popup ───────────────────────────
@@ -319,16 +312,21 @@
     color: $dark-text-secondary;
   }
 
-  .communityFooter {
-    background: $dark-surface;
-    border-top-color: $dark-border;
+  .inlineNav {
+    background: $dark-bg;
+    border-bottom-color: $dark-border;
   }
 
-  .footerTab {
+  .navTab {
     color: $dark-text-secondary;
+
+    &:hover {
+      color: $dark-text;
+      background: $dark-surface;
+    }
   }
 
-  .footerTabActive {
+  .navTabActive {
     color: $primary;
   }
 
@@ -359,7 +357,6 @@
 
   .body {
     padding: $spacing-md;
-    padding-bottom: 72px;
   }
 
   .feedCard {

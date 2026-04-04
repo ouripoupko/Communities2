@@ -354,7 +354,7 @@ const StageFeedView: React.FC = () => {
           const threshold = Math.ceil(memberCount * 0.67);
 
           return (
-            <div key={item.id} className={styles.card} onClick={() => handleCardClick(item)}>
+            <div key={item.id} className={`${styles.card} ${stage === 'problem' ? styles.noClick : ''}`} onClick={stage !== 'problem' ? () => handleCardClick(item) : undefined}>
               <div className={styles.cardMeta}>
                 <button
                   className={styles.communityBadge}
@@ -384,14 +384,14 @@ const StageFeedView: React.FC = () => {
                       onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'up'); }}
                       disabled={!!votingInProgress[item.id]}
                     >
-                      Approve {tally ? tally.up : 0}
+                      Problem for me {tally ? tally.up : 0}
                     </button>
                     <button
                       className={styles.voteDown}
                       onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'down'); }}
                       disabled={!!votingInProgress[item.id]}
                     >
-                      Reject {tally ? tally.down : 0}
+                      Not a problem for me {tally ? tally.down : 0}
                     </button>
                   </div>
                   {memberCount > 0 && threshold > 0 && (
@@ -457,8 +457,8 @@ const StageFeedView: React.FC = () => {
             {stage === 'problem' && sample.tally && (
               <div className={styles.voteRow}>
                 <div className={styles.voteButtons}>
-                  <button className={styles.voteUp} disabled>Approve {sample.tally.up}</button>
-                  <button className={styles.voteDown} disabled>Reject {sample.tally.down}</button>
+                  <button className={styles.voteUp} disabled>Problem for me {sample.tally.up}</button>
+                  <button className={styles.voteDown} disabled>Not a problem for me {sample.tally.down}</button>
                 </div>
                 <div className={styles.progressRow}>
                   <div className={styles.progressBar}>

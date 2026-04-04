@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Star, MoreVertical, EyeOff, Eye, ArrowLeft } from 'lucide-react';
+import { Star, EyeOff, Eye, ArrowLeft } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
+import { fetchCommunityProperties, fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 import { toggleStar, toggleHide, unhide } from '../../store/slices/preferencesSlice';
 import { useEventStream } from '../../hooks/useEventStream';
 import CreateCommunityDialog from './communities/CreateCommunityDialog';
@@ -19,7 +20,7 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
   const user = useAppSelector((state) => state.user);
   const { contracts, loading } = useAppSelector((state) => state.user);
   const { starred, hidden } = useAppSelector((state) => state.preferences);
-  const [contextMenuId, setContextMenuId] = useState<string | null>(null);
+  const { communityProperties, communityMembers } = useAppSelector((state) => state.communities);
 
   // Open create dialog if navigated with state
   const [showCreateForm, setShowCreateForm] = useState(
@@ -37,6 +38,19 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
   }, [user.publicKey, user.serverUrl, dispatch]);
 
   useEventStream('deploy_contract', handleDeployContract);
+
+  // Fetch properties and members for each community
+  useEffect(() => {
+    if (!user.serverUrl || !user.publicKey) return;
+    communityContracts.forEach((c) => {
+      if (!communityProperties[c.id]) {
+        dispatch(fetchCommunityProperties({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, contractId: c.id }));
+      }
+      if (!communityMembers[c.id]) {
+        dispatch(fetchCommunityMembers({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, contractId: c.id }));
+      }
+    });
+  }, [user.serverUrl, user.publicKey, communityContracts, communityProperties, communityMembers, dispatch]);
 
   const handleCloseDialog = useCallback(() => {
     setShowCreateForm(false);
@@ -118,44 +132,38 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
       <div className={styles.grid}>
         {sortedContracts.map((contract) => {
           const isStarred = starred.includes(contract.id);
+          const props = communityProperties[contract.id] || {};
+          const description = props.description || '';
+          const memberCount = Array.isArray(communityMembers[contract.id]) ? communityMembers[contract.id].length : 0;
           return (
             <div
               key={contract.id}
               className={styles.card}
               onClick={() => handleCommunityClick(contract.id)}
             >
-              <span className={styles.cardName}>{contract.name || 'Community'}</span>
-              <div className={styles.cardActions} onClick={(e) => e.stopPropagation()}>
-                <button
-                  className={`${styles.starBtn} ${isStarred ? styles.starBtnActive : ''}`}
-                  onClick={() => dispatch(toggleStar(contract.id))}
-                  title={isStarred ? 'Unstar' : 'Star'}
-                >
-                  <Star size={16} fill={isStarred ? 'currentColor' : 'none'} />
-                </button>
-                <div className={styles.contextMenuWrapper}>
+              <div className={styles.cardTop}>
+                <span className={styles.cardName}>{contract.name || 'Community'}</span>
+                <div className={styles.cardActions} onClick={(e) => e.stopPropagation()}>
                   <button
-                    className={styles.moreBtn}
-                    onClick={() => setContextMenuId(contextMenuId === contract.id ? null : contract.id)}
-                    title="More options"
+                    className={`${styles.starBtn} ${isStarred ? styles.starBtnActive : ''}`}
+                    onClick={() => dispatch(toggleStar(contract.id))}
+                    title={isStarred ? 'Unstar' : 'Star'}
                   >
-                    <MoreVertical size={16} />
+                    <Star size={16} fill={isStarred ? 'currentColor' : 'none'} />
                   </button>
-                  {contextMenuId === contract.id && (
-                    <div className={styles.contextMenu}>
-                      <button
-                        className={styles.contextMenuItem}
-                        onClick={() => {
-                          dispatch(toggleHide(contract.id));
-                          setContextMenuId(null);
-                        }}
-                      >
-                        <EyeOff size={14} />
-                        <span>Hide</span>
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    className={styles.hideBtn}
+                    onClick={() => dispatch(toggleHide(contract.id))}
+                    title="Hide community"
+                  >
+                    <EyeOff size={16} />
+                  </button>
                 </div>
+              </div>
+              {description && <p className={styles.cardDescription}>{description}</p>}
+              <div className={styles.cardMeta}>
+                <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+                <span>0 mandates</span>
               </div>
             </div>
           );

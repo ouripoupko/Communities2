@@ -281,6 +281,7 @@ const Profile: React.FC = () => {
         <div className={styles.identitySection}>
           <div className={styles.infoItem}>
             <div className={styles.infoLabel}><Key size={14} /> Public Key</div>
+            <div className={styles.infoHint}>Your unique identity on the network</div>
             <div className={styles.infoValue}>
               <code>{user?.publicKey}</code>
               <button onClick={() => navigator.clipboard.writeText(user?.publicKey || '')} className={styles.copyButton}>Copy</button>
@@ -288,6 +289,7 @@ const Profile: React.FC = () => {
           </div>
           <div className={styles.infoItem}>
             <div className={styles.infoLabel}><Server size={14} /> Server URL</div>
+            <div className={styles.infoHint}>The server hosting your data</div>
             <div className={styles.infoValue}>
               <code>{user?.serverUrl}</code>
               <button onClick={() => navigator.clipboard.writeText(user?.serverUrl || '')} className={styles.copyButton}>Copy</button>

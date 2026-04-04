@@ -29,9 +29,13 @@ const ChatTopic: React.FC = () => {
   const publicKey = useAppSelector((state) => state.user.publicKey);
   const profiles = useAppSelector((state) => state.communities.profiles);
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    topicId ? getMessages(topicId) : []
-  );
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      return topicId ? getMessages(topicId) : [];
+    } catch {
+      return [];
+    }
+  });
   const [inputText, setInputText] = useState('');
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -46,7 +50,12 @@ const ChatTopic: React.FC = () => {
   }
 
   // Find topic for title display
-  const allTopics = getTopics(communityId);
+  let allTopics: ReturnType<typeof getTopics> = [];
+  try {
+    allTopics = getTopics(communityId);
+  } catch {
+    // chatApi may fail on corrupt state
+  }
   const topic = allTopics.find(t => t.id === topicId);
 
   if (!topic) {
@@ -68,7 +77,11 @@ const ChatTopic: React.FC = () => {
     if (!trimmed || !publicKey) return;
     addMessage(topicId, trimmed, publicKey);
     setInputText('');
-    setMessages(getMessages(topicId));
+    try {
+      setMessages(getMessages(topicId));
+    } catch {
+      // Refresh failed — keep existing messages
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -102,7 +115,7 @@ const ChatTopic: React.FC = () => {
 
         {messages.map(msg => {
           const isOwn = msg.author === publicKey;
-          const profile = profiles[msg.author];
+          const profile = profiles?.[msg.author];
           const fullName = profile
             ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
             : null;

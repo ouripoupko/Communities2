@@ -68,7 +68,7 @@ const CollabList: React.FC<CollabListProps> = ({ communityId }) => {
   };
 
   const handleClick = (item: Collaboration) => {
-    navigate(`/collaboration/${communityId}/${item.id}`);
+    navigate(`/community/${communityId}/collab/${item.id}`);
   };
 
   if (membersLoading[communityId] === true) {
