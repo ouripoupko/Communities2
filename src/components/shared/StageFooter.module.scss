@@ -1,0 +1,65 @@
+@use '../../styles/variables' as *;
+
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: white;
+  border-top: 1px solid $gray-200;
+  padding: $spacing-xs 0;
+  padding-bottom: max($spacing-xs, env(safe-area-inset-bottom));
+  z-index: 100;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: $spacing-xs $spacing-sm;
+  min-width: 56px;
+  background: none;
+  border: none;
+  color: $gray-400;
+  font-size: 10px;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: color $transition-base;
+  -webkit-tap-highlight-color: transparent;
+
+  svg {
+    transition: transform $transition-base;
+  }
+
+  &:active svg {
+    transform: scale(0.9);
+  }
+}
+
+.active {
+  color: $primary;
+
+  svg {
+    transform: scale(1.05);
+  }
+}
+
+// Dark mode
+@media (prefers-color-scheme: dark) {
+  .footer {
+    background: $dark-bg;
+    border-top-color: $dark-border;
+  }
+
+  .tab {
+    color: $dark-text-secondary;
+  }
+
+  .active {
+    color: $primary;
+  }
+}

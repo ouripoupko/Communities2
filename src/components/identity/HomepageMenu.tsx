@@ -47,13 +47,13 @@ const HomepageMenu: React.FC<HomepageMenuProps> = ({
         </div>
 
         <div className={styles.menuItems}>
-          <button className={styles.menuItem} onClick={() => { onNavigate('communities'); onClose(); }}>
-            <LayoutGrid size={20} />
-            <span>Communities</span>
-          </button>
           <button className={styles.menuItem} onClick={() => { onNavigate('profile'); onClose(); }}>
             <User size={20} />
             <span>Profile</span>
+          </button>
+          <button className={styles.menuItem} onClick={() => { onNavigate('communities'); onClose(); }}>
+            <LayoutGrid size={20} />
+            <span>Communities</span>
           </button>
           <button className={styles.menuItem} onClick={() => { onNavigate('join'); onClose(); }}>
             <QrCode size={20} />

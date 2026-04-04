@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/shared/ErrorBoundary';
+import StageFooter from './components/shared/StageFooter';
 
 // Get the base path from Vite's import.meta.env.BASE_URL
 const getBasename = () => {
@@ -12,6 +13,7 @@ const getBasename = () => {
 };
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const StageFeedView = lazy(() => import('./pages/StageFeedView'));
 const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
 const IssueView = lazy(() => import('./pages/IssueView'));
@@ -44,7 +46,8 @@ function AppContent() {
       <Router basename={getBasename()}>
         <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
           <Routes>
-            <Route path="/" element={<Navigate to="/identity" replace />} />
+            <Route path="/" element={<Navigate to="/stage/problem" replace />} />
+            <Route path="/stage/:stageId" element={<StageFeedView />} />
             <Route path="/identity/*" element={<IdentityView />} />
             <Route path="/community/:communityId/*" element={<CommunityView />} />
             <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
@@ -52,6 +55,7 @@ function AppContent() {
             <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
             <Route path="/agreement/:communityId/:agreementId" element={<AgreementView />} />
           </Routes>
+          <StageFooter />
         </Suspense>
       </Router>
     </ErrorBoundary>

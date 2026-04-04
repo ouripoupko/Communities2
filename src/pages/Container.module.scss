@@ -14,6 +14,7 @@
     flex-direction: column;
     gap: $spacing-lg;
     padding: 0 $spacing-xl $spacing-xl;
+    padding-bottom: 72px; // room for fixed stage footer
 
     .nav {
       display: flex;

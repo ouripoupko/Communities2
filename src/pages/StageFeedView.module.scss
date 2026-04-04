@@ -1,0 +1,246 @@
+@use '../styles/variables' as *;
+
+.feedContainer {
+  padding: $spacing-lg;
+  padding-bottom: 80px; // room for fixed footer
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+// ─── Cards ────────────────────────────────────
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-lg;
+  background: white;
+  border: 1px solid $gray-100;
+  border-radius: $radius-lg;
+  cursor: pointer;
+  transition: box-shadow $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-md;
+  }
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.communityBadge {
+  background: rgba($primary, 0.1);
+  color: $primary;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  padding: 2px $spacing-sm;
+  border-radius: $radius-full;
+  border: none;
+  cursor: pointer;
+  transition: background $transition-base;
+
+  &:hover {
+    background: rgba($primary, 0.2);
+  }
+}
+
+.author,
+.time {
+  font-size: $text-xs;
+  color: $gray-400;
+}
+
+.time {
+  margin-left: auto;
+}
+
+.cardTitle {
+  font-size: $text-lg;
+  font-weight: $font-semibold;
+  color: $gray-800;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.cardDescription {
+  font-size: $text-sm;
+  color: $gray-600;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// ─── Inline voting (Stage 1) ─────────────────
+.voteRow {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-top: $spacing-xs;
+}
+
+.voteButtons {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.voteUp,
+.voteDown {
+  flex: 1;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all $transition-base;
+  min-height: 44px;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.voteUp {
+  background: rgba($success, 0.1);
+  color: $success;
+  border-color: rgba($success, 0.3);
+
+  &:hover:not(:disabled) {
+    background: rgba($success, 0.2);
+  }
+}
+
+.voteDown {
+  background: rgba($error, 0.1);
+  color: $error;
+  border-color: rgba($error, 0.3);
+
+  &:hover:not(:disabled) {
+    background: rgba($error, 0.2);
+  }
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.progressBar {
+  flex: 1;
+  height: 8px;
+  background: $gray-100;
+  border-radius: $radius-full;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: $primary;
+  border-radius: $radius-full;
+  transition: width $transition-base;
+}
+
+.progressMet {
+  background: $success;
+}
+
+.progressLabel {
+  font-size: $text-xs;
+  color: $gray-400;
+  white-space: nowrap;
+}
+
+// ─── Stage info hint ──────────────────────────
+.stageInfo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  font-size: $text-xs;
+  color: $gray-400;
+  margin-top: $spacing-xs;
+}
+
+// ─── Empty state ──────────────────────────────
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-3xl $spacing-xl;
+  text-align: center;
+  color: $gray-300;
+
+  h3 {
+    margin: $spacing-lg 0 $spacing-sm;
+    font-size: $text-lg;
+    font-weight: $font-semibold;
+    color: $gray-400;
+  }
+
+  p {
+    font-size: $text-sm;
+    color: $gray-400;
+    max-width: 300px;
+  }
+}
+
+// ─── Dark mode ────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .card {
+    background: $dark-bg;
+    border-color: $dark-border;
+  }
+
+  .cardTitle {
+    color: $dark-text;
+  }
+
+  .cardDescription {
+    color: $dark-text-secondary;
+  }
+
+  .communityBadge {
+    background: rgba($primary, 0.2);
+  }
+
+  .author,
+  .time,
+  .progressLabel,
+  .stageInfo {
+    color: $dark-text-secondary;
+  }
+
+  .progressBar {
+    background: $dark-border;
+  }
+
+  .empty {
+    color: $dark-border;
+
+    h3,
+    p {
+      color: $dark-text-secondary;
+    }
+  }
+}
+
+// ─── Responsive ───────────────────────────────
+@media (max-width: $breakpoint-sm) {
+  .feedContainer {
+    padding: $spacing-md;
+    padding-bottom: 80px;
+  }
+
+  .card {
+    padding: $spacing-md;
+  }
+}

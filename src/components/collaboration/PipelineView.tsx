@@ -63,6 +63,8 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
   const publicKey = useAppSelector((s) => s.user.publicKey);
   const communityMembers = useAppSelector((s) => s.communities.communityMembers);
+  const communityProps = useAppSelector((s) => s.communities.communityProperties[communityId]);
+  const communityName = communityProps?.name || communityId.slice(0, 8);
 
   const [stage, setStage] = useState<PipelineStage>('problem');
   const [viewStage, setViewStage] = useState<PipelineStage>('problem');
@@ -201,9 +203,10 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
     <div className={cs.container}>
       <PageHeader
         showBackButton
-        backButtonText="Initiatives"
-        onBackClick={() => navigate(`/community/${communityId}/initiative`)}
+        backButtonText="Back"
+        onBackClick={() => navigate(-1)}
         title={title}
+        subtitle={communityName}
         layout="two-row"
       />
 

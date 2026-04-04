@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PageHeader from '../components/PageHeader';
-import InitiativeFeed from '../components/identity/InitiativeFeed';
 import Communities from '../components/identity/Communities';
 import Profile from '../components/identity/Profile';
 import JoinCommunity from '../components/identity/JoinCommunity';
@@ -46,14 +45,14 @@ const IdentityView: React.FC = () => {
       <div className={styles.content}>
         <div className={styles.main}>
           <Routes>
-            <Route index element={<InitiativeFeed />} />
+            <Route index element={<Navigate to="/identity/communities" replace />} />
             <Route path="communities" element={<Communities />} />
             <Route path="profile" element={<Profile />} />
             <Route path="join" element={<JoinCommunity />} />
-            <Route path="about" element={<AboutPage onBack={() => navigate('/identity')} />} />
-            <Route path="contact" element={<ContactPage onBack={() => navigate('/identity')} />} />
+            <Route path="about" element={<AboutPage onBack={() => navigate('/stage/problem')} />} />
+            <Route path="contact" element={<ContactPage onBack={() => navigate('/stage/problem')} />} />
             <Route path="hidden" element={<Communities showHidden />} />
-            <Route path="*" element={<Navigate to="/identity" replace />} />
+            <Route path="*" element={<Navigate to="/identity/communities" replace />} />
           </Routes>
         </div>
       </div>
