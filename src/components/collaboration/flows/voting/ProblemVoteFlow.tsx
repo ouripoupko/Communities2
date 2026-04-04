@@ -79,7 +79,6 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
     }
   };
 
-  const upPercent = tally.total > 0 ? Math.round((tally.up / tally.total) * 100) : 0;
   const thresholdMet = communityMemberCount > 0 && tally.up / communityMemberCount >= 0.67;
 
   if (hasError) return (
@@ -125,7 +124,7 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
             disabled={voting}
           >
             <ThumbsUp size={20} />
-            <span>{tally.up}</span>
+            <span className={styles.voteCount}>{tally.up}</span>
           </button>
           <button
             className={`${styles.voteBtn} ${styles.downBtn} ${myVote === 'down' ? styles.active : ''}`}
@@ -133,20 +132,32 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
             disabled={voting}
           >
             <ThumbsDown size={20} />
-            <span>{tally.down}</span>
+            <span className={styles.voteCount}>{tally.down}</span>
           </button>
         </div>
-        {tally.total > 0 && (
-          <div className={styles.progressBar}>
-            <div className={styles.progressFill} style={{ width: `${upPercent}%` }} />
+
+        {/* Threshold progress bar */}
+        <div className={styles.thresholdSection}>
+          <div className={styles.progressTrack}>
+            <div
+              className={`${styles.progressFill} ${thresholdMet ? styles.thresholdMet : ''}`}
+              style={{ width: `${Math.min((tally.up / Math.max(Math.ceil(communityMemberCount * 0.67), 1)) * 100, 100)}%` }}
+            />
+            <div className={styles.thresholdMarker} style={{ left: '100%' }} />
           </div>
+          <div className={styles.thresholdLabels}>
+            <span>{tally.up} upvote{tally.up !== 1 ? 's' : ''}</span>
+            <span className={styles.thresholdTarget}>
+              {thresholdMet ? 'Threshold met!' : `${Math.max(Math.ceil(communityMemberCount * 0.67) - tally.up, 0)} more needed`}
+            </span>
+          </div>
+        </div>
+
+        {myVote && (
+          <p className={styles.yourVote}>
+            You voted: <strong>{myVote === 'up' ? 'Yes' : 'No'}</strong> (tap again to remove)
+          </p>
         )}
-        <p className={styles.metric}>
-          {upPercent}% upvoted ({tally.up}/{tally.total} votes).
-          {' '}
-          <strong>67% of community ({Math.ceil(communityMemberCount * 0.67)}) must upvote to advance.</strong>
-          {thresholdMet && <span className={styles.thresholdMet}> Threshold met!</span>}
-        </p>
       </div>
     </div>
   );

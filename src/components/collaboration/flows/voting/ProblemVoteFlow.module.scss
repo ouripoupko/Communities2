@@ -154,34 +154,63 @@ $initiative-color: #ea580c;
   }
 }
 
-.progressBar {
+.voteCount {
+  font-size: $text-lg;
+  font-weight: $font-semibold;
+}
+
+.thresholdSection {
+  margin-top: $spacing-lg;
+}
+
+.progressTrack {
+  position: relative;
   height: 8px;
-  background: $gray-200;
+  background: $gray-100;
   border-radius: $radius-full;
-  overflow: hidden;
-  margin-bottom: $spacing-md;
+  overflow: visible;
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-border;
+  }
 }
 
 .progressFill {
   height: 100%;
-  background: $success;
+  background: $primary;
   border-radius: $radius-full;
-  transition: width $transition-slow;
-}
+  transition: width $transition-base;
 
-.metric {
-  font-size: $text-sm;
-  color: $gray-600;
-  line-height: 1.5;
-
-  strong {
-    color: $gray-700;
+  &.thresholdMet {
+    background: $success;
   }
 }
 
-.thresholdMet {
-  color: $success;
-  font-weight: $font-semibold;
+.thresholdMarker {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  background: $gray-400;
+  transform: translateX(-1px);
+}
+
+.thresholdLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: $spacing-xs;
+  font-size: $text-xs;
+  color: $gray-400;
+}
+
+.thresholdTarget {
+  font-weight: $font-medium;
+}
+
+.yourVote {
+  margin-top: $spacing-sm;
+  font-size: $text-xs;
+  color: $gray-400;
 }
 
 // Dark mode
@@ -214,15 +243,5 @@ $initiative-color: #ea580c;
     border-color: $dark-border;
   }
 
-  .progressBar {
-    background: $dark-border;
-  }
 
-  .metric {
-    color: $dark-text-secondary;
-
-    strong {
-      color: $dark-text;
-    }
-  }
 }
