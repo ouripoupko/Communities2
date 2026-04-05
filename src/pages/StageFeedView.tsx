@@ -447,8 +447,7 @@ const StageFeedView: React.FC = () => {
         {usingSampleData && sampleItems.map((sample) => (
           <div
             key={sample.id}
-            className={`${styles.card} ${styles.sampleCard} ${stage === 'problem' ? styles.noClick : ''}`}
-            onClick={stage !== 'problem' ? () => navigate('/identity/communities') : undefined}
+            className={`${styles.card} ${styles.sampleCard} ${styles.noClick}`}
           >
             <div className={styles.cardMeta}>
               <span className={styles.communityBadge}>{sample.communityName}</span>
@@ -461,16 +460,10 @@ const StageFeedView: React.FC = () => {
             {stage === 'problem' && sample.tally && (
               <div className={styles.voteRow}>
                 <div className={styles.voteButtons}>
-                  <button
-                    className={styles.voteUp}
-                    onClick={() => navigate('/identity/communities')}
-                  >
+                  <button className={styles.voteUp} disabled>
                     Problem for me {sample.tally.up}
                   </button>
-                  <button
-                    className={styles.voteDown}
-                    onClick={() => navigate('/identity/communities')}
-                  >
+                  <button className={styles.voteDown} disabled>
                     Not a problem for me {sample.tally.down}
                   </button>
                 </div>

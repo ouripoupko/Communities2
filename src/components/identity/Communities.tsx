@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Star, EyeOff, Eye, ArrowLeft } from 'lucide-react';
+import { Star, EyeOff, Eye, ArrowLeft, Users, ScrollText } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
 import { fetchCommunityProperties, fetchCommunityMembers } from '../../store/slices/communitiesSlice';
@@ -162,8 +162,8 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
               </div>
               {description && <p className={styles.cardDescription}>{description}</p>}
               <div className={styles.cardMeta}>
-                <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
-                <span>0 mandates</span>
+                <span className={styles.metaItem}><Users size={12} /> {memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+                <span className={styles.metaItem}><ScrollText size={12} /> 0 mandates</span>
               </div>
             </div>
           );
