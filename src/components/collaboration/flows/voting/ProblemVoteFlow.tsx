@@ -31,7 +31,7 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
   parentContractId,
   stageKey,
 }) => {
-  const { contractId, isReady, isDeploying, hasError, retry } = useFlowContract(
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(
     instanceId, 'problem_vote', 'problem_vote_contract.py', problemVoteCode, parentContractId, stageKey,
   );
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
@@ -83,12 +83,16 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
 
   if (hasError) return (
     <div className={styles.loading}>
-      <p>Failed to deploy voting contract.</p>
+      <p>{errorMessage || 'Failed to set up voting.'}</p>
       <button onClick={retry} className={styles.retryBtn}>Retry</button>
     </div>
   );
-  if (isDeploying) return <div className={styles.loading}>Setting up voting...</div>;
-  if (!isReady) return <div className={styles.loading}>Connecting...</div>;
+  if (isDeploying || !isReady) return (
+    <div className={styles.loading}>
+      <div className={styles.spinner} />
+      <p>{statusMessage || 'Setting up voting...'}</p>
+    </div>
+  );
 
   return (
     <div className={styles.container}>

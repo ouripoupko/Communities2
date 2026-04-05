@@ -212,7 +212,7 @@ const CollapsibleSection: React.FC<{
 // Root
 // ---------------------------------------------------------------------------
 const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey }) => {
-  const { contractId, isReady, isDeploying, hasError, retry } = useFlowContract(
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(
     instanceId, 'concern_resolution', 'concerns_contract.py', concernsContractCode, parentContractId, stageKey,
   );
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
@@ -273,12 +273,13 @@ const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
 
   if (hasError) return (
     <div className={styles.loading}>
-      <p>Failed to deploy contract.</p>
+      <p>{errorMessage || 'Failed to set up concerns.'}</p>
       <button onClick={retry} style={{ marginTop: 8, padding: '6px 16px', cursor: 'pointer' }}>Retry</button>
     </div>
   );
-  if (isDeploying) return <div className={styles.loading}>Deploying contract...</div>;
-  if (!isReady) return <div className={styles.loading}>Connecting...</div>;
+  if (isDeploying || !isReady) return (
+    <div className={styles.loading}>{statusMessage || 'Setting up concerns...'}</div>
+  );
   if (loading && concerns.length === 0) return <div className={styles.loading}>Loading...</div>;
 
   const active = concerns.filter((c) => !c.resolved);

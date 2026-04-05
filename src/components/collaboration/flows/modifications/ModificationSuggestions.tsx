@@ -32,7 +32,7 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
   originalAuthor,
   fieldLabel = 'problem',
 }) => {
-  const { contractId, isReady, isDeploying, hasError, retry } = useFlowContract(
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(
     instanceId, 'modification', 'modification_contract.py', modificationCode,
     parentContractId, stageKey,
   );
@@ -124,7 +124,7 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
   if (hasError) {
     return (
       <div className={styles.error}>
-        <p>Failed to load modification suggestions.</p>
+        <p>{errorMessage || 'Failed to load modification suggestions.'}</p>
         <button onClick={retry} className={styles.retryBtn}>Retry</button>
       </div>
     );
@@ -133,7 +133,7 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
   if (isDeploying || !isReady) {
     return (
       <div className={styles.loading}>
-        <p>Setting up modifications...</p>
+        <p>{statusMessage || 'Setting up modifications...'}</p>
       </div>
     );
   }

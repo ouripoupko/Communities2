@@ -12,7 +12,7 @@ interface Proposal { id: string; text: string; author: string; timestamp: string
 interface Config { credits_per_voter: number; status: string; }
 
 const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey }) => {
-  const { contractId, isReady, isDeploying, hasError, retry } = useFlowContract(instanceId, 'quadratic_vote', 'qv_contract.py', qvContractCode, parentContractId, stageKey);
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(instanceId, 'quadratic_vote', 'qv_contract.py', qvContractCode, parentContractId, stageKey);
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
   const publicKey = useAppSelector((s) => s.user.publicKey);
   const profiles = useAppSelector((s) => s.communities.profiles);
@@ -97,12 +97,13 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
 
   if (hasError) return (
     <div className={styles.loading}>
-      <p>Failed to deploy contract.</p>
+      <p>{errorMessage || 'Failed to set up voting.'}</p>
       <button onClick={retry} style={{ marginTop: 8, padding: '6px 16px', cursor: 'pointer' }}>Retry</button>
     </div>
   );
-  if (isDeploying) return <div className={styles.loading}>Deploying contract...</div>;
-  if (!isReady) return <div className={styles.loading}>Connecting...</div>;
+  if (isDeploying || !isReady) return (
+    <div className={styles.loading}>{statusMessage || 'Setting up voting...'}</div>
+  );
   if (loading && Object.keys(proposals).length === 0) return <div className={styles.loading}>Loading...</div>;
 
   const proposalList = Object.values(proposals).sort(
