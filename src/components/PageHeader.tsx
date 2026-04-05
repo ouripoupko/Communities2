@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import EarthFlag from './shared/EarthFlag';
 import styles from './PageHeader.module.scss';
 
 export interface ActionButton {
@@ -49,7 +50,10 @@ const PageHeader: React.FC<PageHeaderProps> = ({
     return (
       <div className={`${styles.header} ${styles.homepageHeader}`}>
         <div className={styles.homepageRow}>
-          <button className={styles.wordmark} onClick={() => navigate('/stage/problem')}>Gloki</button>
+          <button className={styles.wordmark} onClick={() => navigate('/stage/problem')}>
+            <EarthFlag size={22} />
+            Gloki
+          </button>
           {onMenuClick && (
             <button className={styles.menuButton} onClick={onMenuClick}>
               Menu

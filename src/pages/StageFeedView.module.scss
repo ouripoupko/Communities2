@@ -115,9 +115,9 @@
 }
 
 .sampleCard {
-  opacity: 0.7;
+  opacity: 0.85;
   border-style: dashed;
-  pointer-events: none;
+  border-color: rgba($primary, 0.25);
 }
 
 // ─── Inline voting (Stage 1) ─────────────────

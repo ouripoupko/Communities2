@@ -131,7 +131,7 @@ const JoinCommunity: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.content}>
-        <p className={styles.introLine}>Scan a QR code or manually enter community credentials.</p>
+        <p className={styles.introLine}>To join a community, ask a member to share their invite QR code or credential JSON with you. You can scan the code or paste the JSON below.</p>
         <div className={styles.scanSection}>
           <div className={styles.scanArea}>
             {showScanner ? (
@@ -195,13 +195,16 @@ const JoinCommunity: React.FC = () => {
 
         <div className={styles.manualInputSection}>
           <h3>Manual Input</h3>
+          <p className={styles.tutorialText}>
+            Paste the community credential JSON that was shared with you. It should contain three fields: <code>server</code>, <code>agent</code>, and <code>contract</code>.
+          </p>
           <div className="form-group">
             <label htmlFor="qrData">Community Credentials (JSON)</label>
             <textarea
               id="qrData"
               value={decodedData}
               onChange={handleManualInput}
-              placeholder="Paste community credentials here as JSON..."
+              placeholder={'{\n  "server": "https://...",\n  "agent": "abc123...",\n  "contract": "def456..."\n}'}
               className={`input-field ${styles.scrollXNoWrap}`}
               rows={6}
             />

@@ -7,27 +7,33 @@ export interface CollabTemplate {
 
 export const COLLAB_TEMPLATES: CollabTemplate[] = [
   {
-    id: 'event',
-    label: 'Plan an Event',
-    description: 'Scheduling, task board, and role assignment',
-    flowIds: ['scheduling', 'task-board', 'roles'],
+    id: 'discuss',
+    label: 'Open Discussion',
+    description: 'A space for community dialogue, Q&A, and shared notes',
+    flowIds: ['discussion', 'qa', 'document'],
   },
   {
     id: 'project',
-    label: 'Run a Project',
-    description: 'Task board, collaborative document, and roles',
-    flowIds: ['task-board', 'document', 'roles'],
+    label: 'Community Project',
+    description: 'Organize tasks, assign roles, and track progress together',
+    flowIds: ['task-board', 'roles', 'document'],
+  },
+  {
+    id: 'event',
+    label: 'Plan an Event',
+    description: 'Schedule, coordinate tasks, and assign responsibilities',
+    flowIds: ['scheduling', 'task-board', 'roles'],
   },
   {
     id: 'fundraise',
-    label: 'Fundraise',
-    description: 'Fundraising campaign with budget allocation',
-    flowIds: ['fundraising', 'budget-allocation'],
+    label: 'Community Fundraiser',
+    description: 'Raise and allocate funds for community goals',
+    flowIds: ['fundraising', 'budget-allocation', 'discussion'],
   },
   {
     id: 'custom',
-    label: 'Custom',
-    description: 'Start empty and add tools as needed',
+    label: 'Custom Workspace',
+    description: 'Start empty and add the tools your community needs',
     flowIds: [],
   },
 ];

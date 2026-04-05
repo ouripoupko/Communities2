@@ -17,6 +17,9 @@ export interface FlowDefinition {
   component: React.ComponentType<FlowProps>;
   /** Group name shown as a section header in the Add Tab menu */
   group?: string;
+  /** Which context this flow belongs to — 'collab' for community collab workspaces,
+   *  'initiative' for the governance pipeline. If omitted, shown in both. */
+  context?: 'collab' | 'initiative';
   /** Return false to disable this flow in the Add menu given the current set of open tab flow-ids */
   isAvailable?: (existingFlowIds: string[]) => boolean;
 }

@@ -100,10 +100,6 @@
 
     .main {
       flex: 1;
-      background: white;
-      border-radius: $radius-lg;
-      box-shadow: $shadow-sm;
-      padding: $spacing-xl;
       min-height: 400px;
     }
   }
@@ -174,7 +170,7 @@
       }
 
       .main {
-        padding: $spacing-lg;
+        // no padding — inner components handle their own
       }
     }
   }
@@ -185,8 +181,7 @@
   .container {
     background-color: $dark-surface;
 
-    .content .nav,
-    .content .main {
+    .content .nav {
       background-color: $dark-bg;
       border-color: $dark-border;
     }

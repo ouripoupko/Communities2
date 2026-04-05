@@ -280,6 +280,9 @@
 }
 
 .wordmark {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
   font-size: $text-2xl;
   font-weight: $font-bold;
   color: white;
@@ -288,6 +291,10 @@
   border: none;
   padding: 0;
   cursor: pointer;
+
+  svg {
+    opacity: 0.9;
+  }
 }
 
 .menuButton {

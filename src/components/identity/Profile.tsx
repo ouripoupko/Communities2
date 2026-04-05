@@ -243,7 +243,7 @@ const Profile: React.FC = () => {
         </div>
 
         <div className={styles.formField}>
-          <label htmlFor="openaiApiKey">OpenAI API Key</label>
+          <label htmlFor="openaiApiKey">AI API Key</label>
           <input id="openaiApiKey" type="password" value={openaiApiKey} onChange={(e) => setOpenaiApiKey(e.target.value)} disabled={!isEditing} placeholder="Optional" />
         </div>
 
@@ -274,7 +274,7 @@ const Profile: React.FC = () => {
 
       {/* Collapsible identity section */}
       <button className={styles.identityToggle} onClick={() => setShowIdentity(!showIdentity)}>
-        <span>Identity Information</span>
+        <span>Network Identity</span>
         {showIdentity ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
       {showIdentity && (

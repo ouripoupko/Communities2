@@ -16,19 +16,20 @@ import type { FlowDefinition } from './types';
 /** Ordered list of group names as they appear in the Add Tab menu. */
 export const FLOW_GROUPS = [
   'Decision Making',
-  'Planning & Execution',
-  'Governance & Finance',
-  'Communication',
+  'Teamwork',
+  'Planning',
+  'Resources',
 ] as const;
 
 export const FLOW_REGISTRY: FlowDefinition[] = [
-  // ── Decision Making ────────────────────────────────────────────────────────
+  // ── Decision Making (initiative pipeline only) ────────────────────────────
   {
     id: 'approval',
     label: 'Approval Voting',
     icon: ThumbsUp,
     component: ApprovalFlow,
     group: 'Decision Making',
+    context: 'initiative',
   },
   {
     id: 'quadratic',
@@ -36,6 +37,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: Scale,
     component: QVFlow,
     group: 'Decision Making',
+    context: 'initiative',
   },
   {
     id: 'concerns',
@@ -43,69 +45,78 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: AlertTriangle,
     component: ConcernsFlow,
     group: 'Decision Making',
+    context: 'initiative',
   },
 
-  // ── Planning & Execution ───────────────────────────────────────────────────
-  {
-    id: 'scheduling',
-    label: 'Scheduling',
-    icon: CalendarDays,
-    component: SchedulingFlow,
-    group: 'Planning & Execution',
-  },
-  {
-    id: 'task-board',
-    label: 'Task Board',
-    icon: KanbanSquare,
-    component: TaskboardFlow,
-    group: 'Planning & Execution',
-  },
-  {
-    id: 'roles',
-    label: 'Role Nomination',
-    icon: Award,
-    component: RolesFlow,
-    group: 'Planning & Execution',
-  },
-
-  // ── Governance & Finance ───────────────────────────────────────────────────
-  {
-    id: 'fundraising',
-    label: 'Fundraising',
-    icon: Heart,
-    component: FundraisingFlow,
-    group: 'Governance & Finance',
-  },
-  {
-    id: 'budget-allocation',
-    label: 'Budget Allocation',
-    icon: PieChart,
-    component: BudgetFlow,
-    group: 'Governance & Finance',
-    isAvailable: (existingFlowIds: string[]) => existingFlowIds.includes('fundraising') && hasAvailableFunds(),
-  },
-
-  // ── Communication ──────────────────────────────────────────────────────────
+  // ── Teamwork ──────────────────────────────────────────────────────────────
   {
     id: 'discussion',
     label: 'Discussion',
     icon: MessageSquare,
     component: DiscussionFlow,
-    group: 'Communication',
+    group: 'Teamwork',
+    context: 'collab',
+  },
+  {
+    id: 'document',
+    label: 'Shared Document',
+    icon: FileText,
+    component: DocFlow,
+    group: 'Teamwork',
+    context: 'collab',
   },
   {
     id: 'qa',
     label: 'Q&A',
     icon: HelpCircle,
     component: QAFlow,
-    group: 'Communication',
+    group: 'Teamwork',
+    context: 'collab',
+  },
+
+  // ── Planning & Execution ──────────────────────────────────────────────────
+  {
+    id: 'task-board',
+    label: 'Task Board',
+    icon: KanbanSquare,
+    component: TaskboardFlow,
+    group: 'Planning',
+    context: 'collab',
   },
   {
-    id: 'document',
-    label: 'Document',
-    icon: FileText,
-    component: DocFlow,
-    group: 'Communication',
+    id: 'scheduling',
+    label: 'Scheduling',
+    icon: CalendarDays,
+    component: SchedulingFlow,
+    group: 'Planning',
+    context: 'collab',
+  },
+  {
+    id: 'roles',
+    label: 'Role Assignment',
+    icon: Award,
+    component: RolesFlow,
+    group: 'Planning',
+    context: 'collab',
+  },
+
+  // ── Resources ─────────────────────────────────────────────────────────────
+  {
+    id: 'fundraising',
+    label: 'Fundraising',
+    icon: Heart,
+    component: FundraisingFlow,
+    group: 'Resources',
+    context: 'collab',
+  },
+  {
+    id: 'budget-allocation',
+    label: 'Budget Allocation',
+    icon: PieChart,
+    component: BudgetFlow,
+    group: 'Resources',
+    context: 'collab',
+    isAvailable: (existingFlowIds: string[]) => existingFlowIds.includes('fundraising') && hasAvailableFunds(),
   },
 ];
 

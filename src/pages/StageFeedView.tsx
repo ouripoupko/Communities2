@@ -343,7 +343,7 @@ const StageFeedView: React.FC = () => {
         )}
 
         {usingSampleData && (
-          <div className={styles.sampleBanner}>Sample data — create a community and start an initiative to see real content here</div>
+          <div className={styles.sampleBanner}>Example initiatives — join or create a community to participate</div>
         )}
 
         {(stageInitiatives.length > 0 ? stageInitiatives : usingSampleData ? [] : []).map((item) => {
@@ -445,7 +445,11 @@ const StageFeedView: React.FC = () => {
 
         {/* Sample cards when no real data */}
         {usingSampleData && sampleItems.map((sample) => (
-          <div key={sample.id} className={`${styles.card} ${styles.sampleCard}`}>
+          <div
+            key={sample.id}
+            className={`${styles.card} ${styles.sampleCard} ${stage === 'problem' ? styles.noClick : ''}`}
+            onClick={stage !== 'problem' ? () => navigate('/identity/communities') : undefined}
+          >
             <div className={styles.cardMeta}>
               <span className={styles.communityBadge}>{sample.communityName}</span>
               <span className={styles.author}>{sample.authorName}</span>
@@ -457,8 +461,18 @@ const StageFeedView: React.FC = () => {
             {stage === 'problem' && sample.tally && (
               <div className={styles.voteRow}>
                 <div className={styles.voteButtons}>
-                  <button className={styles.voteUp} disabled>Problem for me {sample.tally.up}</button>
-                  <button className={styles.voteDown} disabled>Not a problem for me {sample.tally.down}</button>
+                  <button
+                    className={styles.voteUp}
+                    onClick={() => navigate('/identity/communities')}
+                  >
+                    Problem for me {sample.tally.up}
+                  </button>
+                  <button
+                    className={styles.voteDown}
+                    onClick={() => navigate('/identity/communities')}
+                  >
+                    Not a problem for me {sample.tally.down}
+                  </button>
                 </div>
                 <div className={styles.progressRow}>
                   <div className={styles.progressBar}>

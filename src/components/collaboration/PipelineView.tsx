@@ -15,6 +15,7 @@ import ConcernsFlow from './flows/concerns/ConcernsFlow';
 import ModificationSuggestions from './flows/modifications/ModificationSuggestions';
 import PageHeader from '../PageHeader';
 import ErrorBoundary from '../shared/ErrorBoundary';
+import AIToolbar from '../shared/AITools';
 import cs from '../../pages/Container.module.scss';
 import styles from './PipelineView.module.scss';
 
@@ -223,6 +224,14 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
               {!isViewingCurrentStage && <span className={styles.previewBadge}>Preview</span>}
               {viewStageConfig.hint}
             </div>
+          )}
+
+          {/* AI tools: translate description, summarize discussion */}
+          {description && (
+            <AIToolbar
+              text={description}
+              discussionContent={viewStage === 'discussion' ? { title, description, comments: [] } : undefined}
+            />
           )}
 
           {/* ── Step 1: Problem ── */}

@@ -167,32 +167,13 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
             </button>
             {showAddMenu && (
               <div className={styles.addTabMenu}>
-                {/* Ungrouped flows first (no header) */}
-                {FLOW_REGISTRY.filter(f => !f.group).map((flow) => {
-                  const available = flow.isAvailable?.(tabs.map(t => t.flowId)) ?? true;
-                  return (
-                    <button
-                      key={flow.id}
-                      className={`${styles.addTabMenuItem} ${!available ? styles.addTabMenuItemDisabled : ''}`}
-                      onClick={() => { if (available) addTab(flow.id); }}
-                      disabled={!available}
-                      title={!available ? 'Not available with current tabs' : undefined}
-                    >
-                      <flow.icon size={16} />
-                      {flow.label}
-                    </button>
-                  );
-                })}
-
-                {/* Grouped flows with section headers */}
-                {FLOW_GROUPS.map((group, groupIndex) => {
-                  const flows = FLOW_REGISTRY.filter(f => f.group === group);
+                {/* Only show collab-appropriate flows (exclude initiative-only governance flows) */}
+                {FLOW_GROUPS.map((group) => {
+                  const flows = FLOW_REGISTRY.filter(f => f.group === group && f.context !== 'initiative');
                   if (flows.length === 0) return null;
-                  const hasUngrouped = FLOW_REGISTRY.some(f => !f.group);
-                  const isFirst = groupIndex === 0 && !hasUngrouped;
                   return (
                     <React.Fragment key={group}>
-                      <div className={`${styles.addTabMenuGroupHeader} ${isFirst ? styles.addTabMenuGroupHeaderFirst : ''}`}>
+                      <div className={styles.addTabMenuGroupHeader}>
                         {group}
                       </div>
                       {flows.map((flow) => {

@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { ArrowLeft, Users2, MessageSquare, Users, Coins, Settings, AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText } from 'lucide-react';
+import { Home, Menu, X, Users2, MessageSquare, Users, Coins, Share2, UserPlus, LogOut, AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
@@ -162,7 +162,7 @@ const CommunityFeed: React.FC<{ communityId: string }> = ({ communityId }) => {
       {/* Sample data when empty */}
       {usingSampleData && (
         <>
-          <div className={styles.sampleBanner}>Sample data — start an initiative to see real content</div>
+          <div className={styles.sampleBanner}>Example initiatives — start an initiative to participate</div>
           {SAMPLE_FEED.map((sample) => {
             const meta = STAGE_META[sample.stage] || STAGE_META.problem;
             const StageIcon = meta.icon;
@@ -198,7 +198,7 @@ const CommunityView: React.FC = () => {
   const { contracts, publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { communityProperties = {}, communityMembers = {} } = useAppSelector((state) => state.communities);
   const [fetching, setFetching] = useState(false);
-  const [showOptions, setShowOptions] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const dispatch = useAppDispatch();
 
   if (!communityId) {
@@ -293,14 +293,72 @@ const CommunityView: React.FC = () => {
     <div className={styles.page}>
       {/* Dark header */}
       <div className={styles.header}>
-        <button className={styles.backButton} onClick={() => navigate(-1)}>
-          <ArrowLeft size={18} />
-          <span>Back</span>
-        </button>
-        <h1 className={styles.communityName}>{props.name}</h1>
+        <div className={styles.headerRow}>
+          <button className={styles.menuButton} onClick={() => setShowMenu(true)}>
+            <Menu size={18} />
+          </button>
+          <h1 className={styles.communityName}>{props.name}</h1>
+        </div>
         {props.description && <p className={styles.communityDesc}>{props.description}</p>}
         <span className={styles.memberCount}>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
       </div>
+
+      {/* Slide-out community menu */}
+      {showMenu && (
+        <div className={styles.menuOverlay} onClick={() => setShowMenu(false)}>
+          <div className={styles.menuPanel} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.menuHeader}>
+              <span className={styles.menuTitle}>{props.name}</span>
+              <button className={styles.menuClose} onClick={() => setShowMenu(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className={styles.menuList}>
+              <button className={styles.menuItem} onClick={() => { navigate('/stage/problem'); setShowMenu(false); }}>
+                <Home size={20} />
+                <span>Home</span>
+              </button>
+
+              <div className={styles.menuDivider} />
+
+              <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/collab`); setShowMenu(false); }}>
+                <Users2 size={20} />
+                <span>Collab</span>
+              </button>
+              <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/chat`); setShowMenu(false); }}>
+                <MessageSquare size={20} />
+                <span>Chat</span>
+              </button>
+              <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/currency`); setShowMenu(false); }}>
+                <Coins size={20} />
+                <span>Currency</span>
+              </button>
+              <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/members`); setShowMenu(false); }}>
+                <Users size={20} />
+                <span>Members</span>
+              </button>
+
+              <div className={styles.menuDivider} />
+
+              <button className={styles.menuItem} onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                setShowMenu(false);
+              }}>
+                <Share2 size={20} />
+                <span>Share Community Link</span>
+              </button>
+              <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/members`); setShowMenu(false); }}>
+                <UserPlus size={20} />
+                <span>Invite Members</span>
+              </button>
+              <button className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={() => { navigate('/identity/communities'); setShowMenu(false); }}>
+                <LogOut size={20} />
+                <span>Leave Community</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Inline nav tabs */}
       <nav className={styles.inlineNav}>
@@ -332,13 +390,6 @@ const CommunityView: React.FC = () => {
           <Users size={16} />
           <span>Members</span>
         </button>
-        <button
-          className={`${styles.navTab} ${showOptions ? styles.navTabActive : ''}`}
-          onClick={() => setShowOptions(!showOptions)}
-        >
-          <Settings size={16} />
-          <span>Options</span>
-        </button>
       </nav>
 
       {/* Main content */}
@@ -363,37 +414,6 @@ const CommunityView: React.FC = () => {
         </Suspense>
       </div>
 
-      {/* Options popup */}
-      {showOptions && (
-        <div className={styles.optionsOverlay} onClick={() => setShowOptions(false)}>
-          <div className={styles.optionsPanel} onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setShowOptions(false);
-              }}
-            >
-              Share Community Link
-            </button>
-            <button
-              onClick={() => {
-                navigate(`/community/${communityId}/members`);
-                setShowOptions(false);
-              }}
-            >
-              Invite Members
-            </button>
-            <button
-              onClick={() => {
-                navigate('/identity/communities');
-                setShowOptions(false);
-              }}
-            >
-              Leave Community
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
