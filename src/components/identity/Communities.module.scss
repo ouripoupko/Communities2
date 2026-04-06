@@ -5,6 +5,47 @@
   max-width: 600px;
   margin: 0 auto;
 
+  .pageHeader {
+    margin-bottom: $spacing-lg;
+  }
+
+  .pageTitle {
+    font-size: $text-xl;
+    font-weight: $font-semibold;
+    color: $gray-800;
+    margin: 0 0 $spacing-xs 0;
+  }
+
+  .pageDescription {
+    font-size: $text-sm;
+    color: $gray-500;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .createCard {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-sm;
+    width: 100%;
+    margin-top: $spacing-lg;
+    padding: $spacing-lg;
+    background: transparent;
+    border: 2px dashed $gray-300;
+    border-radius: $radius-lg;
+    color: $gray-400;
+    font-size: $text-sm;
+    font-weight: $font-medium;
+    cursor: pointer;
+    transition: all $transition-base;
+
+    &:hover {
+      border-color: $primary;
+      color: $primary;
+    }
+  }
+
   .grid {
     display: flex;
     flex-direction: column;
@@ -89,25 +130,28 @@
         justify-content: center;
         width: 32px;
         height: 32px;
-        background: $gray-50;
-        border: 1px solid $gray-200;
+        background: $gray-200;
+        border: 1px solid $gray-300;
         border-radius: $radius-full;
         color: $gray-500;
         cursor: pointer;
         transition: all $transition-fast;
 
         &:hover {
-          background-color: $gray-100;
+          background-color: $gray-300;
           color: $gray-700;
-          border-color: $gray-300;
         }
       }
 
       .starBtnActive {
-        color: #f59e0b;
+        background: #f59e0b;
+        border-color: #f59e0b;
+        color: white;
 
         &:hover {
-          color: #d97706;
+          background: #d97706;
+          border-color: #d97706;
+          color: white;
         }
       }
 
@@ -270,6 +314,24 @@
 // Dark mode
 @media (prefers-color-scheme: dark) {
   .container {
+    .pageTitle {
+      color: $dark-text;
+    }
+
+    .pageDescription {
+      color: $dark-text-secondary;
+    }
+
+    .createCard {
+      border-color: $dark-border;
+      color: $dark-text-secondary;
+
+      &:hover {
+        border-color: $primary;
+        color: $primary;
+      }
+    }
+
     .grid {
       .card {
         background: $dark-bg;

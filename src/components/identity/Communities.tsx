@@ -1,12 +1,11 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Star, EyeOff, Eye, ArrowLeft, Users, ScrollText } from 'lucide-react';
+import React, { useCallback, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Star, EyeOff, Eye, ArrowLeft, Users, ScrollText, PlusCircle } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
 import { fetchCommunityProperties, fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 import { toggleStar, toggleHide, unhide } from '../../store/slices/preferencesSlice';
 import { useEventStream } from '../../hooks/useEventStream';
-import CreateCommunityDialog from './communities/CreateCommunityDialog';
 import styles from './Communities.module.scss';
 
 interface CommunitiesProps {
@@ -15,17 +14,11 @@ interface CommunitiesProps {
 
 const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user);
   const { contracts, loading } = useAppSelector((state) => state.user);
   const { starred, hidden } = useAppSelector((state) => state.preferences);
   const { communityProperties, communityMembers } = useAppSelector((state) => state.communities);
-
-  // Open create dialog if navigated with state
-  const [showCreateForm, setShowCreateForm] = useState(
-    !!(location.state as { createCommunity?: boolean })?.createCommunity
-  );
 
   const communityContracts = contracts.filter(
     (contract) => contract.contract === 'community_contract.py'
@@ -51,14 +44,6 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
       }
     });
   }, [user.serverUrl, user.publicKey, communityContracts, communityProperties, communityMembers, dispatch]);
-
-  const handleCloseDialog = useCallback(() => {
-    setShowCreateForm(false);
-    // Clear the navigation state
-    if ((location.state as { createCommunity?: boolean })?.createCommunity) {
-      window.history.replaceState({}, '');
-    }
-  }, [location.state]);
 
   const handleCommunityClick = (contractId: string) => {
     navigate(`/community/${contractId}`);
@@ -124,10 +109,14 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
 
   return (
     <div className={styles.container}>
-      <CreateCommunityDialog
-        isVisible={showCreateForm}
-        onClose={handleCloseDialog}
-      />
+      {/* Page header */}
+      <div className={styles.pageHeader}>
+        <h2 className={styles.pageTitle}>Your Communities</h2>
+        <p className={styles.pageDescription}>
+          Communities you've joined on Gloki. Star your favourites to keep them at the top,
+          or hide ones you don't need right now.
+        </p>
+      </div>
 
       <div className={styles.grid}>
         {sortedContracts.map((contract) => {
@@ -170,10 +159,19 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
         })}
       </div>
 
+      {/* Create a community card */}
+      <button
+        className={styles.createCard}
+        onClick={() => navigate('/create-community')}
+      >
+        <PlusCircle size={20} />
+        <span>Create a community</span>
+      </button>
+
       {sortedContracts.length === 0 && !loading && (
         <div className={styles.emptyState}>
           <h3 className={styles.title}>No Communities Yet</h3>
-          <p className={styles.description}>Open the menu to create or join a community</p>
+          <p className={styles.description}>Create or join a community to get started</p>
         </div>
       )}
 
