@@ -1,0 +1,268 @@
+import React, { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, AlertTriangle, MessageSquare, FileText, Vote, ScrollText, Plus, X } from 'lucide-react';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { fetchCollaborations } from '../store/slices/communitiesSlice';
+import { createInitiative } from '../services/contracts/community';
+import styles from './CreateInitiativePage.module.scss';
+
+const COUNTRY_OPTIONS = [
+  { code: 'KE', label: 'Kenya' },
+  { code: 'NG', label: 'Nigeria' },
+  { code: 'MW', label: 'Malawi' },
+  { code: 'CD', label: 'DR Congo' },
+  { code: 'OTHER', label: 'Other' },
+];
+
+const STAGES = [
+  {
+    name: 'Problem Recognition',
+    color: '#ef4444',
+    icon: AlertTriangle,
+    description: 'Your community votes on whether this is a real problem. At least 67% of voters must agree it\'s worth addressing before it moves forward.',
+  },
+  {
+    name: 'Discussion',
+    color: '#f59e0b',
+    icon: MessageSquare,
+    description: 'Community members discuss the problem openly. At least 33% of members must participate in the conversation. Members can also suggest modifications to the initiative\'s framing.',
+  },
+  {
+    name: 'Proposals',
+    color: '#8b5cf6',
+    icon: FileText,
+    description: 'Members submit concrete proposals for how to solve the problem. The community reviews and approves proposals. Modifications can still be suggested at this stage.',
+  },
+  {
+    name: 'Vote',
+    color: '#3b82f6',
+    icon: Vote,
+    description: 'The community votes on approved proposals using quadratic voting \u2014 a system where you spread credits across proposals you care about. This prevents any single voter from dominating the outcome.',
+  },
+  {
+    name: 'Mandate',
+    color: '#10b981',
+    icon: ScrollText,
+    description: 'The winning proposal becomes a mandate. Community members can pledge to support its implementation. This is the community\'s commitment to action.',
+  },
+];
+
+const CreateInitiativePage: React.FC = () => {
+  const { communityId } = useParams<{ communityId: string }>();
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { publicKey, serverUrl } = useAppSelector((s) => s.user);
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [evidence, setEvidence] = useState<string[]>(['']);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleEvidenceChange = (index: number, value: string) => {
+    setEvidence((prev) => prev.map((item, i) => (i === index ? value : item)));
+  };
+
+  const handleAddEvidence = () => {
+    setEvidence((prev) => [...prev, '']);
+  };
+
+  const handleRemoveEvidence = (index: number) => {
+    setEvidence((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleToggleCountry = (code: string) => {
+    setCountries((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+
+    if (!title.trim()) {
+      setError('Please describe the problem');
+      return;
+    }
+    if (!description.trim()) {
+      setError('Please explain why this matters');
+      return;
+    }
+    if (!serverUrl || !publicKey || !communityId) {
+      setError('Not logged in');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createInitiative(serverUrl, publicKey, communityId, {
+        title: title.trim(),
+        description: description.trim(),
+      });
+      dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
+      navigate(`/community/${communityId}`);
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <button className={styles.backButton} onClick={() => navigate(`/community/${communityId}`)}>
+          <ArrowLeft size={20} />
+        </button>
+        <h1>Start an Initiative</h1>
+      </div>
+
+      {/* What is an Initiative? */}
+      <div className={styles.card}>
+        <h2>What is an Initiative?</h2>
+        <p>
+          An initiative is a problem you want your community to solve together. When you start an initiative,
+          you're asking your community to recognize a problem, discuss solutions, propose actions, and vote
+          on how to move forward.
+        </p>
+        <br />
+        <p>
+          Think of it as a formal request for collective action — backed by a transparent, democratic process.
+        </p>
+      </div>
+
+      {/* The 5 Stages */}
+      <div className={styles.card}>
+        <h2>The 5 Stages</h2>
+        <div className={styles.stepper}>
+          {STAGES.map((stage, index) => {
+            const StageIcon = stage.icon;
+            return (
+              <div key={stage.name} className={styles.step}>
+                <div className={styles.stepIndicator}>
+                  <div className={styles.stepCircle} style={{ background: stage.color }}>
+                    <StageIcon size={16} />
+                  </div>
+                  {index < STAGES.length - 1 && <div className={styles.stepLine} />}
+                </div>
+                <div className={styles.stepContent}>
+                  <h3>{stage.name}</h3>
+                  <p>{stage.description}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tips */}
+      <div className={`${styles.card} ${styles.tips}`}>
+        <h2>What Makes a Good Initiative?</h2>
+        <p><strong>Be specific.</strong> "Climate change is bad" won't get traction. "Our neighbourhood lacks recycling infrastructure" will.</p>
+        <p><strong>Explain why it matters.</strong> Help your community understand the impact. Who is affected? What happens if nothing changes?</p>
+        <p><strong>Provide evidence.</strong> Link to articles, reports, data, or personal accounts that support your case. Evidence builds trust and accelerates consensus.</p>
+        <p><strong>Think locally.</strong> The best initiatives are ones your community can actually act on.</p>
+      </div>
+
+      {/* Form */}
+      <div className={styles.card}>
+        <h2>Your Initiative</h2>
+
+        <div className={styles.formGroup}>
+          <label htmlFor="initiativeTitle" className={styles.label}>What's the problem?</label>
+          <input
+            id="initiativeTitle"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Describe the problem in one clear sentence"
+            className={styles.inputField}
+            disabled={isSubmitting}
+          />
+          <p className={styles.hint}>Be specific and actionable. This becomes the initiative's title.</p>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label htmlFor="initiativeDesc" className={styles.label}>Why does this matter?</label>
+          <textarea
+            id="initiativeDesc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Explain the impact and why your community should care"
+            className={`${styles.inputField} ${styles.textarea}`}
+            rows={6}
+            disabled={isSubmitting}
+          />
+          <p className={styles.hint}>This is your case for action. Be persuasive but honest.</p>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Supporting evidence</label>
+          <p className={styles.hint}>Links to articles, reports, or data that back up your case.</p>
+          {evidence.map((url, index) => (
+            <div key={index} className={styles.evidenceRow}>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => handleEvidenceChange(index, e.target.value)}
+                placeholder="https://..."
+                className={styles.inputField}
+                disabled={isSubmitting}
+              />
+              {evidence.length > 1 && (
+                <button
+                  type="button"
+                  className={styles.removeButton}
+                  onClick={() => handleRemoveEvidence(index)}
+                  disabled={isSubmitting}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            className={styles.addEvidenceButton}
+            onClick={handleAddEvidence}
+            disabled={isSubmitting}
+          >
+            <Plus size={14} />
+            Add link
+          </button>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Countries affected</label>
+          <p className={styles.hint}>Select which countries are most affected by this problem.</p>
+          <div className={styles.chipGroup}>
+            {COUNTRY_OPTIONS.map((country) => (
+              <button
+                key={country.code}
+                type="button"
+                className={`${styles.chip} ${countries.includes(country.code) ? styles.chipSelected : ''}`}
+                onClick={() => handleToggleCountry(country.code)}
+                disabled={isSubmitting}
+              >
+                {country.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error && <div className={styles.errorMessage}>{error}</div>}
+
+        <button
+          className={styles.submitButton}
+          onClick={handleSubmit}
+          disabled={isSubmitting || !title.trim() || !description.trim()}
+        >
+          {isSubmitting ? 'Submitting...' : 'Start Initiative'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default CreateInitiativePage;
