@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, Navigate } from 'react-router-dom';
-import { Home, Menu, X, Users2, MessageSquare, Users, Coins, Share2, UserPlus, LogOut, AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText } from 'lucide-react';
+import { Home, Menu, X, Users2, MessageSquare, Users, Coins, Share2, UserPlus, LogOut, AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText, PlusCircle, Shield } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
@@ -17,6 +17,8 @@ const Currency = lazy(() => import('../components/community/Currency'));
 const ChatTopicList = lazy(() => import('../components/community/chat/ChatTopicList'));
 const ChatTopic = lazy(() => import('../components/community/chat/ChatTopic'));
 const CollaborationPage = lazy(() => import('./collaboration/CollaborationPage'));
+const IdentityTrust = lazy(() => import('../components/community/IdentityTrust'));
+const CreateInitiativePage = lazy(() => import('./CreateInitiativePage'));
 
 // ─── Stage metadata ──────────────────────────
 const STAGE_META: Record<string, { icon: React.ComponentType<{ size?: number }>; color: string; label: string }> = {
@@ -130,6 +132,14 @@ const CommunityFeed: React.FC<{ communityId: string }> = ({ communityId }) => {
 
   return (
     <div className={styles.feed}>
+      <div className={styles.feedHeader}>
+        <h2 className={styles.feedTitle}>Community Activity</h2>
+        <p className={styles.feedDescription}>
+          Recent initiatives and updates from this community. Tap an initiative to see its
+          progress through the governance pipeline.
+        </p>
+      </div>
+
       {/* Real initiatives */}
       {initiatives.map((item) => {
         const itemStage = stages[item.id] || 'problem';
@@ -313,6 +323,10 @@ const CommunityView: React.FC = () => {
                 <Home size={20} />
                 <span>Home</span>
               </button>
+              <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/create-initiative`); setShowMenu(false); }}>
+                <PlusCircle size={20} />
+                <span>Create Initiative</span>
+              </button>
 
               <div className={styles.menuDivider} />
 
@@ -331,6 +345,10 @@ const CommunityView: React.FC = () => {
               <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/members`); setShowMenu(false); }}>
                 <Users size={20} />
                 <span>Members</span>
+              </button>
+              <button className={styles.menuItem} onClick={() => { navigate(`/community/${communityId}/identity`); setShowMenu(false); }}>
+                <Shield size={20} />
+                <span>Identity & Trust</span>
               </button>
 
               <div className={styles.menuDivider} />
@@ -371,6 +389,8 @@ const CommunityView: React.FC = () => {
               <Route path="chat/:topicId" element={<ChatTopic />} />
               <Route path="members" element={<Members communityId={communityId!} />} />
               <Route path="currency" element={<Currency communityId={communityId!} />} />
+              <Route path="identity" element={<IdentityTrust communityId={communityId!} />} />
+              <Route path="create-initiative" element={<CreateInitiativePage />} />
               <Route path="*" element={<CommunityFeed communityId={communityId!} />} />
             </Routes>
           </ErrorBoundary>
