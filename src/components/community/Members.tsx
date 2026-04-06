@@ -1,5 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, Suspense, lazy } from 'react';
-import { IdCard, QrCode, Share2 } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppSelector } from '../../store/hooks';
 import type { IProfile } from '../../services/interfaces';
 import ApprovalDialog from './dialogs/ApprovalDialog';
@@ -8,10 +7,6 @@ import styles from './Members.module.scss';
 import { requestJoin } from '../../services/contracts/community';
 import { eventStreamService } from '../../services/eventStream';
 import type { BlockchainEvent } from '../../services/eventStream';
-
-const IdentityCardDialog = lazy(() => import('./dialogs/IdentityCardDialog'));
-const QRScannerDialog = lazy(() => import('./dialogs/QRScannerDialog'));
-const Share = lazy(() => import('./Share'));
 
 interface MemberItemProps {
   publicKey: string;
@@ -73,16 +68,13 @@ interface MembersProps {
 }
 
 const Members: React.FC<MembersProps> = ({ communityId }) => {
-  const { communityMembers, communityTasks, communityNominates, profiles, communityProperties } = useAppSelector((state) => state.communities);
+  const { communityMembers, communityTasks, communityNominates, profiles } = useAppSelector((state) => state.communities);
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
   const tasks: Record<string, boolean> = communityTasks[communityId] || {};
   const taskAgents: string[] = Object.keys(tasks);
   const nominates: string[] = Array.isArray(communityNominates[communityId]) ? communityNominates[communityId] : [];
   const [isJoining, setIsJoining] = useState(false);
-  const [showIdentityCard, setShowIdentityCard] = useState(false);
-  const [showQRScanner, setShowQRScanner] = useState(false);
-  const [showShare, setShowShare] = useState(false);
   const [messageDialog, setMessageDialog] = useState<{
     isOpen: boolean;
     message: string;
@@ -92,9 +84,6 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
   });
 
   const members: string[] = allMembers.filter(member => !taskAgents.includes(member));
-  const isMember = publicKey && allMembers.includes(publicKey);
-
-  const communityName = communityProperties[communityId]?.name || 'Community';
 
   const [approvalDialog, setApprovalDialog] = useState<{
     isOpen: boolean;
@@ -206,42 +195,10 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
   return (
     <>
       <div className={styles.container}>
-        {/* Identity & Trust section — members only */}
-        {isMember && (
-          <div className={styles.trustSection}>
-            <h3 className={styles.trustTitle}>Identity & Trust</h3>
-            <p className={styles.trustText}>
-              Every member is verified through a web of trust. Existing members vouch for new
-              members' identities. Show your ID card to prove membership, or scan another
-              member's card to verify theirs.
-            </p>
-            <div className={styles.trustActions}>
-              <button className={styles.trustBtn} onClick={() => setShowIdentityCard(true)}>
-                <IdCard size={18} />
-                <span>My ID Card</span>
-              </button>
-              <button className={styles.trustBtn} onClick={() => setShowQRScanner(true)}>
-                <QrCode size={18} />
-                <span>Scan Member</span>
-              </button>
-              <button className={styles.trustBtn} onClick={() => setShowShare((v) => !v)}>
-                <Share2 size={18} />
-                <span>Share</span>
-              </button>
-            </div>
-            {showShare && (
-              <div className={styles.shareEmbed}>
-                <Suspense fallback={<p>Loading...</p>}>
-                  <Share communityId={communityId} />
-                </Suspense>
-              </div>
-            )}
-          </div>
-        )}
-
         <div className={styles.header}>
           <h2>Members</h2>
-          <p>{allMembers.length} community members</p>
+          <p>People in this community. Members can propose initiatives, vote on decisions, and participate in governance.</p>
+          <p className={styles.memberCount}>{allMembers.length} community member{allMembers.length !== 1 ? 's' : ''}</p>
         </div>
 
         {!currentUserInList && publicKey && (
@@ -290,20 +247,6 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
         message={messageDialog.message}
         onClose={() => setMessageDialog({ isOpen: false, message: '' })}
       />
-
-      {/* Dialogs */}
-      <Suspense fallback={null}>
-        <IdentityCardDialog
-          isOpen={showIdentityCard}
-          onClose={() => setShowIdentityCard(false)}
-          communityName={communityName}
-        />
-        <QRScannerDialog
-          isOpen={showQRScanner}
-          onClose={() => setShowQRScanner(false)}
-          communityId={communityId}
-        />
-      </Suspense>
     </>
   );
 };
