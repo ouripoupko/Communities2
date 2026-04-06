@@ -51,7 +51,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
       <div className={`${styles.header} ${styles.homepageHeader}`}>
         <div className={styles.homepageRow}>
           <button className={styles.wordmark} onClick={() => navigate('/stage/problem')}>
-            <EarthFlag size={32} />
+            <EarthFlag size={40} />
             Gloki
           </button>
           {onMenuClick && (
