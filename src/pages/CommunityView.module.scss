@@ -278,49 +278,6 @@
   border-color: rgba($primary, 0.25);
 }
 
-// ─── Inline nav tabs ────────────────────────
-.inlineNav {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: white;
-  border-bottom: 1px solid $gray-200;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-.navTab {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xs;
-  padding: $spacing-md $spacing-lg;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: $gray-400;
-  font-size: $text-sm;
-  font-weight: $font-medium;
-  cursor: pointer;
-  transition: all $transition-base;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  min-height: 44px;
-
-  &:hover {
-    color: $gray-600;
-    background: $gray-50;
-  }
-}
-
-.navTabActive {
-  color: $primary;
-  border-bottom-color: $primary;
-}
-
 // ─── Options popup ───────────────────────────
 .optionsOverlay {
   position: fixed;
@@ -443,24 +400,6 @@
   .author,
   .time {
     color: $dark-text-secondary;
-  }
-
-  .inlineNav {
-    background: $dark-bg;
-    border-bottom-color: $dark-border;
-  }
-
-  .navTab {
-    color: $dark-text-secondary;
-
-    &:hover {
-      color: $dark-text;
-      background: $dark-surface;
-    }
-  }
-
-  .navTabActive {
-    color: $primary;
   }
 
   .optionsPanel {

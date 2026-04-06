@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
-import { Routes, Route, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useParams, useNavigate, Navigate } from 'react-router-dom';
 import { Home, Menu, X, Users2, MessageSquare, Users, Coins, Share2, UserPlus, LogOut, AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
@@ -194,7 +194,6 @@ const CommunityFeed: React.FC<{ communityId: string }> = ({ communityId }) => {
 const CommunityView: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const { contracts, publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { communityProperties = {}, communityMembers = {} } = useAppSelector((state) => state.communities);
   const [fetching, setFetching] = useState(false);
@@ -259,10 +258,6 @@ const CommunityView: React.FC = () => {
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
     };
   }, [communityId, props, dispatch, publicKey, serverUrl, communityMembers, handleContractWrite]);
-
-  // Determine active footer tab
-  const footerTabs = ['collab', 'chat', 'currency', 'members'];
-  const activeTab = footerTabs.find((t) => location.pathname.includes(`/community/${communityId}/${t}`)) || null;
 
   if (fetching) {
     return (
@@ -359,38 +354,6 @@ const CommunityView: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Inline nav tabs */}
-      <nav className={styles.inlineNav}>
-        <button
-          className={`${styles.navTab} ${activeTab === 'collab' ? styles.navTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/collab`)}
-        >
-          <Users2 size={16} />
-          <span>Collab</span>
-        </button>
-        <button
-          className={`${styles.navTab} ${activeTab === 'chat' ? styles.navTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/chat`)}
-        >
-          <MessageSquare size={16} />
-          <span>Chat</span>
-        </button>
-        <button
-          className={`${styles.navTab} ${activeTab === 'currency' ? styles.navTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/currency`)}
-        >
-          <Coins size={16} />
-          <span>Currency</span>
-        </button>
-        <button
-          className={`${styles.navTab} ${activeTab === 'members' ? styles.navTabActive : ''}`}
-          onClick={() => navigate(`/community/${communityId}/members`)}
-        >
-          <Users size={16} />
-          <span>Members</span>
-        </button>
-      </nav>
 
       {/* Main content */}
       <div className={styles.body}>
