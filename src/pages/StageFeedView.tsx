@@ -297,9 +297,6 @@ const StageFeedView: React.FC = () => {
         onClose={() => setMenuOpen(false)}
         onNavigate={handleMenuNavigate}
         onLogout={handleLogout}
-        onCreateCommunity={() => {
-          navigate('/identity/communities', { state: { createCommunity: true } });
-        }}
       />
 
       <div className={styles.feedContainer}>
