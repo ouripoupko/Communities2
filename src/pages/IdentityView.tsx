@@ -37,9 +37,6 @@ const IdentityView: React.FC = () => {
         onClose={() => setMenuOpen(false)}
         onNavigate={handleNavigate}
         onLogout={handleLogout}
-        onCreateCommunity={() => {
-          navigate('/identity/communities', { state: { createCommunity: true } });
-        }}
       />
 
       <div className={styles.content}>

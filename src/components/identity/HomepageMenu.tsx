@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, QrCode, Plus, LogOut, EyeOff, Info, Mail, X, LayoutGrid } from 'lucide-react';
 import { useAppSelector } from '../../store/hooks';
 import styles from './HomepageMenu.module.scss';
@@ -8,7 +9,6 @@ interface HomepageMenuProps {
   onClose: () => void;
   onNavigate: (path: string) => void;
   onLogout: () => void;
-  onCreateCommunity: () => void;
 }
 
 const HomepageMenu: React.FC<HomepageMenuProps> = ({
@@ -16,8 +16,8 @@ const HomepageMenu: React.FC<HomepageMenuProps> = ({
   onClose,
   onNavigate,
   onLogout,
-  onCreateCommunity,
 }) => {
+  const navigate = useNavigate();
   const hiddenCount = useAppSelector((s) => s.preferences.hidden.length);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +59,7 @@ const HomepageMenu: React.FC<HomepageMenuProps> = ({
             <QrCode size={20} />
             <span>Join Community</span>
           </button>
-          <button className={styles.menuItem} onClick={() => { onCreateCommunity(); onClose(); }}>
+          <button className={styles.menuItem} onClick={() => { navigate('/create-community'); onClose(); }}>
             <Plus size={20} />
             <span>Create Community</span>
           </button>

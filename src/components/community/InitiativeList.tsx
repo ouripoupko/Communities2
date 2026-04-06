@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, ChevronRight } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCollaborations } from '../../store/slices/communitiesSlice';
-import { createInitiative, type Collaboration } from '../../services/contracts/community';
-import CreateInitiativeDialog, { type InitiativeFormData } from './dialogs/CreateInitiativeDialog';
+import { type Collaboration } from '../../services/contracts/community';
 import styles from './InitiativeList.module.scss';
 
 interface InitiativeListProps {
@@ -20,8 +19,6 @@ const InitiativeList: React.FC<InitiativeListProps> = ({ communityId }) => {
   );
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
 
-  const [showDialog, setShowDialog] = useState(false);
-
   const allMembers: string[] = Array.isArray(communityMembers[communityId])
     ? communityMembers[communityId]
     : [];
@@ -36,15 +33,6 @@ const InitiativeList: React.FC<InitiativeListProps> = ({ communityId }) => {
     if (!communityId || !serverUrl || !publicKey) return;
     dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
   }, [communityId, serverUrl, publicKey, dispatch]);
-
-  const handleCreate = async (data: InitiativeFormData) => {
-    if (!serverUrl || !publicKey) throw new Error('Not logged in');
-    await createInitiative(serverUrl, publicKey, communityId, {
-      title: data.title,
-      description: data.description,
-    });
-    dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
-  };
 
   const handleClick = (item: Collaboration) => {
     const hostServer = item.hostServer || serverUrl || 'local';
@@ -103,15 +91,10 @@ const InitiativeList: React.FC<InitiativeListProps> = ({ communityId }) => {
         </div>
       )}
 
-      <button className={styles.createBtn} onClick={() => setShowDialog(true)}>
+      <button className={styles.createBtn} onClick={() => navigate(`/community/${communityId}/create-initiative`)}>
         Start Initiative
       </button>
 
-      <CreateInitiativeDialog
-        isVisible={showDialog}
-        onClose={() => setShowDialog(false)}
-        onSubmit={handleCreate}
-      />
     </div>
   );
 };

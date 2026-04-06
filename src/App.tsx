@@ -20,6 +20,7 @@ const IssueView = lazy(() => import('./pages/IssueView'));
 const InitiativeView = lazy(() => import('./pages/collaboration/InitiativeView'));
 const WishView = lazy(() => import('./pages/collaboration/WishView'));
 const AgreementView = lazy(() => import('./pages/collaboration/AgreementView'));
+const CreateCommunityPage = lazy(() => import('./pages/CreateCommunityPage'));
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -49,6 +50,7 @@ function AppContent() {
             <Route path="/" element={<Navigate to="/stage/problem" replace />} />
             <Route path="/stage/:stageId" element={<StageFeedView />} />
             <Route path="/identity/*" element={<IdentityView />} />
+            <Route path="/create-community" element={<CreateCommunityPage />} />
             <Route path="/community/:communityId/*" element={<CommunityView />} />
             <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
             <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />

@@ -5,12 +5,10 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCollaborations } from '../../store/slices/communitiesSlice';
 import {
   addCollaboration,
-  createInitiative,
   type Collaboration,
 } from '../../services/contracts/community';
 import { getTopics } from './chat/chatApi';
 import type { ChatTopic } from './chat/chatApi';
-import CreateInitiativeDialog, { type InitiativeFormData } from './dialogs/CreateInitiativeDialog';
 import CreateCollabDialog from './dialogs/CreateCollabDialog';
 import type { CollabTemplate } from '../collaboration/collabTemplates';
 import styles from './ActivityHub.module.scss';
@@ -28,7 +26,6 @@ const ActivityHub: React.FC<ActivityHubProps> = ({ communityId }) => {
   );
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
 
-  const [showInitiativeDialog, setShowInitiativeDialog] = useState(false);
   const [showCollabDialog, setShowCollabDialog] = useState(false);
   const [chatTopics, setChatTopics] = useState<ChatTopic[]>([]);
 
@@ -70,15 +67,6 @@ const ActivityHub: React.FC<ActivityHubProps> = ({ communityId }) => {
     const interval = setInterval(loadTopics, 5000);
     return () => clearInterval(interval);
   }, [communityId]);
-
-  const handleCreateInitiative = async (data: InitiativeFormData) => {
-    if (!serverUrl || !publicKey) throw new Error('Not logged in');
-    await createInitiative(serverUrl, publicKey, communityId, {
-      title: data.title,
-      description: data.description,
-    });
-    dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
-  };
 
   const handleCreateCollab = async (name: string, template: CollabTemplate) => {
     if (!serverUrl || !publicKey) throw new Error('Not logged in');
@@ -185,7 +173,7 @@ const ActivityHub: React.FC<ActivityHubProps> = ({ communityId }) => {
 
         <button
           className={`${styles.cardAction} ${styles.initiativeAction}`}
-          onClick={() => setShowInitiativeDialog(true)}
+          onClick={() => navigate(`/community/${communityId}/create-initiative`)}
         >
           Start Initiative
         </button>
@@ -272,11 +260,6 @@ const ActivityHub: React.FC<ActivityHubProps> = ({ communityId }) => {
       </div>
 
       {/* Dialogs */}
-      <CreateInitiativeDialog
-        isVisible={showInitiativeDialog}
-        onClose={() => setShowInitiativeDialog(false)}
-        onSubmit={handleCreateInitiative}
-      />
       <CreateCollabDialog
         isVisible={showCollabDialog}
         onClose={() => setShowCollabDialog(false)}
