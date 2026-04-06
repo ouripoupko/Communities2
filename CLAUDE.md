@@ -32,7 +32,7 @@
 
 **Stage Feeds** (`StageFeedView.tsx`): Default landing page at `/stage/problem`. Shows initiatives across all communities filtered by governance stage. Problem stage has inline "Problem for me" / "Not a problem for me" voting with threshold progress bars. Problem cards do not navigate (vote inline only); other stages navigate to the initiative pipeline. Sample/mock data shown when no real initiatives exist (non-interactive, disabled buttons).
 
-**Community** (`CommunityView.tsx`): Dark header with name, description, member count. Inline horizontal tab bar (Collab, Chat, Currency, Members) below header. Hamburger menu (slide-out from left) with Home, community sections, Share, Invite, Leave. Default view is the activity feed showing initiatives with stage badges.
+**Community** (`CommunityView.tsx`): Dark header with name, description, member count. No inline tab bar — all navigation through slide-out hamburger menu (Home, Create Initiative, Collab, Chat, Currency, Members, Identity & Trust, Share, Invite, Leave). Default view is the activity feed with "Community Activity" section header showing initiatives with stage badges.
 
 **Initiative Pipeline** (`PipelineView.tsx`): 5 stages with connected progress dots (green = completed, blue = current). Swipe navigation between stages. All stage flows use shared contracts via `parentContractId={collaborationId}`.
 - Step 1: `ProblemVoteFlow` — upvote/downvote, 67% threshold, "X more needed"
@@ -42,7 +42,13 @@
 - Step 5: Mandate pledge (UI only)
 - `ConcernsFlow` sidebar at any stage
 
-**Identity** (`IdentityView.tsx`): At `/identity/*`, default `/identity/communities`. Single-column communities list with description, member count (Users icon), mandate count (ScrollText icon), star/hide controls. Profile page with identity info hints ("Network Identity", "AI API Key"). Join page with tutorial text. About, Contact pages.
+**Identity** (`IdentityView.tsx`): At `/identity/*`, default `/identity/communities`. Communities list with "Your Communities" title/description, single-column cards with description, member count (Users icon), mandate count (ScrollText icon), star/hide controls (high-contrast buttons), and "Create a community" dashed card linking to `/create-community`. Profile page with identity info hints. Join page with tutorial text. About, Contact pages.
+
+**Create Initiative** (`CreateInitiativePage.tsx`): Full onboarding page at `/community/:communityId/create-initiative`. Educates users with "What is an Initiative?", 5-stage stepper, tips, then form (title, description, evidence URLs, countries). Replaces the old `CreateInitiativeDialog` modal.
+
+**Create Community** (`CreateCommunityPage.tsx`): Full onboarding page at `/create-community`. Explains communities, features, then form (name, description). Replaces the old `CreateCommunityDialog` modal.
+
+**Identity & Trust** (`IdentityTrust.tsx`): Dedicated page at `/community/:communityId/identity`. QR-based identity verification, ID cards, sharing. Extracted from Members page.
 
 **Collab**: Template-based workspaces via `CollaborationPage`. Navigates from community collab tab to `/community/:communityId/collab/:collabId`. Templates in `collabTemplates.ts`. Per-user contracts.
 
@@ -56,7 +62,8 @@
 / → /stage/problem (redirect)
 /stage/:stageId → StageFeedView
 /identity/* → IdentityView (communities, profile, join, about, contact)
-/community/:communityId/* → CommunityView (feed, collab, collab/:collabId, chat, chat/:topicId, currency, members)
+/create-community → CreateCommunityPage (full onboarding page)
+/community/:communityId/* → CommunityView (feed, collab, collab/:collabId, chat, chat/:topicId, currency, members, identity, create-initiative)
 /initiative/:host/:agent/:communityId/:initiativeId/* → InitiativeView → PipelineView
 ```
 
