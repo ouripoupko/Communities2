@@ -4,7 +4,9 @@ import ScoringFlow from './voting/ScoringFlow';
 import DocFlow from './document/DocFlow';
 import FundraisingFlow from './fundraising/FundraisingFlow';
 import DiscussionFlow from './discussion/DiscussionFlow';
-import SchedulingFlow from './scheduling/SchedulingFlow';
+import SchedulingFlow, { SchedulingSetupDialog } from './scheduling/SchedulingFlow';
+import { setupRange } from './scheduling/schedulingApi';
+import type { RangeConfig } from './scheduling/schedulingApi';
 import BudgetFlow from './budget/BudgetFlow';
 import TaskboardFlow from './taskboard/TaskboardFlow';
 import ConcernsFlow from './concerns/ConcernsFlow';
@@ -51,6 +53,10 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: CalendarDays,
     component: SchedulingFlow,
     group: 'Planning & Execution',
+    setupComponent: SchedulingSetupDialog,
+    onInit: async (server, agent, contractId, config, currentUser) => {
+      await setupRange(server, agent, contractId, config as Omit<RangeConfig, 'organizerId'>, currentUser);
+    },
   },
   {
     id: 'task-board',

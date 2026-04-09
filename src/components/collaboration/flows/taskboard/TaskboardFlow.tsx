@@ -160,11 +160,10 @@ const Column: React.FC<{
   currentUser: string;
   onAddTask: (title: string, desc: string) => Promise<void>;
   onAction:  (fn: () => Promise<void>) => void;
-  allTasks: Task[];
   server: string;
   agent: string;
   contractId: string;
-}> = ({ status, tasks, currentUser, onAddTask, onAction, allTasks, server, agent, contractId }) => (
+}> = ({ status, tasks, currentUser, onAddTask, onAction, server, agent, contractId }) => (
   <div className={`${styles.column} ${COLUMN_COLORS[status]}`}>
     <div className={styles.colHeader}>
       <span className={styles.colTitle}>{api.STATUS_LABELS[status]}</span>
@@ -181,11 +180,11 @@ const Column: React.FC<{
           key={t.id}
           task={t}
           currentUser={currentUser}
-          onClaim={async ()   => { await api.claimTask(server, agent, contractId, allTasks, t.id, currentUser);   onAction(async () => {}); }}
-          onRelease={async () => { await api.releaseTask(server, agent, contractId, allTasks, t.id, currentUser); onAction(async () => {}); }}
-          onAdvance={async () => { await api.advanceTask(server, agent, contractId, allTasks, t.id, currentUser); onAction(async () => {}); }}
-          onRevert={async ()  => { await api.revertTask(server, agent, contractId, allTasks, t.id, currentUser);  onAction(async () => {}); }}
-          onDelete={async ()  => { await api.deleteTask(server, agent, contractId, allTasks, t.id, currentUser);  onAction(async () => {}); }}
+          onClaim={async ()   => { await api.claimTask(server, agent, contractId, t.id, currentUser); onAction(async () => {}); }}
+          onRelease={async () => { await api.releaseTask(server, agent, contractId, t.id);            onAction(async () => {}); }}
+          onAdvance={async () => { await api.advanceTask(server, agent, contractId, t);               onAction(async () => {}); }}
+          onRevert={async ()  => { await api.revertTask(server, agent, contractId, t);                onAction(async () => {}); }}
+          onDelete={async ()  => { await api.deleteTask(server, agent, contractId, t.id);             onAction(async () => {}); }}
         />
       ))}
     </div>
@@ -261,7 +260,6 @@ const TaskboardFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent,
             currentUser={currentUser}
             onAddTask={handleAddTask}
             onAction={handleAction}
-            allTasks={tasks}
             server={flowServer}
             agent={flowAgent}
             contractId={instanceId}

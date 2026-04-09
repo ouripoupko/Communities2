@@ -109,21 +109,16 @@ export async function voteConcern(
   server: string,
   agent: string,
   contractId: string,
-  concerns: Concern[],
-  concernId: string,
+  concern: Concern,
   currentUser: string,
   v: ConcernVote,
 ): Promise<void> {
-  const updated = concerns.map(c =>
-    c.id === concernId
-      ? { ...c, votes: { ...c.votes, [currentUser]: v } }
-      : c,
-  );
+  const votes = { ...concern.votes, [currentUser]: v };
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_concerns', values: { concerns: updated } } as IMethod,
+    method: { name: 'set_concern_votes', values: { concern_id: concern.id, votes } } as IMethod,
   });
 }
 
@@ -131,19 +126,14 @@ export async function clearVoteConcern(
   server: string,
   agent: string,
   contractId: string,
-  concerns: Concern[],
-  concernId: string,
+  concern: Concern,
   currentUser: string,
 ): Promise<void> {
-  const updated = concerns.map(c => {
-    if (c.id !== concernId) return c;
-    const { [currentUser]: _removed, ...rest } = c.votes;
-    return { ...c, votes: rest };
-  });
+  const { [currentUser]: _removed, ...votes } = concern.votes;
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_concerns', values: { concerns: updated } } as IMethod,
+    method: { name: 'set_concern_votes', values: { concern_id: concern.id, votes } } as IMethod,
   });
 }

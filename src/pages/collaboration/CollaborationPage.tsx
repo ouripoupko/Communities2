@@ -46,6 +46,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const [showAddMenu,      setShowAddMenu]       = useState(false);
   const [isAddingTab,      setIsAddingTab]       = useState(false);
   const [isLoadingTabs,    setIsLoadingTabs]     = useState(false);
+  const [pendingFlow,      setPendingFlow]       = useState<ReturnType<typeof getFlow> | null>(null);
 
   const collabServer = collaborationServer ?? serverUrl;
   const collabAgent  = collaborationAgent  ?? publicKey;
@@ -73,13 +74,17 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   }, [collabServer, collabAgent, collaborationId]);
 
   // Deploy flow contract on user's server and register reference in collaboration contract
-  const addTab = useCallback(async (flowId: string) => {
+  const addTab = useCallback(async (flowId: string, initConfig?: Record<string, unknown>) => {
     if (!serverUrl || !publicKey || !collabServer || !collabAgent) return;
 
     setShowAddMenu(false);
     setIsAddingTab(true);
     try {
       const contractId = await deployFlowContract(serverUrl, publicKey, flowId);
+      const flowDef = getFlow(flowId);
+      if (initConfig && flowDef?.onInit) {
+        await flowDef.onInit(serverUrl, publicKey, contractId, initConfig, publicKey);
+      }
       const flow = { id: contractId, server: serverUrl, agent: publicKey, type: flowId };
       await addFlow(collabServer, collabAgent, collaborationId, flow);
       const newTab: CollaborationTab = {
@@ -97,6 +102,15 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
     }
   }, [serverUrl, publicKey, collabServer, collabAgent, collaborationId]);
 
+  const handleMenuFlowClick = useCallback((flow: NonNullable<ReturnType<typeof getFlow>>) => {
+    if (flow.setupComponent) {
+      setShowAddMenu(false);
+      setPendingFlow(flow);
+    } else {
+      void addTab(flow.id);
+    }
+  }, [addTab]);
+
   const removeTab = (instanceId: string) => {
     setTabs((prev) => {
       const next = prev.filter((t) => t.instanceId !== instanceId);
@@ -111,6 +125,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const ActiveComponent = activeFlow?.component ?? null;
 
   return (
+    <>
     <div className={cs.container}>
       <PageHeader
         showBackButton={true}
@@ -166,7 +181,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
                     <button
                       key={flow.id}
                       className={`${styles.addTabMenuItem} ${!available ? styles.addTabMenuItemDisabled : ''}`}
-                      onClick={() => { if (available) void addTab(flow.id); }}
+                      onClick={() => { if (available) handleMenuFlowClick(flow); }}
                       disabled={!available}
                       title={!available ? 'Not available with current tabs' : undefined}
                     >
@@ -191,7 +206,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
                           <button
                             key={flow.id}
                             className={`${styles.addTabMenuItem} ${!available ? styles.addTabMenuItemDisabled : ''}`}
-                            onClick={() => { if (available) void addTab(flow.id); }}
+                            onClick={() => { if (available) handleMenuFlowClick(flow); }}
                             disabled={!available}
                             title={!available ? 'Not available with current tabs' : undefined}
                           >
@@ -230,6 +245,18 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
         </div>
       </div>
     </div>
+
+    {pendingFlow?.setupComponent && (
+      <pendingFlow.setupComponent
+        onDone={(config) => {
+          const flowId = pendingFlow.id;
+          setPendingFlow(null);
+          void addTab(flowId, config);
+        }}
+        onCancel={() => setPendingFlow(null)}
+      />
+    )}
+    </>
   );
 };
 

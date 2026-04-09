@@ -22,4 +22,22 @@ export interface FlowDefinition {
   group?: string;
   /** Return false to disable this flow in the Add menu given the current set of open tab flow-ids */
   isAvailable?: (existingFlowIds: string[]) => boolean;
+  /**
+   * If defined, this dialog is shown before the tab is created.
+   * onDone receives the config; onCancel aborts tab creation.
+   */
+  setupComponent?: React.ComponentType<{
+    onDone: (config: Record<string, unknown>) => void;
+    onCancel: () => void;
+  }>;
+  /**
+   * Called after deploying the flow contract, with the config from setupComponent.
+   */
+  onInit?: (
+    server: string,
+    agent: string,
+    contractId: string,
+    config: Record<string, unknown>,
+    currentUser: string,
+  ) => Promise<void>;
 }

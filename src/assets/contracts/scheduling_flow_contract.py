@@ -2,11 +2,9 @@ class SchedulingFlow:
 
     def __init__(self):
         self.config = Storage('config')
-        self.slots = Storage('slots')
-        self.availability = Storage('availability')
-        self.confirmed = Storage('confirmed')
+        self.selections = Storage('selections')
 
-    # Event config
+    # Range config (title, description, organizerId, startDate, endDate, dailyStart, dailyEnd, slotMinutes)
     def set_config(self, config):
         self.config['data'] = config
 
@@ -15,28 +13,9 @@ class SchedulingFlow:
             return {}
         return self.config['data'].get_dict()
 
-    # Time slots
-    def add_slot(self, slot):
-        self.slots.append(slot)
+    # Participant selections — one record per participant, full slot-index list
+    def set_my_selection(self, slots):
+        self.selections[master()] = {'participantId': master(), 'slots': slots}
 
-    def get_slots(self):
-        return [self.slots[key].get_dict() for key in self.slots]
-
-    def set_slots(self, slots):
-        pass  # TODO
-
-    # Availability — one record per participant
-    def set_my_availability(self, responses):
-        self.availability[master()] = {'participantId': master(), 'responses': responses}
-
-    def get_all_availability(self):
-        return [self.availability[key].get_dict() for key in self.availability]
-
-    # Confirmed slot
-    def set_confirmed_slot(self, slot_id):
-        self.confirmed['data'] = {'slot_id': slot_id}
-
-    def get_confirmed_slot(self):
-        if 'data' not in self.confirmed:
-            return {}
-        return self.confirmed['data'].get_dict()
+    def get_all_selections(self):
+        return [self.selections[key].get_dict() for key in self.selections]

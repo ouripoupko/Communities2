@@ -1,145 +1,217 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Calendar, Check, Plus, Trash2, CheckCircle } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Calendar } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './schedulingApi';
-import type { Availability, EventState, TimeSlot } from './schedulingApi';
+import type { RangeConfig, SchedulingState } from './schedulingApi';
 import styles from './SchedulingFlow.module.scss';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const AVAILABILITY_CYCLE: Availability[] = ['yes', 'maybe', 'no'];
-const AVAIL_LABEL: Record<Availability, string> = { yes: '✓', maybe: '?', no: '✗' };
-const authorLabel = (id: string, currentUser: string) => id === currentUser ? 'You' : id;
 
-function formatSlotHeader(slot: TimeSlot): { date: string; time: string } {
-  const d = new Date(`${slot.date}T00:00:00`);
-  return {
-    date: d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
-    time: `${slot.startTime} – ${slot.endTime}`,
-  };
+function formatDayLabel(date: Date): string {
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-function nextAvailability(current: Availability | undefined): Availability {
-  const idx = current ? AVAILABILITY_CYCLE.indexOf(current) : -1;
-  return AVAILABILITY_CYCLE[(idx + 1) % AVAILABILITY_CYCLE.length];
+function formatHourLabel(time: string): string {
+  const h = parseInt(time.split(':')[0], 10);
+  if (h === 0)  return '12am';
+  if (h < 12)   return `${h}am`;
+  if (h === 12) return '12pm';
+  return `${h - 12}pm`;
+}
+
+function heatStyle(count: number, total: number): string {
+  if (count === 0 || total === 0) return '';
+  const alpha = 0.12 + (count / total) * 0.73;
+  return `rgba(16, 185, 129, ${alpha.toFixed(2)})`;
 }
 
 // ---------------------------------------------------------------------------
-// Setup screen
+// Setup dialog
 // ---------------------------------------------------------------------------
-const SetupScreen: React.FC<{ onDone: (title: string, desc: string) => void }> = ({ onDone }) => {
-  const [title, setTitle] = useState('');
-  const [desc,  setDesc]  = useState('');
-  const [error, setError] = useState('');
+
+const SetupDialog: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onDone: (config: Omit<RangeConfig, 'organizerId'>) => void;
+}> = ({ isOpen, onClose, onDone }) => {
+  const today    = new Date().toISOString().slice(0, 10);
+  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  const [title,       setTitle]       = useState('');
+  const [desc,        setDesc]        = useState('');
+  const [startDate,   setStartDate]   = useState(today);
+  const [endDate,     setEndDate]     = useState(nextWeek);
+  const [dailyStart,  setDailyStart]  = useState('09:00');
+  const [dailyEnd,    setDailyEnd]    = useState('18:00');
+  const [slotMinutes, setSlotMinutes] = useState<30 | 60>(30);
+  const [error,       setError]       = useState('');
+
+  if (!isOpen) return null;
 
   const submit = () => {
-    if (!title.trim()) { setError('Please give the event a title.'); return; }
-    onDone(title, desc);
+    if (!title.trim())          { setError('Title is required.');                   return; }
+    if (startDate > endDate)    { setError('Start date must be before end date.');  return; }
+    if (dailyStart >= dailyEnd) { setError('Daily end must be after daily start.'); return; }
+    onDone({ title: title.trim(), description: desc.trim(), startDate, endDate, dailyStart, dailyEnd, slotMinutes });
+    onClose();
+  };
+
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onClose();
   };
 
   return (
-    <div className={styles.setup}>
-      <div className={styles.setupIcon}><Calendar size={40} /></div>
-      <h2 className={styles.setupTitle}>Create Event</h2>
-      <p className={styles.setupSubtitle}>
-        Name the event, then add candidate time slots for participants to respond to.
-      </p>
+    <div className={styles.overlay} onClick={handleOverlayClick}>
+      <div className={styles.dialog}>
+        <div className={styles.header}>
+          <h3 className={styles.dialogTitle}>Set Up Scheduling</h3>
+          <button className={styles.closeButton} onClick={onClose}>×</button>
+        </div>
 
-      <div className={styles.formGroup}>
-        <label className={styles.label}>Event title *</label>
-        <input
-          className={styles.input}
-          type="text"
-          placeholder="e.g. Quarterly planning meeting"
-          value={title}
-          onChange={e => { setTitle(e.target.value); setError(''); }}
-          onKeyDown={e => e.key === 'Enter' && submit()}
-          autoFocus
-        />
+        <div className={styles.dialogContent}>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Title *</label>
+            <input className={styles.input} type="text" value={title} autoFocus
+              placeholder="e.g. Sprint planning session"
+              onChange={e => { setTitle(e.target.value); setError(''); }}
+              onKeyDown={e => e.key === 'Enter' && submit()} />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Description <span className={styles.optional}>(optional)</span></label>
+            <textarea className={styles.textarea} rows={2} value={desc}
+              placeholder="Any context for participants?"
+              onChange={e => setDesc(e.target.value)} />
+          </div>
+
+          <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>From date</label>
+              <input className={styles.input} type="date" value={startDate} min={today}
+                onChange={e => { setStartDate(e.target.value); setError(''); }} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>To date</label>
+              <input className={styles.input} type="date" value={endDate} min={startDate}
+                onChange={e => { setEndDate(e.target.value); setError(''); }} />
+            </div>
+          </div>
+
+          <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Daily from</label>
+              <input className={styles.input} type="time" value={dailyStart}
+                onChange={e => { setDailyStart(e.target.value); setError(''); }} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Daily to</label>
+              <input className={styles.input} type="time" value={dailyEnd}
+                onChange={e => { setDailyEnd(e.target.value); setError(''); }} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Resolution</label>
+              <select className={styles.input} value={slotMinutes}
+                onChange={e => setSlotMinutes(Number(e.target.value) as 30 | 60)}>
+                <option value={30}>30 min</option>
+                <option value={60}>1 hour</option>
+              </select>
+            </div>
+          </div>
+
+          {error && <p className={styles.errorMsg}>{error}</p>}
+        </div>
+
+        <div className={styles.dialogActions}>
+          <button className={styles.btnCreate} onClick={submit}>
+            <Calendar size={15} /> Create
+          </button>
+          <button className={styles.btnCancel} onClick={onClose}>Cancel</button>
+        </div>
       </div>
-
-      <div className={styles.formGroup}>
-        <label className={styles.label}>Description <span className={styles.optional}>(optional)</span></label>
-        <textarea
-          className={styles.textarea}
-          rows={3}
-          placeholder="What is this event for?"
-          value={desc}
-          onChange={e => setDesc(e.target.value)}
-        />
-      </div>
-
-      {error && <p className={styles.errorMsg}>{error}</p>}
-      <button className={styles.btnPrimary} onClick={submit}>
-        <Calendar size={16} /> Continue
-      </button>
     </div>
   );
 };
 
 // ---------------------------------------------------------------------------
-// Add-slot form
+// Timeline grid with drag-to-select and live heatmap
 // ---------------------------------------------------------------------------
-const AddSlotForm: React.FC<{ onAdd: (date: string, start: string, end: string) => void }> = ({ onAdd }) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const [date,  setDate]  = useState(today);
-  const [start, setStart] = useState('10:00');
-  const [end,   setEnd]   = useState('11:00');
-  const [error, setError] = useState('');
 
-  const submit = () => {
-    if (!date)  { setError('Pick a date.'); return; }
-    if (start >= end) { setError('End time must be after start.'); return; }
-    onAdd(date, start, end);
-    setError('');
-  };
-
-  return (
-    <div className={styles.addSlotForm}>
-      <div className={styles.addSlotFields}>
-        <div className={styles.formGroup}>
-          <label className={styles.label}>Date</label>
-          <input className={styles.input} type="date" value={date} min={today}
-            onChange={e => { setDate(e.target.value); setError(''); }} />
-        </div>
-        <div className={styles.formGroup}>
-          <label className={styles.label}>Start</label>
-          <input className={styles.input} type="time" value={start}
-            onChange={e => { setStart(e.target.value); setError(''); }} />
-        </div>
-        <div className={styles.formGroup}>
-          <label className={styles.label}>End</label>
-          <input className={styles.input} type="time" value={end}
-            onChange={e => { setEnd(e.target.value); setError(''); }} />
-        </div>
-        <button className={styles.btnAdd} onClick={submit}>
-          <Plus size={16} /> Add slot
-        </button>
-      </div>
-      {error && <p className={styles.errorMsg}>{error}</p>}
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Availability grid
-// ---------------------------------------------------------------------------
-const AvailabilityGrid: React.FC<{
-  eventState: EventState;
-  participants: string[];
-  scores: ReturnType<typeof api.slotScores>;
+const TimelineGrid: React.FC<{
+  config: RangeConfig;
+  state: SchedulingState;
   currentUser: string;
-  isOrganizer: boolean;
-  onToggle: (slotId: string) => void;
-  onConfirm: (slotId: string) => void;
-  onRemoveSlot: (slotId: string) => void;
-}> = ({ eventState, participants, scores, currentUser, isOrganizer, onToggle, onConfirm, onRemoveSlot }) => {
-  const { slots, responses, confirmedSlotId } = eventState;
-  const bestTotal = scores[0]?.total ?? 0;
-  const scoreMap  = new Map(scores.map(s => [s.slotId, s]));
+  onSave: (slots: number[]) => Promise<void>;
+}> = ({ config, state, currentUser, onSave }) => {
+  const slotsPerDay = api.computeSlotsPerDay(config);
+  const days        = useMemo(() => api.computeDays(config),           [config]);
+  const countMap    = useMemo(() => api.buildCountMap(state.selections), [state.selections]);
+  const slotTimes   = useMemo(
+    () => Array.from({ length: slotsPerDay }, (_, i) => api.slotTimeLabel(i, config)),
+    [slotsPerDay, config],
+  );
+
+  const myPersistedSlots = useMemo(() => {
+    const mine = state.selections.find(s => s.participantId === currentUser);
+    return new Set<number>(mine?.slots ?? []);
+  }, [state.selections, currentUser]);
+
+  // Drag state
+  const [dragMode,   setDragMode]   = useState<'add' | 'remove' | null>(null);
+  const [draggedSet, setDraggedSet] = useState<Set<number>>(new Set());
+  const dragModeRef    = useRef<'add' | 'remove' | null>(null);
+  const draggedRef     = useRef<Set<number>>(new Set());
+  const persistedRef   = useRef<Set<number>>(myPersistedSlots);
+  persistedRef.current = myPersistedSlots;
+
+  // Visual selection = persisted + current drag overlay
+  const effectiveSlots = useMemo(() => {
+    if (!dragMode) return myPersistedSlots;
+    const result = new Set(myPersistedSlots);
+    if (dragMode === 'add') draggedSet.forEach(i => result.add(i));
+    else                    draggedSet.forEach(i => result.delete(i));
+    return result;
+  }, [myPersistedSlots, dragMode, draggedSet]);
+
+  const startDrag = (gIdx: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    const mode = myPersistedSlots.has(gIdx) ? 'remove' : 'add';
+    dragModeRef.current = mode;
+    draggedRef.current  = new Set([gIdx]);
+    setDragMode(mode);
+    setDraggedSet(new Set([gIdx]));
+  };
+
+  const enterCell = (gIdx: number) => {
+    if (!dragModeRef.current) return;
+    draggedRef.current.add(gIdx);
+    setDraggedSet(new Set(draggedRef.current));
+  };
+
+  useEffect(() => {
+    const handleMouseUp = async () => {
+      if (!dragModeRef.current) return;
+      const mode    = dragModeRef.current;
+      const dragged = new Set(draggedRef.current);
+      dragModeRef.current  = null;
+      draggedRef.current   = new Set();
+      setDragMode(null);
+      setDraggedSet(new Set());
+
+      const result = new Set(persistedRef.current);
+      if (mode === 'add') dragged.forEach(i => result.add(i));
+      else                dragged.forEach(i => result.delete(i));
+      await onSave(Array.from(result).sort((a, b) => a - b));
+    };
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, [onSave]);
+
+  const slotsPerHour = 60 / config.slotMinutes;
+  const totalParticipants = state.selections.length;
 
   return (
     <div className={styles.gridWrapper}>
@@ -147,82 +219,38 @@ const AvailabilityGrid: React.FC<{
         <thead>
           <tr>
             <th className={styles.cornerCell} />
-            {slots.map(slot => {
-              const { date, time } = formatSlotHeader(slot);
-              const score   = scoreMap.get(slot.id);
-              const isBest  = bestTotal > 0 && score?.total === bestTotal;
-              return (
-                <th
-                  key={slot.id}
-                  className={`${styles.slotHeader} ${isBest ? styles.bestSlot : ''} ${slot.id === confirmedSlotId ? styles.confirmedSlot : ''}`}
-                >
-                  <div className={styles.slotDate}>{date}</div>
-                  <div className={styles.slotTime}>{time}</div>
-                  {isBest && <span className={styles.bestBadge}>Best</span>}
-                  {slot.id === confirmedSlotId && <span className={styles.confirmedBadge}><CheckCircle size={12} /> Confirmed</span>}
-                  {isOrganizer && !confirmedSlotId && (
-                    <div className={styles.slotActions}>
-                      <button className={styles.btnConfirmSlot} onClick={() => onConfirm(slot.id)}
-                        title="Confirm this slot">
-                        <Check size={12} /> Confirm
-                      </button>
-                      <button className={styles.btnRemoveSlot} onClick={() => onRemoveSlot(slot.id)}
-                        title="Remove slot">
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  )}
-                </th>
-              );
-            })}
+            {slotTimes.map((time, i) => (
+              <th key={i} className={styles.timeHeader}>
+                {i % slotsPerHour === 0 ? formatHourLabel(time) : null}
+              </th>
+            ))}
           </tr>
         </thead>
-
         <tbody>
-          {participants.map(p => {
-            const isMe = p === currentUser;
-            return (
-              <tr key={p} className={isMe ? styles.myRow : ''}>
-                <td className={styles.participantCell}>
-                  <span className={`${styles.avatar} ${isMe ? styles.avatarMe : ''}`}>
-                    {authorLabel(p, currentUser)[0].toUpperCase()}
-                  </span>
-                  <span className={styles.participantName}>{authorLabel(p, currentUser)}</span>
-                </td>
-                {slots.map(slot => {
-                  const av = responses[p]?.[slot.id];
-                  const isConfirmed = slot.id === confirmedSlotId;
-                  return (
-                    <td key={slot.id}
-                      className={`${styles.cell} ${av ? styles[`av_${av}`] : styles.av_none} ${isConfirmed ? styles.cellConfirmed : ''}`}
-                      onClick={isMe && !isConfirmed ? () => onToggle(slot.id) : undefined}
-                      title={isMe && !isConfirmed ? 'Click to toggle availability' : undefined}
-                    >
-                      <span className={styles.avIcon}>
-                        {av ? AVAIL_LABEL[av] : (isMe ? '–' : '·')}
-                      </span>
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-
-          {/* Summary row */}
-          <tr className={styles.summaryRow}>
-            <td className={styles.participantCell}>
-              <span className={styles.summaryLabel}>Totals</span>
-            </td>
-            {slots.map(slot => {
-              const s = scoreMap.get(slot.id);
-              return (
-                <td key={slot.id} className={`${styles.cell} ${styles.summaryCell} ${slot.id === confirmedSlotId ? styles.cellConfirmed : ''}`}>
-                  <span className={styles.summaryYes}>{s?.yes ?? 0}✓</span>
-                  <span className={styles.summaryMaybe}>{s?.maybe ?? 0}?</span>
-                </td>
-              );
-            })}
-          </tr>
+          {days.map((day, dayIdx) => (
+            <tr key={dayIdx}>
+              <td className={styles.dayLabel}>{formatDayLabel(day)}</td>
+              {slotTimes.map((_, slotIdx) => {
+                const gIdx  = api.globalIndex(dayIdx, slotIdx, slotsPerDay);
+                const count = countMap.get(gIdx) ?? 0;
+                const mine  = effectiveSlots.has(gIdx);
+                return (
+                  <td
+                    key={slotIdx}
+                    className={`${styles.slot} ${mine ? styles.slotMine : ''}`}
+                    style={{ background: mine ? undefined : heatStyle(count, totalParticipants) }}
+                    onMouseDown={e => startDrag(gIdx, e)}
+                    onMouseEnter={() => enterCell(gIdx)}
+                    title={`${slotTimes[slotIdx]} — ${count} of ${totalParticipants} available`}
+                  >
+                    {count > 0 && !mine && (
+                      <span className={styles.slotCount}>{count}</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
@@ -230,229 +258,92 @@ const AvailabilityGrid: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// Confirmed banner
-// ---------------------------------------------------------------------------
-const ConfirmedBanner: React.FC<{
-  slot: TimeSlot;
-  participants: string[];
-  responses: EventState['responses'];
-  currentUser: string;
-  isOrganizer: boolean;
-  onUnconfirm: () => void;
-}> = ({ slot, participants, responses, currentUser, isOrganizer, onUnconfirm }) => {
-  const { date, time } = formatSlotHeader(slot);
-  const attending = participants.filter(p => responses[p]?.[slot.id] === 'yes');
-  const maybe     = participants.filter(p => responses[p]?.[slot.id] === 'maybe');
-
-  return (
-    <div className={styles.confirmedBanner}>
-      <div className={styles.confirmedIcon}><CheckCircle size={36} /></div>
-      <h2 className={styles.confirmedTitle}>Event Confirmed</h2>
-      <div className={styles.confirmedDetails}>
-        <div className={styles.confirmedDate}>{date}</div>
-        <div className={styles.confirmedTime}>{time}</div>
-      </div>
-
-      <div className={styles.attendeeSections}>
-        {attending.length > 0 && (
-          <div className={styles.attendeeGroup}>
-            <span className={styles.attendeeGroupLabel}>Attending ({attending.length})</span>
-            <div className={styles.attendeeList}>
-              {attending.map(p => (
-                <span key={p} className={`${styles.attendeeChip} ${styles.chipYes}`}>
-                  {authorLabel(p, currentUser)}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-        {maybe.length > 0 && (
-          <div className={styles.attendeeGroup}>
-            <span className={styles.attendeeGroupLabel}>Maybe ({maybe.length})</span>
-            <div className={styles.attendeeList}>
-              {maybe.map(p => (
-                <span key={p} className={`${styles.attendeeChip} ${styles.chipMaybe}`}>
-                  {authorLabel(p, currentUser)}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {isOrganizer && (
-        <button className={styles.btnSecondary} onClick={onUnconfirm}>
-          Reopen scheduling
-        </button>
-      )}
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
+
+/** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
+export const SchedulingSetupDialog: React.FC<{
+  onDone: (config: Record<string, unknown>) => void;
+  onCancel: () => void;
+}> = ({ onDone, onCancel }) => (
+  <SetupDialog isOpen={true} onClose={onCancel} onDone={onDone} />
+);
+
 const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
-  const [eventState, setEventState] = useState<EventState>({
-    config: null,
-    slots: [],
-    responses: {},
-    confirmedSlotId: null,
-  });
+  const [state,      setState]      = useState<SchedulingState>({ config: null, selections: [] });
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const state = await api.loadEventState(flowServer, flowAgent, instanceId);
-      setEventState(state);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load event data.');
-    } finally {
-      setLoading(false);
-    }
-  }, [instanceId, flowServer, flowAgent]);
+    setLoading(true); setError(null);
+    try   { setState(await api.loadSchedulingState(flowServer, flowAgent, instanceId)); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to load.'); }
+    finally   { setLoading(false); }
+  }, [flowServer, flowAgent, instanceId]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  const handleSetupDone = useCallback(async (title: string, desc: string) => {
-    try {
-      await api.setupEvent(flowServer, flowAgent, instanceId, title, desc, currentUser);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create event.');
-    }
+  const handleSetup = useCallback(async (fields: Omit<RangeConfig, 'organizerId'>) => {
+    try   { await api.setupRange(flowServer, flowAgent, instanceId, fields, currentUser); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to save.'); }
   }, [flowServer, flowAgent, instanceId, currentUser, load]);
 
-  const handleToggle = useCallback(async (slotId: string) => {
-    const current = eventState.responses[currentUser]?.[slotId];
-    const next = nextAvailability(current);
-    // Optimistic update
-    setEventState(prev => ({
-      ...prev,
-      responses: {
-        ...prev.responses,
-        [currentUser]: { ...prev.responses[currentUser], [slotId]: next },
-      },
-    }));
-    try {
-      await api.setMyAvailability(
-        flowServer, flowAgent, instanceId,
-        eventState.responses[currentUser] ?? {},
-        slotId, next,
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save availability.');
-      await load();
-    }
-  }, [flowServer, flowAgent, instanceId, currentUser, eventState.responses, load]);
-
-  const handleAddSlot = useCallback(async (date: string, start: string, end: string) => {
-    try {
-      await api.addSlot(flowServer, flowAgent, instanceId, date, start, end);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add slot.');
-    }
-  }, [flowServer, flowAgent, instanceId, load]);
-
-  const handleRemoveSlot = useCallback(async (slotId: string) => {
-    try {
-      await api.removeSlot(flowServer, flowAgent, instanceId, eventState.slots, slotId);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to remove slot.');
-    }
-  }, [flowServer, flowAgent, instanceId, eventState.slots, load]);
-
-  const handleConfirm = useCallback(async (slotId: string) => {
-    try {
-      await api.confirmSlot(flowServer, flowAgent, instanceId, slotId);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to confirm slot.');
-    }
-  }, [flowServer, flowAgent, instanceId, load]);
-
-  const handleUnconfirm = useCallback(async () => {
-    try {
-      await api.unconfirmSlot(flowServer, flowAgent, instanceId);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to reopen scheduling.');
-    }
-  }, [flowServer, flowAgent, instanceId, load]);
+  const handleSave = useCallback(async (slots: number[]) => {
+    setState(prev => {
+      const others = prev.selections.filter(s => s.participantId !== currentUser);
+      return { ...prev, selections: [...others, { participantId: currentUser, slots }] };
+    });
+    try   { await api.setMySelection(flowServer, flowAgent, instanceId, slots); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to save.'); await load(); }
+  }, [flowServer, flowAgent, instanceId, currentUser, load]);
 
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
 
-  const configured   = eventState.config !== null;
-  const organizer    = api.isOrganizer(eventState.config, currentUser);
-  const participants = Array.from(new Set([currentUser, ...Object.keys(eventState.responses)]));
+  const organizer         = api.isOrganizer(state.config, currentUser);
+  const mySelection       = state.selections.find(s => s.participantId === currentUser);
+  const totalParticipants = state.selections.length;
 
-  if (!configured) {
-    return <SetupScreen onDone={handleSetupDone} />;
-  }
-
-  const scores        = api.slotScores(eventState.slots, eventState.responses);
-  const confirmedSlot = eventState.confirmedSlotId
-    ? eventState.slots.find(s => s.id === eventState.confirmedSlotId)
-    : null;
+  if (!state.config) return <FlowLoading />;
 
   return (
     <div className={styles.container}>
-      {/* Event title + description */}
       <div className={styles.eventHeader}>
         <Calendar size={18} className={styles.eventIcon} />
-        <div>
-          <h2 className={styles.eventTitle}>{eventState.config!.title}</h2>
-          {eventState.config!.description && (
-            <p className={styles.eventDesc}>{eventState.config!.description}</p>
+        <div className={styles.eventHeaderText}>
+          <h2 className={styles.eventTitle}>{state.config.title}</h2>
+          {state.config.description && (
+            <p className={styles.eventDesc}>{state.config.description}</p>
           )}
         </div>
+        {organizer && (
+          <button className={styles.btnSecondary} onClick={() => setDialogOpen(true)}>
+            Edit
+          </button>
+        )}
       </div>
 
-      {confirmedSlot ? (
-        <ConfirmedBanner
-          slot={confirmedSlot}
-          participants={participants}
-          responses={eventState.responses}
-          currentUser={currentUser}
-          isOrganizer={organizer}
-          onUnconfirm={handleUnconfirm}
-        />
-      ) : (
-        <>
-          {/* Add slot (organizer only) */}
-          {organizer && (
-            <AddSlotForm onAdd={handleAddSlot} />
-          )}
+      <p className={styles.hint}>
+        Drag to mark your available times (blue). Green intensity shows overlap across{' '}
+        {totalParticipants} participant{totalParticipants !== 1 ? 's' : ''}.
+        {mySelection && mySelection.slots.length > 0 && (
+          <> You marked {mySelection.slots.length} slot{mySelection.slots.length !== 1 ? 's' : ''}.</>
+        )}
+      </p>
 
-          {eventState.slots.length === 0 ? (
-            <p className={styles.noSlots}>No time slots yet. Add one above to get started.</p>
-          ) : (
-            <>
-              <p className={styles.hint}>
-                Click your row cells to cycle through: <strong>✓ Yes</strong> · <strong>? Maybe</strong> · <strong>✗ No</strong>
-              </p>
-              <AvailabilityGrid
-                eventState={eventState}
-                participants={participants}
-                scores={scores}
-                currentUser={currentUser}
-                isOrganizer={organizer}
-                onToggle={handleToggle}
-                onConfirm={handleConfirm}
-                onRemoveSlot={handleRemoveSlot}
-              />
-            </>
-          )}
-        </>
-      )}
+      <TimelineGrid
+        config={state.config}
+        state={state}
+        currentUser={currentUser}
+        onSave={handleSave}
+      />
+
+      <SetupDialog
+        isOpen={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onDone={handleSetup}
+      />
     </div>
   );
 };

@@ -63,13 +63,6 @@ export async function loadTasks(server: string, agent: string, contractId: strin
 // Mutations
 // ---------------------------------------------------------------------------
 
-async function setTasks(server: string, agent: string, contractId: string, tasks: Task[]): Promise<void> {
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_tasks', values: { tasks } } as IMethod,
-  });
-}
-
 export async function addTask(
   server: string, agent: string, contractId: string,
   currentUser: string, title: string, description: string,
@@ -89,30 +82,41 @@ export async function addTask(
   });
 }
 
-export async function claimTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
-  await setTasks(server, agent, contractId, tasks.map(t => t.id === id ? { ...t, ownerId: currentUser } : t));
+export async function claimTask(server: string, agent: string, contractId: string, id: string, currentUser: string): Promise<void> {
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_task_owner', values: { task_id: id, owner_id: currentUser } } as IMethod,
+  });
 }
 
-export async function releaseTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
-  await setTasks(server, agent, contractId, tasks.map(t => t.id === id && t.ownerId === currentUser ? { ...t, ownerId: null } : t));
+export async function releaseTask(server: string, agent: string, contractId: string, id: string): Promise<void> {
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_task_owner', values: { task_id: id, owner_id: null } } as IMethod,
+  });
 }
 
-export async function advanceTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
-  await setTasks(server, agent, contractId, tasks.map(t => {
-    if (t.id !== id || t.ownerId !== currentUser) return t;
-    const next = STATUS_ORDER[STATUS_ORDER.indexOf(t.status) + 1];
-    return next ? { ...t, status: next } : t;
-  }));
+export async function advanceTask(server: string, agent: string, contractId: string, task: Task): Promise<void> {
+  const next = STATUS_ORDER[STATUS_ORDER.indexOf(task.status) + 1];
+  if (!next) return;
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_task_status', values: { task_id: task.id, status: next } } as IMethod,
+  });
 }
 
-export async function revertTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
-  await setTasks(server, agent, contractId, tasks.map(t => {
-    if (t.id !== id || t.ownerId !== currentUser) return t;
-    const prev = STATUS_ORDER[STATUS_ORDER.indexOf(t.status) - 1];
-    return prev ? { ...t, status: prev } : t;
-  }));
+export async function revertTask(server: string, agent: string, contractId: string, task: Task): Promise<void> {
+  const prev = STATUS_ORDER[STATUS_ORDER.indexOf(task.status) - 1];
+  if (!prev) return;
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'set_task_status', values: { task_id: task.id, status: prev } } as IMethod,
+  });
 }
 
-export async function deleteTask(server: string, agent: string, contractId: string, tasks: Task[], id: string, currentUser: string): Promise<void> {
-  await setTasks(server, agent, contractId, tasks.filter(t => !(t.id === id && canDelete(t, currentUser))));
+export async function deleteTask(server: string, agent: string, contractId: string, id: string): Promise<void> {
+  await contractWrite({
+    serverUrl: server, publicKey: agent, contractId,
+    method: { name: 'delete_task', values: { task_id: id } } as IMethod,
+  });
 }
