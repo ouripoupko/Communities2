@@ -6,6 +6,7 @@ import ErrorBoundary from '../components/shared/ErrorBoundary';
 import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
 import { contractRead } from '../services/api';
 import type { IMethod } from '../services/interfaces';
+import { seedTestDataIfNeeded } from '../utils/seedTestData';
 import type { Collaboration } from '../services/contracts/community';
 import { eventStreamService } from '../services/eventStream';
 import type { BlockchainEvent } from '../services/eventStream';
@@ -268,6 +269,14 @@ const CommunityView: React.FC = () => {
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
     };
   }, [communityId, props, dispatch, publicKey, serverUrl, communityMembers, handleContractWrite]);
+
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !communityId) return;
+    const name = communityProperties[communityId]?.name || '';
+    if (name) {
+      seedTestDataIfNeeded(serverUrl, publicKey, communityId, name);
+    }
+  }, [serverUrl, publicKey, communityId, communityProperties]);
 
   if (fetching) {
     return (
