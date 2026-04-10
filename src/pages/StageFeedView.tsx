@@ -1,16 +1,17 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchCollaborations, fetchCommunityProperties, fetchCommunityMembers } from '../store/slices/communitiesSlice';
-import { contractRead, contractWrite } from '../services/api';
+import { contractRead } from '../services/api';
 import type { IMethod } from '../services/interfaces';
 import type { Collaboration } from '../services/contracts/community';
 import type { PipelineStage } from '../types/initiative';
 import PageHeader from '../components/PageHeader';
 import HomepageMenu from '../components/identity/HomepageMenu';
 import StageFooter from '../components/shared/StageFooter';
+import ProblemVoteFlow from '../components/collaboration/flows/voting/ProblemVoteFlow';
 import ApprovalFlow from '../components/collaboration/flows/voting/ApprovalFlow';
 import QVFlow from '../components/collaboration/flows/voting/QVFlow';
 import ConvictionStaking from '../components/collaboration/flows/voting/ConvictionStaking';
@@ -22,12 +23,6 @@ interface InitiativeWithMeta extends Collaboration {
   communityId: string;
   communityName: string;
   authorName?: string;
-}
-
-interface TallyData {
-  up: number;
-  down: number;
-  total: number;
 }
 
 // Sample data for development — shown when no real initiatives exist at a stage
@@ -170,75 +165,6 @@ const StageFeedView: React.FC = () => {
     [allInitiatives, stages, stage],
   );
 
-  // Fetch tallies for problem stage
-  const [tallies, setTallies] = useState<Record<string, TallyData>>({});
-  const [votingInProgress, setVotingInProgress] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (stage !== 'problem' || !serverUrl || !publicKey) return;
-    stageInitiatives.forEach((item) => {
-      if (tallies[item.id]) return;
-      contractRead({
-        serverUrl,
-        publicKey,
-        contractId: item.id,
-        method: { name: 'Storage', values: { key: 'problemVoteContractId' } } as IMethod,
-      })
-        .then((pvContractIdRaw: unknown) => {
-          const pvContractId = typeof pvContractIdRaw === 'string' ? pvContractIdRaw : null;
-          if (!pvContractId) return;
-          return contractRead({
-            serverUrl,
-            publicKey,
-            contractId: pvContractId,
-            method: { name: 'get_tally', values: {} } as IMethod,
-          });
-        })
-        .then((tally: unknown) => {
-          if (tally && typeof tally === 'object') {
-            setTallies((prev) => ({ ...prev, [item.id]: tally as TallyData }));
-          }
-        })
-        .catch(() => {});
-    });
-  }, [stage, serverUrl, publicKey, stageInitiatives]);
-
-  // Inline vote handler for problem stage
-  const handleVote = useCallback(
-    async (initiativeId: string, direction: 'up' | 'down') => {
-      if (!serverUrl || !publicKey || votingInProgress[initiativeId]) return;
-      setVotingInProgress((prev) => ({ ...prev, [initiativeId]: true }));
-
-      try {
-        const pvContractIdRaw = await contractRead({
-          serverUrl, publicKey, contractId: initiativeId,
-          method: { name: 'Storage', values: { key: 'problemVoteContractId' } } as IMethod,
-        });
-        const pvContractId = typeof pvContractIdRaw === 'string' ? pvContractIdRaw : null;
-        if (!pvContractId) return;
-
-        await contractWrite({
-          serverUrl, publicKey, contractId: pvContractId,
-          method: { name: direction === 'up' ? 'upvote' : 'downvote', values: {} } as IMethod,
-        });
-
-        // Fetch real tally
-        const tally = await contractRead({
-          serverUrl, publicKey, contractId: pvContractId,
-          method: { name: 'get_tally', values: {} } as IMethod,
-        });
-        if (tally && typeof tally === 'object') {
-          setTallies((prev) => ({ ...prev, [initiativeId]: tally as TallyData }));
-        }
-      } catch {
-        // Keep the existing tally if the write fails.
-      } finally {
-        setVotingInProgress((prev) => ({ ...prev, [initiativeId]: false }));
-      }
-    },
-    [serverUrl, publicKey, votingInProgress],
-  );
-
   const handleCardClick = (item: InitiativeWithMeta) => {
     const hostServer = item.hostServer || serverUrl || 'local';
     const hostAgent = item.hostAgent || publicKey || 'local';
@@ -342,11 +268,9 @@ const StageFeedView: React.FC = () => {
         )}
 
         {(stageInitiatives.length > 0 ? stageInitiatives : usingSampleData ? [] : []).map((item) => {
-          const tally = tallies[item.id];
           const memberCount = Array.isArray(communityMembers[item.communityId])
             ? communityMembers[item.communityId].length
             : 0;
-          const threshold = Math.ceil(memberCount * 0.67);
 
           return (
             <div key={item.id} className={`${styles.card} ${stage !== 'discussion' ? styles.noClick : ''}`} onClick={stage === 'discussion' ? () => handleCardClick(item) : undefined}>
@@ -372,38 +296,18 @@ const StageFeedView: React.FC = () => {
 
               {/* Stage-specific inline content */}
               {stage === 'problem' && (
-                <div className={styles.voteRow}>
-                  <div className={styles.voteButtons}>
-                    <button
-                      className={styles.voteUp}
-                      onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'up'); }}
-                      disabled={!!votingInProgress[item.id]}
-                    >
-                      Problem for me {tally ? tally.up : 0}
-                    </button>
-                    <button
-                      className={styles.voteDown}
-                      onClick={(e) => { e.stopPropagation(); handleVote(item.id, 'down'); }}
-                      disabled={!!votingInProgress[item.id]}
-                    >
-                      Not a problem for me {tally ? tally.down : 0}
-                    </button>
-                  </div>
-                  {memberCount > 0 && threshold > 0 && (
-                    <div className={styles.progressRow}>
-                      <div className={styles.progressBar}>
-                        <div
-                          className={`${styles.progressFill} ${tally && tally.up >= threshold ? styles.progressMet : ''}`}
-                          style={{ width: `${Math.min(((tally?.up || 0) / threshold) * 100, 100)}%` }}
-                        />
-                      </div>
-                      <span className={styles.progressLabel}>
-                        {tally && tally.up >= threshold
-                          ? 'Threshold met'
-                          : `${Math.max(threshold - (tally?.up || 0), 0)} more needed`}
-                      </span>
-                    </div>
-                  )}
+                <div className={styles.inlineFlow}>
+                  <ErrorBoundary fallbackMessage="Voting encountered an error.">
+                    <ProblemVoteFlow
+                      instanceId={`${item.id}_problem_vote`}
+                      description=""
+                      evidenceLinks={[]}
+                      countries={[]}
+                      communityMemberCount={memberCount}
+                      parentContractId={item.id}
+                      stageKey="problemVoteContractId"
+                    />
+                  </ErrorBoundary>
                 </div>
               )}
 
@@ -472,25 +376,10 @@ const StageFeedView: React.FC = () => {
             <h3 className={styles.cardTitle}>{sample.title}</h3>
             <p className={styles.cardDescription}>{sample.description}</p>
 
-            {stage === 'problem' && sample.tally && (
-              <div className={styles.voteRow}>
-                <div className={styles.voteButtons}>
-                  <button className={styles.voteUp} disabled>
-                    Problem for me {sample.tally.up}
-                  </button>
-                  <button className={styles.voteDown} disabled>
-                    Not a problem for me {sample.tally.down}
-                  </button>
-                </div>
-                <div className={styles.progressRow}>
-                  <div className={styles.progressBar}>
-                    <div
-                      className={styles.progressFill}
-                      style={{ width: `${Math.min((sample.tally.up / 60) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <span className={styles.progressLabel}>{60 - sample.tally.up} more needed</span>
-                </div>
+            {stage === 'problem' && (
+              <div className={styles.stageInfo}>
+                <AlertCircle size={14} />
+                <span>Join a community to vote on problems</span>
               </div>
             )}
 

@@ -88,11 +88,11 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
     if (!serverUrl || !publicKey || !collaborationId) return;
     const fetchProblemData = async () => {
       try {
-        const pvContractIdRaw = await contractRead({
+        const pvStageContract = await contractRead({
           serverUrl, publicKey, contractId: collaborationId,
-          method: { name: 'Storage', values: { key: 'problemVoteContractId' } } as IMethod,
+          method: { name: 'get_stage_contract', values: { stage_key: 'problemVoteContractId' } } as IMethod,
         });
-        const pvContractId = typeof pvContractIdRaw === 'string' ? pvContractIdRaw : null;
+        const pvContractId = (pvStageContract as { contractId?: string } | null)?.contractId ?? null;
         if (!pvContractId) return;
 
         const tally = await contractRead({
