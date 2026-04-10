@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import PipelineView from '../../components/collaboration/PipelineView';
+import InitiativeDashboard from '../../components/collaboration/InitiativeDashboard';
+import DiscussionStageView from '../../components/collaboration/DiscussionStageView';
 import { useAppSelector } from '../../store/hooks';
 import { contractRead } from '../../services/api';
 import type { IMethod } from '../../services/interfaces';
@@ -23,9 +24,7 @@ const InitiativeView: React.FC = () => {
   useEffect(() => {
     if (initiative?.title || !serverUrl || !publicKey || !initiativeId) return;
     contractRead({
-      serverUrl,
-      publicKey,
-      contractId: initiativeId,
+      serverUrl, publicKey, contractId: initiativeId,
       method: { name: 'get_details', values: {} } as IMethod,
     })
       .then((details: Record<string, unknown>) => {
@@ -34,8 +33,21 @@ const InitiativeView: React.FC = () => {
       .catch(() => {});
   }, [initiative?.title, serverUrl, publicKey, initiativeId]);
 
+  // Check if we're on the discussion sub-route
+  const isDiscussion = location.pathname.endsWith('/discussion');
+
+  if (isDiscussion) {
+    return (
+      <DiscussionStageView
+        title={title}
+        collaborationId={initiativeId!}
+        communityId={communityId!}
+      />
+    );
+  }
+
   return (
-    <PipelineView
+    <InitiativeDashboard
       title={title}
       collaborationId={initiativeId!}
       communityId={communityId!}
