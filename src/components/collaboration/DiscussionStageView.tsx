@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
 import DiscussionFlow from './flows/discussion/DiscussionFlow';
@@ -17,6 +17,14 @@ const DiscussionStageView: React.FC<DiscussionStageViewProps> = ({ title, collab
   const navigate = useNavigate();
   const communityProps = useAppSelector((s) => s.communities.communityProperties[communityId]);
   const communityName = communityProps?.name || communityId.slice(0, 8);
+  const collaborations = useAppSelector((s) => s.communities.communityCollaborations[communityId]);
+
+  // Find the initiative author from the collaboration data
+  const originalAuthor = useMemo(() => {
+    if (!collaborations) return undefined;
+    const collab = collaborations.find((c) => c.id === collaborationId);
+    return collab?.author;
+  }, [collaborations, collaborationId]);
 
   return (
     <div className={cs.container}>
@@ -31,16 +39,17 @@ const DiscussionStageView: React.FC<DiscussionStageViewProps> = ({ title, collab
       <div className={cs.content}>
         <div className={cs.main}>
           <ErrorBoundary fallbackMessage="The discussion section encountered an error.">
-            <DiscussionFlow
-              instanceId={`${collaborationId}_discussion`}
-              collaborationId={collaborationId}
-              collaborationType="initiative"
-            />
             <ModificationSuggestions
               instanceId={`${collaborationId}_discussion_mods`}
               parentContractId={collaborationId}
               stageKey="discussionModsContractId"
               fieldLabel="problem"
+              originalAuthor={originalAuthor}
+            />
+            <DiscussionFlow
+              instanceId={`${collaborationId}_discussion`}
+              collaborationId={collaborationId}
+              collaborationType="initiative"
             />
           </ErrorBoundary>
         </div>

@@ -2,12 +2,15 @@
 // Discussion flow — local in-memory store, no persistence yet
 // ---------------------------------------------------------------------------
 
+export type CommentCategory = 'evidence' | 'impact' | 'solutions' | 'concerns';
+
 export interface Comment {
   id: string;
   author: string;
   text: string;
   parentId: string | null; // null = top-level
   timestamp: number;
+  category?: CommentCategory;
 }
 
 export const CURRENT_USER = 'me';
@@ -16,11 +19,11 @@ export const CURRENT_USER = 'me';
 // Per-instance store (keyed by instanceId)
 // ---------------------------------------------------------------------------
 const SEED_DATA: Comment[] = [
-  { id: 'c1', author: 'alice', text: 'I think we should prioritise outreach to younger members of the community.', parentId: null, timestamp: Date.now() - 3_600_000 * 6 },
-  { id: 'c2', author: 'bob',   text: 'Agreed — social media is underutilised.', parentId: 'c1', timestamp: Date.now() - 3_600_000 * 5 },
-  { id: 'c3', author: 'alice', text: 'Exactly, a short video series could work well.', parentId: 'c2', timestamp: Date.now() - 3_600_000 * 4 },
-  { id: 'c4', author: 'carol', text: 'What about budget constraints? We should discuss that too.', parentId: null, timestamp: Date.now() - 3_600_000 * 3 },
-  { id: 'c5', author: 'bob',   text: 'Good point. Let\'s schedule a dedicated session for finances.', parentId: 'c4', timestamp: Date.now() - 3_600_000 * 2 },
+  { id: 'c1', author: 'alice', text: 'I think we should prioritise outreach to younger members of the community.', parentId: null, timestamp: Date.now() - 3_600_000 * 6, category: 'solutions' },
+  { id: 'c2', author: 'bob',   text: 'Agreed — social media is underutilised.', parentId: 'c1', timestamp: Date.now() - 3_600_000 * 5, category: 'solutions' },
+  { id: 'c3', author: 'alice', text: 'Exactly, a short video series could work well.', parentId: 'c2', timestamp: Date.now() - 3_600_000 * 4, category: 'solutions' },
+  { id: 'c4', author: 'carol', text: 'What about budget constraints? We should discuss that too.', parentId: null, timestamp: Date.now() - 3_600_000 * 3, category: 'concerns' },
+  { id: 'c5', author: 'bob',   text: 'Good point. Let\'s schedule a dedicated session for finances.', parentId: 'c4', timestamp: Date.now() - 3_600_000 * 2, category: 'concerns' },
 ];
 
 const commentsByInstance = new Map<string, Comment[]>();
@@ -40,7 +43,7 @@ export function getComments(instanceId: string): Comment[] {
   return getStore(instanceId).map(c => ({ ...c }));
 }
 
-export function addComment(instanceId: string, text: string, parentId: string | null): Comment {
+export function addComment(instanceId: string, text: string, parentId: string | null, category?: CommentCategory): Comment {
   const store = getStore(instanceId);
   const c: Comment = {
     id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
@@ -48,6 +51,7 @@ export function addComment(instanceId: string, text: string, parentId: string | 
     text: text.trim(),
     parentId,
     timestamp: Date.now(),
+    category,
   };
   store.push(c);
   return { ...c };

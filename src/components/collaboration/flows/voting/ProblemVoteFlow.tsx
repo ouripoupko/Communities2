@@ -5,6 +5,7 @@ import * as api from './problemVoteApi';
 import { useAppSelector } from '../../../../store/hooks';
 import problemVoteCode from '../../../../assets/contracts/problem_vote_contract.py?raw';
 import { sanitizeExternalUrl } from '../../../../utils/urlSafety';
+import { getCountryByCode } from '../../../../utils/countries';
 import styles from './ProblemVoteFlow.module.scss';
 
 interface ProblemVoteFlowProps {
@@ -146,9 +147,14 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
       )}
       {countries.length > 0 && (
         <div className={styles.countries}>
-          {countries.map((code) => (
-            <span key={code} className={styles.chip}>{code}</span>
-          ))}
+          {countries.map((code) => {
+            const country = getCountryByCode(code);
+            return (
+              <span key={code} className={styles.chip} title={country.name}>
+                {country.flag} {country.name}
+              </span>
+            );
+          })}
         </div>
       )}
 
