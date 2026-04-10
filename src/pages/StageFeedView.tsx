@@ -209,19 +209,6 @@ const StageFeedView: React.FC = () => {
       if (!serverUrl || !publicKey || votingInProgress[initiativeId]) return;
       setVotingInProgress((prev) => ({ ...prev, [initiativeId]: true }));
 
-      // Optimistic tally update
-      const prevTally = tallies[initiativeId];
-      if (prevTally) {
-        setTallies((prev) => ({
-          ...prev,
-          [initiativeId]: {
-            up: prevTally.up + (direction === 'up' ? 1 : 0),
-            down: prevTally.down + (direction === 'down' ? 1 : 0),
-            total: prevTally.total + 1,
-          },
-        }));
-      }
-
       try {
         const pvContractIdRaw = await contractRead({
           serverUrl, publicKey, contractId: initiativeId,
@@ -232,7 +219,7 @@ const StageFeedView: React.FC = () => {
 
         await contractWrite({
           serverUrl, publicKey, contractId: pvContractId,
-          method: { name: 'vote', values: { direction } } as IMethod,
+          method: { name: direction === 'up' ? 'upvote' : 'downvote', values: {} } as IMethod,
         });
 
         // Fetch real tally
@@ -244,15 +231,12 @@ const StageFeedView: React.FC = () => {
           setTallies((prev) => ({ ...prev, [initiativeId]: tally as TallyData }));
         }
       } catch {
-        // Rollback on failure
-        if (prevTally) {
-          setTallies((prev) => ({ ...prev, [initiativeId]: prevTally }));
-        }
+        // Keep the existing tally if the write fails.
       } finally {
         setVotingInProgress((prev) => ({ ...prev, [initiativeId]: false }));
       }
     },
-    [serverUrl, publicKey, votingInProgress, tallies],
+    [serverUrl, publicKey, votingInProgress],
   );
 
   const handleCardClick = (item: InitiativeWithMeta) => {

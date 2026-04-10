@@ -49,6 +49,46 @@ const SEED_INITIATIVES: SeedInitiative[] = [
 ];
 
 const SEED_STORAGE_KEY = 'gloki_test_data_seeded';
+const TEST_SEEDING_FLAG = 'gloki_enable_test_seeding';
+const LOCAL_HOSTS = ['localhost', '127.0.0.1'];
+const STAGE_ORDER = ['problem', 'discussion', 'proposals', 'vote', 'mandate'] as const;
+
+function isLocalHost(hostname: string): boolean {
+  return LOCAL_HOSTS.includes(hostname);
+}
+
+function isSafeSeedEnvironment(serverUrl: string): boolean {
+  if (!import.meta.env.DEV) return false;
+
+  try {
+    const serverHost = new URL(serverUrl).hostname;
+    const appHost = window.location.hostname;
+    const seedingEnabled = localStorage.getItem(TEST_SEEDING_FLAG) === 'true';
+
+    return seedingEnabled && isLocalHost(serverHost) && isLocalHost(appHost);
+  } catch {
+    return false;
+  }
+}
+
+async function advanceInitiativeToStage(
+  serverUrl: string,
+  publicKey: string,
+  initiativeId: string,
+  targetStage: string,
+): Promise<void> {
+  const targetIndex = STAGE_ORDER.indexOf(targetStage as typeof STAGE_ORDER[number]);
+  if (targetIndex <= 0) return;
+
+  for (let i = 1; i <= targetIndex; i += 1) {
+    await contractWrite({
+      serverUrl,
+      publicKey,
+      contractId: initiativeId,
+      method: { name: 'set_stage', values: { stage: STAGE_ORDER[i] } } as IMethod,
+    });
+  }
+}
 
 export async function seedTestDataIfNeeded(
   serverUrl: string,
@@ -56,6 +96,8 @@ export async function seedTestDataIfNeeded(
   communityId: string,
   communityName: string,
 ): Promise<void> {
+  if (!isSafeSeedEnvironment(serverUrl)) return;
+
   // Only seed for communities with "test" in their name
   if (!communityName.toLowerCase().includes('test')) return;
 
@@ -112,11 +154,8 @@ export async function seedTestDataIfNeeded(
           } as IMethod,
         });
 
-        // Set stage
-        await contractWrite({
-          serverUrl, publicKey, contractId: initiativeId,
-          method: { name: 'set_stage', values: { stage: seed.stage } } as IMethod,
-        });
+        // Advance sequentially so seeding follows the same stage rules as the UI.
+        await advanceInitiativeToStage(serverUrl, publicKey, initiativeId, seed.stage);
 
         // Register with community
         await contractWrite({

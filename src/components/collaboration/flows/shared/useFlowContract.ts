@@ -132,36 +132,35 @@ export function useFlowContract(
     (async () => {
       try {
         // Read parent contract details to check for an existing sub-contract
-        const details = await contractRead({
+        const stored = await contractRead({
           serverUrl,
           publicKey,
           contractId: parentContractId,
-          method: { name: 'get_details', values: {} } as IMethod,
+          method: { name: 'get_stage_contract', values: { stage_key: stageKey } } as IMethod,
         });
         if (failed.current) return; // Timeout already fired
 
-        const stored = details && typeof details === 'object'
-          ? (details as Record<string, unknown>)[stageKey!] as
-              { contractId: string; address: string; agent: string } | undefined
+        const existing = stored && typeof stored === 'object'
+          ? stored as { contractId?: string; address?: string; agent?: string }
           : undefined;
 
-        if (stored?.contractId && stored?.address && stored?.agent) {
+        if (existing?.contractId && existing?.address && existing?.agent) {
           setStatusMessage('Joining shared contract...');
           // Sub-contract exists → join it
           try {
             await joinContract({
               serverUrl,
               publicKey,
-              address: stored.address,
-              agent: stored.agent,
-              contract: stored.contractId,
+              address: existing.address,
+              agent: existing.agent,
+              contract: existing.contractId,
             });
           } catch {
             // May fail if already joined — that's OK
           }
           if (failed.current) return;
           setStatusMessage('');
-          dispatch(setContract({ instanceId, contractId: stored.contractId }));
+          dispatch(setContract({ instanceId, contractId: existing.contractId }));
         } else {
           setStatusMessage('No existing contract found — deploying new one...');
           // No sub-contract yet → deploy and store info on parent
@@ -177,27 +176,45 @@ export function useFlowContract(
           const newId = (response as { id?: string }).id || (response as string);
           setStatusMessage('Registering contract with community...');
 
-          // Write the sub-contract info to the parent so other users can join
-          const currentDetails = details && typeof details === 'object'
-            ? details as Record<string, unknown>
-            : {};
-          await contractWrite({
+          // Register once via a dedicated contract method so generic detail writes cannot overwrite it.
+          const registration = await contractWrite({
             serverUrl,
             publicKey,
             contractId: parentContractId,
             method: {
-              name: 'set_details',
+              name: 'register_stage_contract',
               values: {
-                details: {
-                  ...currentDetails,
-                  [stageKey!]: { contractId: newId, address: serverUrl, agent: publicKey },
-                },
+                stage_key: stageKey,
+                contract_id: newId,
+                address: serverUrl,
+                agent: publicKey,
               },
             } as IMethod,
           });
           if (failed.current) return;
+
+          const registered = registration && typeof registration === 'object'
+            ? registration as { contractId?: string; address?: string; agent?: string }
+            : undefined;
+          const finalContractId = registered?.contractId || newId;
+
+          if (registered?.contractId && registered.contractId !== newId && registered.address && registered.agent) {
+            setStatusMessage('Joining shared contract...');
+            try {
+              await joinContract({
+                serverUrl,
+                publicKey,
+                address: registered.address,
+                agent: registered.agent,
+                contract: registered.contractId,
+              });
+            } catch {
+              // Another client may have won the registration race; join their contract.
+            }
+          }
+
           setStatusMessage('');
-          dispatch(setContract({ instanceId, contractId: newId }));
+          dispatch(setContract({ instanceId, contractId: finalContractId }));
         }
         clearTimeout(timeoutId);
       } catch (err) {

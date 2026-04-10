@@ -4,6 +4,7 @@ import { ArrowLeft, AlertTriangle, MessageSquare, FileText, Vote, ScrollText, Pl
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchCollaborations } from '../store/slices/communitiesSlice';
 import { createInitiative } from '../services/contracts/community';
+import { sanitizeExternalUrl } from '../utils/urlSafety';
 import styles from './CreateInitiativePage.module.scss';
 
 const COUNTRY_OPTIONS = [
@@ -94,11 +95,27 @@ const CreateInitiativePage: React.FC = () => {
       return;
     }
 
+    const normalizedEvidence: string[] = [];
+    for (const candidate of evidence) {
+      const trimmed = candidate.trim();
+      if (!trimmed) continue;
+
+      const safeUrl = sanitizeExternalUrl(trimmed);
+      if (!safeUrl) {
+        setError('Evidence links must use a valid http or https URL');
+        return;
+      }
+
+      normalizedEvidence.push(safeUrl);
+    }
+
     setIsSubmitting(true);
     try {
       await createInitiative(serverUrl, publicKey, communityId, {
         title: title.trim(),
         description: description.trim(),
+        evidence: normalizedEvidence,
+        countries,
       });
       dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
       navigate(`/community/${communityId}`);

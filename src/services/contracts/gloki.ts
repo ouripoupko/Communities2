@@ -32,7 +32,7 @@ export async function setValues(
   firstName: string,
   lastName: string,
   imageData: string | null,
-  openaiApiKey?: string | null,
+  _openaiApiKey?: string | null,
   country?: string | null,
 ) {
   await contractWrite({
@@ -46,16 +46,33 @@ export async function setValues(
           firstName,
           lastName,
           userPhoto: imageData,
-          // Store the API key as a simple key-value on the profile contract.
-          // If no key is provided, we omit the property so existing data is untouched.
-          ...(openaiApiKey != null && openaiApiKey !== ''
-            ? { openaiApiKey }
-            : {}),
+          // AI keys are stored locally in the browser, not in the shared profile contract.
+          openaiApiKey: '',
           ...(country != null && country !== ''
             ? { country }
             : {}),
         },
       },
     } as IMethod
+  });
+}
+
+export async function clearRemoteOpenAIApiKey(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'set_values',
+      values: {
+        items: {
+          openaiApiKey: '',
+        },
+      },
+    } as IMethod,
   });
 }

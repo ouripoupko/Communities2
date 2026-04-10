@@ -3,6 +3,47 @@ class Initiative:
     def __init__(self):
         self.db = Storage('initiative_data')
 
+    def _allowed_stage_keys(self):
+        return [
+            'problemVoteContractId',
+            'discussionModsContractId',
+            'proposalsContractId',
+            'proposalsModsContractId',
+            'voteContractId',
+            'convictionContractId',
+        ]
+
+    def _stage_order(self):
+        return ['problem', 'discussion', 'proposals', 'vote', 'mandate']
+
+    def _stage_index(self, stage):
+        order = self._stage_order()
+        idx = 0
+        while idx < len(order):
+            if order[idx] == stage:
+                return idx
+            idx = idx + 1
+        return -1
+
+    def _protected_details(self, details):
+        current = self.get_details()
+        next_details = {}
+
+        if isinstance(details, dict):
+            for key in details:
+                next_details[key] = details[key]
+
+        if 'author' in current:
+            next_details['author'] = current['author']
+        elif 'author' not in next_details:
+            next_details['author'] = master()
+
+        for key in self._allowed_stage_keys():
+            if key in current:
+                next_details[key] = current[key]
+
+        return next_details
+
     def _get_list(self, key):
         if key not in self.db:
             return []
@@ -20,16 +61,55 @@ class Initiative:
 
     # Details
     def set_details(self, details):
-        self.db['details'] = details
+        self.db['details'] = self._protected_details(details)
 
     def get_details(self):
         if 'details' not in self.db:
             return {}
         return self.db['details'].get_dict()
 
+    def register_stage_contract(self, stage_key, contract_id, address, agent):
+        allowed_keys = self._allowed_stage_keys()
+        if stage_key not in allowed_keys:
+            return {'error': 'Invalid stage key'}
+
+        details = self.get_details()
+        if stage_key in details:
+            return details[stage_key]
+
+        details[stage_key] = {
+            'contractId': contract_id,
+            'address': address,
+            'agent': agent,
+        }
+        self.db['details'] = self._protected_details(details)
+        return details[stage_key]
+
+    def get_stage_contract(self, stage_key):
+        if stage_key not in self._allowed_stage_keys():
+            return None
+
+        details = self.get_details()
+        if stage_key in details:
+            return details[stage_key]
+        return None
+
     # Pipeline stage
     def set_stage(self, stage):
+        next_index = self._stage_index(stage)
+        if next_index == -1:
+            return {'error': 'Invalid stage'}
+
+        current_stage = self.get_stage()
+        current_index = self._stage_index(current_stage)
+        if current_index == -1:
+            current_index = 0
+
+        if next_index != current_index + 1:
+            return {'error': 'Stages can only advance one step at a time'}
+
         self.db['stage'] = stage
+        return stage
 
     def get_stage(self):
         if 'stage' not in self.db:

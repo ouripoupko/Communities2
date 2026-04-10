@@ -7,6 +7,7 @@ import styles from './Profile.module.scss';
 import { setValues } from '../../services/contracts/gloki';
 import SearchableSelect from '../shared/SearchableSelect';
 import { COUNTRIES, OTHER_COUNTRY } from '../../utils/countries';
+import { setLocalOpenAIApiKey } from '../../utils/localSecrets';
 
 const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
@@ -92,6 +93,8 @@ const Profile: React.FC = () => {
       try {
         setIsSaving(true);
         setSaveError(null);
+
+        setLocalOpenAIApiKey(user.serverUrl, user.publicKey, openaiApiKey);
         
         await setValues(
           user.serverUrl,
@@ -243,7 +246,7 @@ const Profile: React.FC = () => {
         </div>
 
         <div className={styles.formField}>
-          <label htmlFor="openaiApiKey">AI API Key</label>
+          <label htmlFor="openaiApiKey">AI API Key (stored locally)</label>
           <input id="openaiApiKey" type="password" value={openaiApiKey} onChange={(e) => setOpenaiApiKey(e.target.value)} disabled={!isEditing} placeholder="Optional" />
         </div>
 
@@ -301,4 +304,4 @@ const Profile: React.FC = () => {
   );
 };
 
-export default Profile; 
+export default Profile;

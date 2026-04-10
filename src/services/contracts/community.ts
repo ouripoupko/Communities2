@@ -249,7 +249,7 @@ export async function createInitiative(
   serverUrl: string,
   publicKey: string,
   communityId: string,
-  initiative: { title: string; description?: string },
+  initiative: { title: string; description?: string; evidence?: string[]; countries?: string[] },
 ) {
   const response = await deployContract({
     serverUrl,
@@ -263,6 +263,9 @@ export async function createInitiative(
   const details = {
     title: initiative.title,
     description: initiative.description || '',
+    evidence: initiative.evidence || [],
+    countries: initiative.countries || [],
+    author: publicKey,
     createdAt: Date.now(),
     currencyGoal: 100,
     currencyGathered: 0,

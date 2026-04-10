@@ -135,6 +135,7 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
 
   const handleAdvance = async () => {
     if (!nextStage || !serverUrl || !publicKey || advancing) return;
+    if (!stageReadiness.ready) return;
     if (!confirmAdvance) { setConfirmAdvance(true); return; }
     setAdvancing(true);
     setConfirmAdvance(false);
@@ -303,9 +304,7 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
               {confirmAdvance ? (
                 <div className={styles.confirmRow}>
                   <span className={styles.confirmText}>
-                    {stageReadiness.ready
-                      ? `Advance to ${nextStage.label}?`
-                      : `Threshold not met. Advance to ${nextStage.label} anyway?`}
+                    {`Advance to ${nextStage.label}?`}
                   </span>
                   <button className={styles.confirmYes} onClick={handleAdvance} disabled={advancing}>
                     {advancing ? 'Moving...' : 'Confirm'}
@@ -316,7 +315,7 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
                 <button
                   className={`${styles.advanceButton} ${!stageReadiness.ready ? styles.advanceButtonWarn : ''}`}
                   onClick={handleAdvance}
-                  disabled={advancing}
+                  disabled={advancing || !stageReadiness.ready}
                 >
                   {advancing ? 'Moving...' : `Move to ${nextStage.label}`}
                 </button>

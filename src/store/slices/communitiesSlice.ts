@@ -9,6 +9,7 @@ import {
 } from '../../services/contracts/community';
 import type { IProfile, IPartner } from '../../services/interfaces';
 import { getProfile } from '../../services/contracts/gloki';
+import { stripSensitiveProfileFields } from '../../utils/localSecrets';
 
 // Define Community interface
 interface Community {
@@ -71,7 +72,7 @@ export const fetchMemberProfile = createAsyncThunk(
       memberContractId,
     );
     
-    return { memberAgent, profile: profile as IProfile };
+    return { memberAgent, profile: stripSensitiveProfileFields(profile as IProfile) };
   }
 );
 
@@ -249,4 +250,4 @@ const communitiesSlice = createSlice({
 });
 
 export const { setCurrentCommunity, clearError, clearCommunityData, updateMemberProfile } = communitiesSlice.actions;
-export default communitiesSlice.reducer; 
+export default communitiesSlice.reducer;

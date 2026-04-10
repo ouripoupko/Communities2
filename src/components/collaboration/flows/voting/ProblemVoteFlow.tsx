@@ -4,6 +4,7 @@ import { useFlowContract } from '../shared/useFlowContract';
 import * as api from './problemVoteApi';
 import { useAppSelector } from '../../../../store/hooks';
 import problemVoteCode from '../../../../assets/contracts/problem_vote_contract.py?raw';
+import { sanitizeExternalUrl } from '../../../../utils/urlSafety';
 import styles from './ProblemVoteFlow.module.scss';
 
 interface ProblemVoteFlowProps {
@@ -105,6 +106,9 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
   };
 
   const thresholdMet = communityMemberCount > 0 && tally.up / communityMemberCount >= 0.67;
+  const safeEvidenceLinks = evidenceLinks
+    .map((link) => sanitizeExternalUrl(link))
+    .filter((link): link is string => link !== null);
 
   if (hasError) return (
     <div className={styles.loading}>
@@ -123,11 +127,11 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
     <div className={styles.container}>
       {/* Problem details */}
       {description && <p className={styles.description}>{description}</p>}
-      {evidenceLinks.length > 0 && (
+      {safeEvidenceLinks.length > 0 && (
         <div className={styles.evidence}>
           <h4>Evidence</h4>
           <ul>
-            {evidenceLinks.map((link, i) => (
+            {safeEvidenceLinks.map((link, i) => (
               <li key={i}>
                 <a href={link} target="_blank" rel="noopener noreferrer">{link}</a>
               </li>
