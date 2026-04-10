@@ -11,6 +11,10 @@ import type { PipelineStage } from '../types/initiative';
 import PageHeader from '../components/PageHeader';
 import HomepageMenu from '../components/identity/HomepageMenu';
 import StageFooter from '../components/shared/StageFooter';
+import ApprovalFlow from '../components/collaboration/flows/voting/ApprovalFlow';
+import QVFlow from '../components/collaboration/flows/voting/QVFlow';
+import ConvictionStaking from '../components/collaboration/flows/voting/ConvictionStaking';
+import ErrorBoundary from '../components/shared/ErrorBoundary';
 import styles from './StageFeedView.module.scss';
 import cs from './Container.module.scss';
 
@@ -361,7 +365,7 @@ const StageFeedView: React.FC = () => {
           const threshold = Math.ceil(memberCount * 0.67);
 
           return (
-            <div key={item.id} className={`${styles.card} ${stage === 'problem' ? styles.noClick : ''}`} onClick={stage !== 'problem' ? () => handleCardClick(item) : undefined}>
+            <div key={item.id} className={`${styles.card} ${stage !== 'discussion' ? styles.noClick : ''}`} onClick={stage === 'discussion' ? () => handleCardClick(item) : undefined}>
               <div className={styles.cardMeta}>
                 <button
                   className={styles.communityBadge}
@@ -427,23 +431,43 @@ const StageFeedView: React.FC = () => {
               )}
 
               {stage === 'proposals' && (
-                <div className={styles.stageInfo}>
-                  <Lightbulb size={14} />
-                  <span>Tap to view and submit proposals</span>
+                <div className={styles.inlineFlow}>
+                  <ErrorBoundary fallbackMessage="Proposals encountered an error.">
+                    <ApprovalFlow
+                      instanceId={`${item.id}_proposals`}
+                      collaborationId={item.id}
+                      collaborationType="initiative"
+                      parentContractId={item.id}
+                      stageKey="proposalsContractId"
+                    />
+                  </ErrorBoundary>
                 </div>
               )}
 
               {stage === 'vote' && (
-                <div className={styles.stageInfo}>
-                  <Vote size={14} />
-                  <span>Tap to cast your vote</span>
+                <div className={styles.inlineFlow}>
+                  <ErrorBoundary fallbackMessage="Voting encountered an error.">
+                    <QVFlow
+                      instanceId={`${item.id}_vote`}
+                      collaborationId={item.id}
+                      collaborationType="initiative"
+                      parentContractId={item.id}
+                      stageKey="voteContractId"
+                    />
+                  </ErrorBoundary>
                 </div>
               )}
 
               {stage === 'mandate' && (
-                <div className={styles.stageInfo}>
-                  <ScrollText size={14} />
-                  <span>Community decision reached</span>
+                <div className={styles.inlineFlow}>
+                  <ErrorBoundary fallbackMessage="Conviction staking encountered an error.">
+                    <ConvictionStaking
+                      instanceId={`${item.id}_conviction`}
+                      parentContractId={item.id}
+                      stageKey="convictionContractId"
+                      compact
+                    />
+                  </ErrorBoundary>
                 </div>
               )}
             </div>
@@ -496,21 +520,21 @@ const StageFeedView: React.FC = () => {
             {stage === 'proposals' && (
               <div className={styles.stageInfo}>
                 <Lightbulb size={14} />
-                <span>Tap to view and submit proposals</span>
+                <span>Join a community to submit and approve proposals</span>
               </div>
             )}
 
             {stage === 'vote' && (
               <div className={styles.stageInfo}>
                 <Vote size={14} />
-                <span>Tap to cast your vote</span>
+                <span>Join a community to allocate voting credits</span>
               </div>
             )}
 
             {stage === 'mandate' && (
               <div className={styles.stageInfo}>
                 <ScrollText size={14} />
-                <span>Community decision reached</span>
+                <span>Join a community to stake your conviction</span>
               </div>
             )}
           </div>

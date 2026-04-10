@@ -212,6 +212,17 @@
   white-space: nowrap;
 }
 
+// ─── Inline flow container ───────────────────
+.inlineFlow {
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1px solid $gray-100;
+
+  @media (prefers-color-scheme: dark) {
+    border-top-color: $dark-border;
+  }
+}
+
 // ─── Stage info hint ──────────────────────────
 .stageInfo {
   display: flex;
