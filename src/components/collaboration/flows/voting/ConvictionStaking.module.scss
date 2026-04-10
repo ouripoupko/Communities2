@@ -1,0 +1,301 @@
+@use '../../../../styles/variables' as *;
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// ─── Container ─────────────────────────────────────────────────────────────
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+
+  &.compact {
+    gap: $spacing-lg;
+  }
+}
+
+// ─── Loading / Error state ─────────────────────────────────────────────────
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-md;
+  padding: $spacing-2xl $spacing-xl;
+  color: $gray-500;
+  font-size: $text-sm;
+  text-align: center;
+
+  p { margin: 0; }
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid $gray-200;
+  border-top-color: $primary;
+  border-radius: $radius-full;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.retryBtn {
+  padding: $spacing-sm $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: opacity $transition-base;
+
+  &:hover { opacity: 0.85; }
+}
+
+// ─── Section title ─────────────────────────────────────────────────────────
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: $gray-700;
+  margin: 0 0 $spacing-md 0;
+
+  svg { flex-shrink: 0; color: $primary; }
+
+  @media (prefers-color-scheme: dark) {
+    color: $dark-text;
+  }
+}
+
+// ─── Stake form ────────────────────────────────────────────────────────────
+.stakeForm {
+  background: $gray-50;
+  border: 1px solid $gray-200;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-bg;
+    border-color: $dark-border;
+  }
+}
+
+.inputRow {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+
+  @media (max-width: $breakpoint-sm) {
+    flex-direction: column;
+  }
+}
+
+.amountInput {
+  flex: 1;
+  min-width: 0;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-800;
+  background: white;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color $transition-base;
+
+  &:focus { border-color: $primary; }
+  &::placeholder { color: $gray-400; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-surface;
+    border-color: $dark-border;
+    color: $dark-text;
+
+    &::placeholder { color: $dark-text-secondary; }
+    &:focus { border-color: $primary; }
+  }
+}
+
+.durationSelect {
+  flex: 1;
+  min-width: 0;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-800;
+  background: white;
+  outline: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: border-color $transition-base;
+
+  &:focus { border-color: $primary; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-surface;
+    border-color: $dark-border;
+    color: $dark-text;
+
+    &:focus { border-color: $primary; }
+  }
+}
+
+.preview {
+  font-size: $text-sm;
+  color: $gray-600;
+  margin-bottom: $spacing-md;
+
+  strong { color: $primary; }
+
+  @media (prefers-color-scheme: dark) {
+    color: $dark-text-secondary;
+  }
+}
+
+.stakeBtn {
+  width: 100%;
+  padding: $spacing-sm $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  transition: opacity $transition-base;
+
+  &:hover:not(:disabled) { opacity: 0.88; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// ─── My active stake ───────────────────────────────────────────────────────
+.myStake {
+  background: rgba($success, 0.05);
+  border: 1px solid rgba($success, 0.25);
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+
+  @media (prefers-color-scheme: dark) {
+    background: rgba($success, 0.08);
+    border-color: rgba($success, 0.3);
+  }
+}
+
+.stakeDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-md $spacing-xl;
+  font-size: $text-sm;
+  color: $gray-600;
+
+  strong { color: $gray-800; }
+
+  @media (prefers-color-scheme: dark) {
+    color: $dark-text-secondary;
+
+    strong { color: $dark-text; }
+  }
+}
+
+// ─── Community aggregate ───────────────────────────────────────────────────
+.aggregate {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.aggregateStats {
+  display: flex;
+  gap: $spacing-xl;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statValue {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: $primary;
+  line-height: 1.2;
+}
+
+.statLabel {
+  font-size: $text-xs;
+  color: $gray-500;
+  font-weight: $font-medium;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  @media (prefers-color-scheme: dark) {
+    color: $dark-text-secondary;
+  }
+}
+
+// ─── Country breakdown ─────────────────────────────────────────────────────
+.countryBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.countryRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.countryName {
+  font-size: $text-xs;
+  color: $gray-600;
+  width: 100px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @media (prefers-color-scheme: dark) {
+    color: $dark-text-secondary;
+  }
+}
+
+.countryBar {
+  flex: 1;
+  height: 8px;
+  background: $gray-100;
+  border-radius: $radius-full;
+  overflow: hidden;
+
+  @media (prefers-color-scheme: dark) {
+    background: $dark-border;
+  }
+}
+
+.countryFill {
+  height: 100%;
+  border-radius: $radius-full;
+  transition: width $transition-slow ease;
+  min-width: 4px;
+}
+
+.countryWeight {
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: $gray-700;
+  min-width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+
+  @media (prefers-color-scheme: dark) {
+    color: $dark-text;
+  }
+}
