@@ -11,7 +11,6 @@ import ProblemVoteFlow from './flows/voting/ProblemVoteFlow';
 import DiscussionFlow from './flows/discussion/DiscussionFlow';
 import ApprovalFlow from './flows/voting/ApprovalFlow';
 import QVFlow from './flows/voting/QVFlow';
-import ConcernsFlow from './flows/concerns/ConcernsFlow';
 import ModificationSuggestions from './flows/modifications/ModificationSuggestions';
 import PageHeader from '../PageHeader';
 import ErrorBoundary from '../shared/ErrorBoundary';
@@ -71,7 +70,6 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
   const [stage, setStage] = useState<PipelineStage>('problem');
   const [viewStage, setViewStage] = useState<PipelineStage>('problem');
   const [details, setDetails] = useState<Record<string, unknown>>({});
-  const [showConcerns, setShowConcerns] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [problemTally, setProblemTally] = useState<{ up: number; down: number; total: number }>({ up: 0, down: 0, total: 0 });
   const [confirmAdvance, setConfirmAdvance] = useState(false);
@@ -373,25 +371,6 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
               ) : (
                 <span className={styles.finalStage}>Final stage reached</span>
               )}
-              <button className={styles.concernButton} onClick={() => setShowConcerns((v) => !v)}>
-                <AlertTriangle size={14} />
-                {showConcerns ? 'Hide Concerns' : 'Raise Concern'}
-              </button>
-            </div>
-          )}
-
-          {/* Concerns panel */}
-          {showConcerns && (
-            <div className={styles.concernsPanel}>
-              <ErrorBoundary fallbackMessage="The concerns section encountered an error.">
-                <ConcernsFlow
-                  instanceId={`${collaborationId}_concerns`}
-                  collaborationId={collaborationId}
-                  collaborationType="initiative"
-                  parentContractId={collaborationId}
-                  stageKey="concernsContractId"
-                />
-              </ErrorBoundary>
             </div>
           )}
         </div>

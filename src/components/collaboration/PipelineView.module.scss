@@ -444,39 +444,10 @@ $initiative-color: #ea580c;
   &:hover { background: $gray-50; }
 }
 
-.concernButton {
-  display: inline-flex;
-  align-items: center;
-  gap: $spacing-xs;
-  padding: $spacing-sm $spacing-lg;
-  background: transparent;
-  color: $warning;
-  border: 1px solid $warning;
-  border-radius: $radius-md;
-  font-size: $text-sm;
-  font-weight: $font-medium;
-  cursor: pointer;
-  transition: background $transition-base;
-
-  &:hover {
-    background: rgba($warning, 0.08);
-  }
-}
-
 .finalStage {
   font-size: $text-sm;
   color: $gray-400;
   font-style: italic;
-}
-
-// ─── Concerns panel ───────────────────────────────────────────────────────────
-
-.concernsPanel {
-  margin-top: $spacing-lg;
-  padding: $spacing-lg;
-  background: rgba($warning, 0.06);
-  border: 1px solid rgba($warning, 0.25);
-  border-radius: $radius-lg;
 }
 
 // ─── Mobile ───────────────────────────────────────────────────────────────────
@@ -569,8 +540,4 @@ $initiative-color: #ea580c;
     border-top-color: $dark-border;
   }
 
-  .concernsPanel {
-    background: rgba($warning, 0.08);
-    border-color: rgba($warning, 0.3);
-  }
 }
