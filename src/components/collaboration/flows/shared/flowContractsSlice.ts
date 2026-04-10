@@ -6,40 +6,73 @@ interface FlowContractsState {
   contracts: Record<string, string>;
   /** instanceId -> true while deploying */
   deploying: Record<string, boolean>;
+  /** active identity-specific storage scope */
+  storageScope: string | null;
 }
 
-const STORAGE_KEY = 'flowContracts';
+const STORAGE_KEY_PREFIX = 'flowContracts';
 
-function loadFromStorage(): Record<string, string> {
+function getStorageKey(scopeKey: string) {
+  return `${STORAGE_KEY_PREFIX}:${scopeKey}`;
+}
+
+export function buildFlowContractsScope(serverUrl: string, publicKey: string) {
+  return `${encodeURIComponent(serverUrl)}::${publicKey}`;
+}
+
+function sanitizeContracts(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  const sanitized: Record<string, string> = {};
+  for (const [instanceId, contractId] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof instanceId !== 'string' || instanceId.trim() === '') continue;
+    if (typeof contractId !== 'string' || contractId.trim() === '') continue;
+    sanitized[instanceId] = contractId;
+  }
+  return sanitized;
+}
+
+function loadFromStorage(scopeKey: string | null): Record<string, string> {
+  if (!scopeKey) return {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    const raw = localStorage.getItem(getStorageKey(scopeKey));
+    return raw ? sanitizeContracts(JSON.parse(raw)) : {};
   } catch {
     return {};
   }
 }
 
-function saveToStorage(contracts: Record<string, string>) {
+function saveToStorage(scopeKey: string | null, contracts: Record<string, string>) {
+  if (!scopeKey) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(contracts));
+    localStorage.setItem(getStorageKey(scopeKey), JSON.stringify(contracts));
   } catch {
     // localStorage full or unavailable -- silent fail
   }
 }
 
 const initialState: FlowContractsState = {
-  contracts: loadFromStorage(),
+  contracts: {},
   deploying: {},
+  storageScope: null,
 };
 
 const flowContractsSlice = createSlice({
   name: 'flowContracts',
   initialState,
   reducers: {
+    hydrateContracts(state, action: PayloadAction<{ scopeKey: string | null }>) {
+      state.storageScope = action.payload.scopeKey;
+      state.contracts = loadFromStorage(action.payload.scopeKey);
+      state.deploying = {};
+    },
     setContract(state, action: PayloadAction<{ instanceId: string; contractId: string }>) {
       state.contracts[action.payload.instanceId] = action.payload.contractId;
       state.deploying[action.payload.instanceId] = false;
-      saveToStorage(current(state).contracts);
+      const nextState = current(state);
+      saveToStorage(nextState.storageScope, nextState.contracts);
     },
     setDeploying(state, action: PayloadAction<{ instanceId: string }>) {
       state.deploying[action.payload.instanceId] = true;
@@ -50,10 +83,11 @@ const flowContractsSlice = createSlice({
     removeContract(state, action: PayloadAction<{ instanceId: string }>) {
       delete state.contracts[action.payload.instanceId];
       delete state.deploying[action.payload.instanceId];
-      saveToStorage(current(state).contracts);
+      const nextState = current(state);
+      saveToStorage(nextState.storageScope, nextState.contracts);
     },
   },
 });
 
-export const { setContract, setDeploying, clearDeploying, removeContract } = flowContractsSlice.actions;
+export const { hydrateContracts, setContract, setDeploying, clearDeploying, removeContract } = flowContractsSlice.actions;
 export default flowContractsSlice.reducer;

@@ -29,6 +29,13 @@ export async function getVotes(serverUrl: string, publicKey: string, contractId:
   });
 }
 
+export async function getMyVote(serverUrl: string, publicKey: string, contractId: string) {
+  return await contractRead({
+    serverUrl, publicKey, contractId,
+    method: { name: 'get_my_vote', values: {} } as IMethod,
+  });
+}
+
 export async function getTally(serverUrl: string, publicKey: string, contractId: string) {
   return await contractRead({
     serverUrl, publicKey, contractId,

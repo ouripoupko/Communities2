@@ -21,6 +21,12 @@ class ProblemVote:
             result[voter] = self.votes[voter]
         return result
 
+    def get_my_vote(self):
+        voter = master()
+        if voter in self.votes:
+            return self.votes[voter]
+        return None
+
     def get_tally(self):
         up = 0
         down = 0

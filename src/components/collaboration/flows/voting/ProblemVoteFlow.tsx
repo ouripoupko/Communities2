@@ -45,13 +45,18 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
   const fetchData = useCallback(async () => {
     if (!serverUrl || !publicKey || !contractId) return;
     try {
-      const [tallyRes, votesRes] = await Promise.all([
-        api.getTally(serverUrl, publicKey, contractId),
-        api.getVotes(serverUrl, publicKey, contractId),
-      ]);
+      const tallyRes = await api.getTally(serverUrl, publicKey, contractId);
       setTally((tallyRes as Tally) || { up: 0, down: 0, total: 0 });
-      const votes = (votesRes as Record<string, string>) || {};
-      setMyVote(votes[publicKey] === 'up' ? 'up' : votes[publicKey] === 'down' ? 'down' : null);
+
+      try {
+        const myVoteRes = await api.getMyVote(serverUrl, publicKey, contractId);
+        setMyVote(myVoteRes === 'up' ? 'up' : myVoteRes === 'down' ? 'down' : null);
+      } catch {
+        // Backward compatibility for contracts deployed before get_my_vote existed.
+        const votesRes = await api.getVotes(serverUrl, publicKey, contractId);
+        const votes = (votesRes as Record<string, string>) || {};
+        setMyVote(votes[publicKey] === 'up' ? 'up' : votes[publicKey] === 'down' ? 'down' : null);
+      }
     } catch (err) {
       console.error('Failed to fetch problem vote data:', err);
     }

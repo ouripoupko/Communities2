@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { initializeUser, setCurrentUser, clearUser, fetchContracts } from '../store/slices/userSlice';
 import type { AppDispatch, RootState } from '../store';
+import { buildFlowContractsScope, hydrateContracts } from '../components/collaboration/flows/shared/flowContractsSlice';
 import { eventStreamService } from '../services/eventStream';
 
 interface AuthContextType {
@@ -34,6 +35,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Get user data from Redux
   const user = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!(user.publicKey && user.serverUrl);
+
+  useEffect(() => {
+    const scopeKey = user.publicKey && user.serverUrl
+      ? buildFlowContractsScope(user.serverUrl, user.publicKey)
+      : null;
+    dispatch(hydrateContracts({ scopeKey }));
+  }, [dispatch, user.publicKey, user.serverUrl]);
 
   useEffect(() => {
     // Check for stored user data on app load
