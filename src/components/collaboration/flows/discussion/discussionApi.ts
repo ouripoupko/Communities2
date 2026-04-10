@@ -43,11 +43,17 @@ export function getComments(instanceId: string): Comment[] {
   return getStore(instanceId).map(c => ({ ...c }));
 }
 
-export function addComment(instanceId: string, text: string, parentId: string | null, category?: CommentCategory): Comment {
+export function addComment(
+  instanceId: string,
+  author: string,
+  text: string,
+  parentId: string | null,
+  category?: CommentCategory,
+): Comment {
   const store = getStore(instanceId);
   const c: Comment = {
     id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-    author: CURRENT_USER,
+    author,
     text: text.trim(),
     parentId,
     timestamp: Date.now(),

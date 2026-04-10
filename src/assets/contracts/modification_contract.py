@@ -38,9 +38,10 @@ class Modifications:
 
     def author_decide(self, suggestion_id, decision):
         caller = master()
-        if 'author' in self.config:
-            if self.config['author'] != caller:
-                return {'error': 'Only the original author can decide'}
+        if 'author' not in self.config:
+            return {'error': 'Original author not configured'}
+        if self.config['author'] != caller:
+            return {'error': 'Only the original author can decide'}
         if suggestion_id not in self.suggestions:
             return {'error': 'Suggestion not found'}
         s = self.suggestions[suggestion_id].get_dict()

@@ -49,6 +49,7 @@ const SEED_INITIATIVES: SeedInitiative[] = [
 ];
 
 const SEED_STORAGE_KEY = 'gloki_test_data_seeded';
+const TEST_SEEDING_FLAG = 'gloki_enable_test_seeding';
 const LOCAL_HOSTS = ['localhost', '127.0.0.1'];
 const STAGE_ORDER = ['problem', 'discussion', 'proposals', 'vote', 'mandate'] as const;
 
@@ -62,8 +63,10 @@ function isSafeSeedEnvironment(serverUrl: string): boolean {
   try {
     const serverHost = new URL(serverUrl).hostname;
     const appHost = window.location.hostname;
+    const seedingEnabled = import.meta.env.VITE_ENABLE_TEST_SEEDING === 'true'
+      || localStorage.getItem(TEST_SEEDING_FLAG) === 'true';
 
-    return isLocalHost(serverHost) && isLocalHost(appHost);
+    return seedingEnabled && isLocalHost(serverHost) && isLocalHost(appHost);
   } catch {
     return false;
   }

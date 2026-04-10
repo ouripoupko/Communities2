@@ -42,7 +42,7 @@ function buildTree(flat: Comment[]): CommentNode[] {
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-const authorLabel = (id: string) => id === api.CURRENT_USER ? 'You' : id;
+const authorLabel = (id: string, currentUserKey: string) => id === currentUserKey ? 'You' : id;
 
 // ---------------------------------------------------------------------------
 // Category badge (small inline label on comments)
@@ -134,18 +134,19 @@ const CommentItem: React.FC<{
   depth: number;
   refresh: () => void;
   profiles: Record<string, { firstName?: string; lastName?: string; country?: string }>;
-}> = ({ node, instanceId, depth, refresh, profiles }) => {
+  currentUserKey: string;
+}> = ({ node, instanceId, depth, refresh, profiles, currentUserKey }) => {
   const [replying,   setReplying]   = useState(false);
   const [collapsed,  setCollapsed]  = useState(false);
 
-  const isOwn      = node.author === api.CURRENT_USER;
+  const isOwn      = node.author === currentUserKey;
   const hasChildren = node.children.length > 0;
 
   const handleReply = useCallback((text: string) => {
-    api.addComment(instanceId, text, node.id, node.category);
+    api.addComment(instanceId, currentUserKey, text, node.id, node.category);
     refresh();
     setReplying(false);
-  }, [instanceId, node.id, node.category, refresh]);
+  }, [instanceId, currentUserKey, node.id, node.category, refresh]);
 
   const handleDelete = useCallback(() => {
     api.deleteComment(instanceId, node.id);
@@ -161,10 +162,10 @@ const CommentItem: React.FC<{
         {/* Header */}
         <div className={styles.commentHeader}>
           <span className={`${styles.avatar} ${isOwn ? styles.avatarMe : ''}`}>
-            {authorLabel(node.author)[0].toUpperCase()}
+            {authorLabel(node.author, currentUserKey)[0].toUpperCase()}
           </span>
           <span className={styles.authorName}>
-            {authorLabel(node.author)}
+            {authorLabel(node.author, currentUserKey)}
             <CountryBadge countryCode={profiles[node.author]?.country} />
           </span>
           <CategoryBadge category={node.category} />
@@ -206,7 +207,7 @@ const CommentItem: React.FC<{
         {/* Reply compose */}
         {replying && (
           <ComposeBox
-            placeholder={`Replying to ${authorLabel(node.author)}…`}
+            placeholder={`Replying to ${authorLabel(node.author, currentUserKey)}…`}
             onSubmit={(text) => handleReply(text)}
             onCancel={() => setReplying(false)}
             autoFocus
@@ -218,7 +219,15 @@ const CommentItem: React.FC<{
       {!collapsed && node.children.length > 0 && (
         <div className={styles.children}>
           {node.children.map(child => (
-            <CommentItem key={child.id} node={child} instanceId={instanceId} depth={depth + 1} refresh={refresh} profiles={profiles} />
+            <CommentItem
+              key={child.id}
+              node={child}
+              instanceId={instanceId}
+              depth={depth + 1}
+              refresh={refresh}
+              profiles={profiles}
+              currentUserKey={currentUserKey}
+            />
           ))}
         </div>
       )}
@@ -231,6 +240,8 @@ const CommentItem: React.FC<{
 // ---------------------------------------------------------------------------
 const DiscussionFlow: React.FC<FlowProps> = ({ instanceId }) => {
   const profiles = useAppSelector((s) => s.communities.profiles) || {};
+  const publicKey = useAppSelector((s) => s.user.publicKey);
+  const currentUserKey = publicKey || api.CURRENT_USER;
   const [flat, setFlat] = useState<Comment[]>(() => api.getComments(instanceId));
   const [activeFilter, setActiveFilter] = useState<CommentCategory | 'all'>('all');
 
@@ -267,9 +278,9 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId }) => {
   const tree = useMemo(() => buildTree(filteredFlat), [filteredFlat]);
 
   const handleTopLevel = useCallback((text: string, category?: CommentCategory) => {
-    api.addComment(instanceId, text, null, category);
+    api.addComment(instanceId, currentUserKey, text, null, category);
     refresh();
-  }, [instanceId, refresh]);
+  }, [instanceId, currentUserKey, refresh]);
 
   return (
     <div className={styles.container}>
@@ -329,7 +340,15 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId }) => {
       ) : (
         <div className={styles.commentList}>
           {tree.map(node => (
-            <CommentItem key={node.id} node={node} instanceId={instanceId} depth={0} refresh={refresh} profiles={profiles} />
+            <CommentItem
+              key={node.id}
+              node={node}
+              instanceId={instanceId}
+              depth={0}
+              refresh={refresh}
+              profiles={profiles}
+              currentUserKey={currentUserKey}
+            />
           ))}
         </div>
       )}

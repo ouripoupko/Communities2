@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../../store/hooks';
+import { fetchCollaborations } from '../../store/slices/communitiesSlice';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import DiscussionFlow from './flows/discussion/DiscussionFlow';
 import ModificationSuggestions from './flows/modifications/ModificationSuggestions';
 import PageHeader from '../PageHeader';
@@ -15,9 +16,19 @@ interface DiscussionStageViewProps {
 
 const DiscussionStageView: React.FC<DiscussionStageViewProps> = ({ title, collaborationId, communityId }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const serverUrl = useAppSelector((s) => s.user.serverUrl);
+  const publicKey = useAppSelector((s) => s.user.publicKey);
   const communityProps = useAppSelector((s) => s.communities.communityProperties[communityId]);
   const communityName = communityProps?.name || communityId.slice(0, 8);
   const collaborations = useAppSelector((s) => s.communities.communityCollaborations[communityId]);
+  const collaborationsLoading = useAppSelector((s) => s.communities.collaborationsLoading[communityId]);
+
+  useEffect(() => {
+    if (!serverUrl || !publicKey || collaborations || collaborationsLoading) return;
+
+    dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
+  }, [serverUrl, publicKey, collaborations, collaborationsLoading, dispatch, communityId]);
 
   // Find the initiative author from the collaboration data
   const originalAuthor = useMemo(() => {

@@ -52,6 +52,10 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
 
   const isAuthor = publicKey === originalAuthor;
 
+  useEffect(() => {
+    setAuthorSet(false);
+  }, [contractId, originalAuthor]);
+
   const fetchData = useCallback(async () => {
     if (!serverUrl || !publicKey || !contractId) return;
     try {
@@ -106,6 +110,10 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
     if (!serverUrl || !publicKey || !contractId) return;
     setDecidingId(suggestionId);
     try {
+      if (originalAuthor && !authorSet) {
+        await api.setAuthor(serverUrl, publicKey, contractId, originalAuthor);
+        setAuthorSet(true);
+      }
       await api.authorDecide(serverUrl, publicKey, contractId, suggestionId, decision);
       await fetchData();
     } catch { /* silent */ }
