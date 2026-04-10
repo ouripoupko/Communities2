@@ -204,41 +204,51 @@ const StageFeedView: React.FC = () => {
     async (initiativeId: string, direction: 'up' | 'down') => {
       if (!serverUrl || !publicKey || votingInProgress[initiativeId]) return;
       setVotingInProgress((prev) => ({ ...prev, [initiativeId]: true }));
+
+      // Optimistic tally update
+      const prevTally = tallies[initiativeId];
+      if (prevTally) {
+        setTallies((prev) => ({
+          ...prev,
+          [initiativeId]: {
+            up: prevTally.up + (direction === 'up' ? 1 : 0),
+            down: prevTally.down + (direction === 'down' ? 1 : 0),
+            total: prevTally.total + 1,
+          },
+        }));
+      }
+
       try {
-        // Get the problem vote sub-contract
         const pvContractIdRaw = await contractRead({
-          serverUrl,
-          publicKey,
-          contractId: initiativeId,
+          serverUrl, publicKey, contractId: initiativeId,
           method: { name: 'Storage', values: { key: 'problemVoteContractId' } } as IMethod,
         });
         const pvContractId = typeof pvContractIdRaw === 'string' ? pvContractIdRaw : null;
         if (!pvContractId) return;
 
         await contractWrite({
-          serverUrl,
-          publicKey,
-          contractId: pvContractId,
+          serverUrl, publicKey, contractId: pvContractId,
           method: { name: 'vote', values: { direction } } as IMethod,
         });
 
-        // Refresh tally
+        // Fetch real tally
         const tally = await contractRead({
-          serverUrl,
-          publicKey,
-          contractId: pvContractId,
+          serverUrl, publicKey, contractId: pvContractId,
           method: { name: 'get_tally', values: {} } as IMethod,
         });
         if (tally && typeof tally === 'object') {
           setTallies((prev) => ({ ...prev, [initiativeId]: tally as TallyData }));
         }
       } catch {
-        // Vote may fail if already voted — silent
+        // Rollback on failure
+        if (prevTally) {
+          setTallies((prev) => ({ ...prev, [initiativeId]: prevTally }));
+        }
       } finally {
         setVotingInProgress((prev) => ({ ...prev, [initiativeId]: false }));
       }
     },
-    [serverUrl, publicKey, votingInProgress],
+    [serverUrl, publicKey, votingInProgress, tallies],
   );
 
   const handleCardClick = (item: InitiativeWithMeta) => {

@@ -130,13 +130,17 @@ $initiative-color: #ea580c;
   font-size: $text-lg;
   font-weight: $font-semibold;
   cursor: pointer;
-  transition: all $transition-base;
+  transition: all 0.1s;
   min-width: 80px;
   justify-content: center;
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.93);
   }
 }
 

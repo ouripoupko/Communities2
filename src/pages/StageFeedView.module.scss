@@ -155,9 +155,14 @@
   background: rgba($success, 0.1);
   color: $success;
   border-color: rgba($success, 0.3);
+  transition: all 0.1s;
 
   &:hover:not(:disabled) {
     background: rgba($success, 0.2);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
   }
 }
 
@@ -165,9 +170,14 @@
   background: rgba($error, 0.1);
   color: $error;
   border-color: rgba($error, 0.3);
+  transition: all 0.1s;
 
   &:hover:not(:disabled) {
     background: rgba($error, 0.2);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
   }
 }
 

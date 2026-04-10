@@ -63,8 +63,30 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
   const handleVote = async (direction: 'up' | 'down') => {
     if (!serverUrl || !publicKey || !contractId || voting) return;
     setVoting(true);
+
+    // Optimistic update
+    const prevTally = { ...tally };
+    const prevVote = myVote;
+    if (myVote === direction) {
+      // Removing vote
+      setTally({
+        up: tally.up - (direction === 'up' ? 1 : 0),
+        down: tally.down - (direction === 'down' ? 1 : 0),
+        total: tally.total - 1,
+      });
+      setMyVote(null);
+    } else {
+      // Changing or new vote
+      setTally({
+        up: tally.up + (direction === 'up' ? 1 : 0) - (myVote === 'up' ? 1 : 0),
+        down: tally.down + (direction === 'down' ? 1 : 0) - (myVote === 'down' ? 1 : 0),
+        total: tally.total + (myVote === null ? 1 : 0),
+      });
+      setMyVote(direction);
+    }
+
     try {
-      if (myVote === direction) {
+      if (prevVote === direction) {
         await api.removeVote(serverUrl, publicKey, contractId);
       } else if (direction === 'up') {
         await api.upvote(serverUrl, publicKey, contractId);
@@ -73,6 +95,9 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
       }
       await fetchData();
     } catch (err) {
+      // Rollback on failure
+      setTally(prevTally);
+      setMyVote(prevVote);
       console.error('Failed to vote:', err);
     } finally {
       setVoting(false);
