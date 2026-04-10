@@ -1,18 +1,30 @@
 import { contractRead, contractWrite } from '../../../../services/api';
 import type { IMethod } from '../../../../services/interfaces';
 
+function throwIfContractError(response: unknown) {
+  if (
+    response &&
+    typeof response === 'object' &&
+    'error' in response &&
+    typeof (response as { error?: unknown }).error === 'string'
+  ) {
+    throw new Error((response as { error: string }).error);
+  }
+  return response;
+}
+
 export async function addProposal(
   serverUrl: string,
   publicKey: string,
   contractId: string,
   text: string,
 ) {
-  return await contractWrite({
+  return throwIfContractError(await contractWrite({
     serverUrl,
     publicKey,
     contractId,
     method: { name: 'add_proposal', values: { text } } as IMethod,
-  });
+  }));
 }
 
 export async function approve(
@@ -21,12 +33,12 @@ export async function approve(
   contractId: string,
   proposalId: string,
 ) {
-  return await contractWrite({
+  return throwIfContractError(await contractWrite({
     serverUrl,
     publicKey,
     contractId,
     method: { name: 'approve', values: { proposal_id: proposalId } } as IMethod,
-  });
+  }));
 }
 
 export async function withdrawApproval(
@@ -35,12 +47,12 @@ export async function withdrawApproval(
   contractId: string,
   proposalId: string,
 ) {
-  return await contractWrite({
+  return throwIfContractError(await contractWrite({
     serverUrl,
     publicKey,
     contractId,
     method: { name: 'withdraw_approval', values: { proposal_id: proposalId } } as IMethod,
-  });
+  }));
 }
 
 export async function getProposals(
@@ -66,6 +78,19 @@ export async function getApprovals(
     publicKey,
     contractId,
     method: { name: 'get_approvals', values: {} } as IMethod,
+  });
+}
+
+export async function getApprovalCounts(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  return await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'get_approval_counts', values: {} } as IMethod,
   });
 }
 

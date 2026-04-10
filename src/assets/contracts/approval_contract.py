@@ -6,12 +6,27 @@ class ApprovalVoting:
         if not self.proposal_count.exists():
             self.proposal_count['count'] = 0
 
+    def _clean_proposal_text(self, text):
+        if type(text) != str:
+            return None
+        cleaned = text.strip()
+        if cleaned == '' or len(cleaned) > 500:
+            return None
+        return cleaned
+
+    def _proposal_exists(self, proposal_id):
+        return type(proposal_id) == str and proposal_id in self.proposals
+
     def add_proposal(self, text):
+        cleaned_text = self._clean_proposal_text(text)
+        if cleaned_text is None:
+            return {'error': 'Proposal text must be between 1 and 500 characters'}
+
         count = self.proposal_count['count']
         proposal_id = 'p' + str(count)
         self.proposals[proposal_id] = {
             'id': proposal_id,
-            'text': text,
+            'text': cleaned_text,
             'author': master(),
             'timestamp': timestamp(),
         }
@@ -19,12 +34,18 @@ class ApprovalVoting:
         return proposal_id
 
     def approve(self, proposal_id):
+        if not self._proposal_exists(proposal_id):
+            return {'error': 'Unknown proposal'}
+
         voter = master()
         if voter not in self.approvals:
             self.approvals[voter] = {}
         self.approvals[voter][proposal_id] = True
 
     def withdraw_approval(self, proposal_id):
+        if not self._proposal_exists(proposal_id):
+            return {'error': 'Unknown proposal'}
+
         voter = master()
         if voter in self.approvals:
             voter_approvals = self.approvals[voter].get_dict()
@@ -41,6 +62,18 @@ class ApprovalVoting:
         result = {}
         for voter in self.approvals:
             result[voter] = self.approvals[voter].get_dict()
+        return result
+
+    def get_approval_counts(self):
+        result = {}
+        for pid in self.proposals:
+            result[pid] = 0
+
+        for voter in self.approvals:
+            voter_approvals = self.approvals[voter].get_dict()
+            for proposal_id in voter_approvals:
+                if proposal_id in result and voter_approvals[proposal_id]:
+                    result[proposal_id] = result[proposal_id] + 1
         return result
 
     def get_my_approvals(self):

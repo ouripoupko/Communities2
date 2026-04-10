@@ -1,14 +1,26 @@
 import { contractRead, contractWrite } from '../../../../services/api';
 import type { IMethod } from '../../../../services/interfaces';
 
+function throwIfContractError(response: unknown) {
+  if (
+    response &&
+    typeof response === 'object' &&
+    'error' in response &&
+    typeof (response as { error?: unknown }).error === 'string'
+  ) {
+    throw new Error((response as { error: string }).error);
+  }
+  return response;
+}
+
 export async function stake(
   serverUrl: string, publicKey: string, contractId: string,
   amount: number, duration: string, country: string,
 ) {
-  return await contractWrite({
+  return throwIfContractError(await contractWrite({
     serverUrl, publicKey, contractId,
     method: { name: 'stake', values: { amount, duration, country } } as IMethod,
-  });
+  }));
 }
 
 export async function getMyStake(serverUrl: string, publicKey: string, contractId: string) {

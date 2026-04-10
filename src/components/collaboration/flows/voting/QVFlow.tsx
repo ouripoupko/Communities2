@@ -33,12 +33,17 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
     if (!serverUrl || !publicKey || !contractId) return;
     setLoading(true);
     try {
+      const showDetailedResults = activeTab === 'results';
       const [p, c, ma, aa, r] = await Promise.all([
         api.getProposals(serverUrl, publicKey, contractId),
         api.getConfig(serverUrl, publicKey, contractId),
         api.getMyAllocation(serverUrl, publicKey, contractId),
-        api.getAllocations(serverUrl, publicKey, contractId),
-        api.getResults(serverUrl, publicKey, contractId),
+        showDetailedResults
+          ? api.getAllocations(serverUrl, publicKey, contractId)
+          : Promise.resolve(null),
+        showDetailedResults
+          ? api.getResults(serverUrl, publicKey, contractId)
+          : Promise.resolve(null),
       ]);
       setProposals((p as Record<string, Proposal>) || {});
       setConfig((c as Config) || { credits_per_voter: 100, status: 'open' });
@@ -47,11 +52,11 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
         setDraft(myAlloc);
         draftInitialized.current = true;
       }
-      setAllAllocations((aa as Record<string, Record<string, number>>) || {});
-      setResults((r as Record<string, number>) || {});
+      setAllAllocations(showDetailedResults ? ((aa as Record<string, Record<string, number>>) || {}) : {});
+      setResults(showDetailedResults ? ((r as Record<string, number>) || {}) : {});
     } catch (err) { console.error('Failed to fetch QV data:', err); }
     finally { setLoading(false); }
-  }, [serverUrl, publicKey, contractId]);
+  }, [activeTab, serverUrl, publicKey, contractId]);
 
   useEffect(() => { if (isReady) fetchData(); }, [isReady, fetchData]);
 

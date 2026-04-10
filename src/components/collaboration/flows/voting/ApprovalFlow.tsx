@@ -33,28 +33,83 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
   const [activeTab, setActiveTab] = useState<'proposals' | 'results'>('proposals');
   const [showHelp, setShowHelp] = useState(false);
   const [proposals, setProposals] = useState<Record<string, Proposal>>({});
+  const [approvalCounts, setApprovalCounts] = useState<Record<string, number>>({});
   const [approvals, setApprovals] = useState<Record<string, Record<string, boolean>>>({});
+  const [myApprovals, setMyApprovals] = useState<Record<string, boolean>>({});
   const [newText, setNewText] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  const countApprovals = useCallback((approvalMap: Record<string, Record<string, boolean>>) => {
+    const counts: Record<string, number> = {};
+    for (const voterApprovals of Object.values(approvalMap)) {
+      for (const [proposalId, approved] of Object.entries(voterApprovals)) {
+        if (!approved) continue;
+        counts[proposalId] = (counts[proposalId] || 0) + 1;
+      }
+    }
+    return counts;
+  }, []);
+
+  const sanitizeApprovalCounts = useCallback((value: unknown) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return {};
+    }
+
+    const sanitized: Record<string, number> = {};
+    for (const [proposalId, count] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof count === 'number' && Number.isFinite(count) && count >= 0) {
+        sanitized[proposalId] = count;
+      }
+    }
+    return sanitized;
+  }, []);
+
   const fetchData = useCallback(async () => {
     if (!serverUrl || !publicKey || !contractId) return;
     setLoading(true);
     try {
-      const [p, a] = await Promise.all([
+      const [p, myApprovalsRes] = await Promise.all([
         api.getProposals(serverUrl, publicKey, contractId),
-        api.getApprovals(serverUrl, publicKey, contractId),
+        api.getMyApprovals(serverUrl, publicKey, contractId),
       ]);
-      setProposals((p as Record<string, Proposal>) || {});
-      setApprovals((a as Record<string, Record<string, boolean>>) || {});
+
+      const proposalMap = (p as Record<string, Proposal>) || {};
+      setProposals(proposalMap);
+      setMyApprovals((myApprovalsRes as Record<string, boolean>) || {});
+
+      let nextCounts: Record<string, number> = {};
+      let nextApprovals: Record<string, Record<string, boolean>> = {};
+
+      try {
+        const countsRes = await api.getApprovalCounts(serverUrl, publicKey, contractId);
+        nextCounts = sanitizeApprovalCounts(countsRes);
+      } catch {
+        nextCounts = {};
+      }
+
+      if (activeTab === 'results') {
+        nextApprovals = (await api.getApprovals(serverUrl, publicKey, contractId) as Record<string, Record<string, boolean>>) || {};
+        if (Object.keys(nextCounts).length === 0) {
+          nextCounts = countApprovals(nextApprovals);
+        }
+      } else {
+        nextApprovals = {};
+        if (Object.keys(nextCounts).length === 0 && Object.keys(proposalMap).length > 0) {
+          const fallbackApprovals = (await api.getApprovals(serverUrl, publicKey, contractId) as Record<string, Record<string, boolean>>) || {};
+          nextCounts = countApprovals(fallbackApprovals);
+        }
+      }
+
+      setApprovalCounts(nextCounts);
+      setApprovals(nextApprovals);
     } catch (err) {
       console.error('Failed to fetch approval data:', err);
     } finally {
       setLoading(false);
     }
-  }, [serverUrl, publicKey, contractId]);
+  }, [activeTab, contractId, countApprovals, publicKey, sanitizeApprovalCounts, serverUrl]);
 
   useEffect(() => {
     if (isReady) fetchData();
@@ -79,7 +134,7 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
     if (!serverUrl || !publicKey || !contractId) return;
     setTogglingId(proposalId);
     try {
-      const isApproved = approvals[publicKey]?.[proposalId];
+      const isApproved = myApprovals[proposalId] === true;
       if (isApproved) {
         await api.withdrawApproval(serverUrl, publicKey, contractId, proposalId);
       } else {
@@ -109,7 +164,7 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
   );
 
   const getApprovalCount = (proposalId: string): number =>
-    Object.values(approvals).filter((va) => va[proposalId]).length;
+    approvalCounts[proposalId] || 0;
 
   const getCountryBreakdown = (proposalId: string): Record<string, number> => {
     const breakdown: Record<string, number> = {};
@@ -123,7 +178,7 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
   };
 
   const isMyApproval = (proposalId: string): boolean =>
-    publicKey ? approvals[publicKey]?.[proposalId] === true : false;
+    myApprovals[proposalId] === true;
 
   return (
     <div className={styles.container}>
