@@ -23,24 +23,26 @@
 - `useSwipeRef` (`hooks/useSwipeNavigation.ts`): callback ref for horizontal swipe, used in PipelineView stages
 - Profiles at `state.communities.profiles[publicKey]`; fields: `firstName`, `lastName`, `userPhoto`, `userBio`, `country?`
 - Auth at `state.user.serverUrl`/`publicKey`
-- Country utilities: `src/utils/countries.ts` — 197 countries (ISO 3166-1), `getCountryByCode()`, `getCountryColor()`, `getCountryName()`
+- Country utilities: `src/utils/countries.ts` — 197 countries (ISO 3166-1), `getCountryByCode()`, `getCountryColor()`, `getCountryName()`, `getCountryFlag()`
+- `CountryParticipation` (`components/shared/CountryParticipation.tsx`): shows top country flags with participation counts
 - `SearchableSelect` (`components/shared/SearchableSelect.tsx`): reusable searchable dropdown
 
 ## App Structure
 
 **Navigation**: Global footer (`StageFooter.tsx`) — fixed bottom bar with 5 stage icons (Problem, Discussion, Proposals, Vote, Mandate), navigates to `/stage/:stageId`, appears on all authenticated pages. `HomepageMenu` (slide-out) provides access to Profile, Communities, Join, Create, About, Contact.
 
-**Stage Feeds** (`StageFeedView.tsx`): Default landing page at `/stage/problem`. Shows initiatives across all communities filtered by governance stage. Problem stage has inline "Problem for me" / "Not a problem for me" voting with threshold progress bars. Problem cards do not navigate (vote inline only); other stages navigate to the initiative pipeline. Sample/mock data shown when no real initiatives exist (non-interactive, disabled buttons).
+**Stage Feed Mini-Apps** (`StageFeedView.tsx`): Default landing page at `/stage/problem`. Each stage is a purpose-built participation interface. Problem: inline up/down voting with optimistic UI + threshold bars. Discussion: tap-through cards to initiative discussion view. Proposals: inline `ApprovalFlow` with approve/withdraw per card. Vote: inline `QVFlow` with credit allocation per card. Mandate: inline `ConvictionStaking` with conviction staking per card. Sample data shown as empty-state fallback only.
 
 **Community** (`CommunityView.tsx`): Dark header with name, description, member count. No inline tab bar — all navigation through slide-out hamburger menu (Home, Create Initiative, Collab, Chat, Currency, Members, Identity & Trust, Share, Invite, Leave). Default view is the activity feed with "Community Activity" section header showing initiatives with stage badges.
 
-**Initiative Pipeline** (`PipelineView.tsx`): 5 stages with connected progress dots (green = completed, blue = current). Swipe navigation between stages. All stage flows use shared contracts via `parentContractId={collaborationId}`.
-- Step 1: `ProblemVoteFlow` — upvote/downvote, 67% threshold, "X more needed"
-- Step 2: `DiscussionFlow` — 33% participation threshold + `ModificationSuggestions`
-- Step 3: `ApprovalFlow` — country-segmented results + `ModificationSuggestions`
-- Step 4: `QVFlow` — credit allocation + sqrt voting, country-segmented results
-- Step 5: Mandate pledge (UI only)
-- `ConcernsFlow` sidebar at any stage
+**Initiative Dashboard** (`InitiativeDashboard.tsx`): Full 5-stage overview when clicking an initiative. Progress bar (green=completed, blue=active, grey=locked). Vertically stacked stage cards:
+- Completed stages: metrics summary, "Completed" badge
+- Active voting stages (Problem, Proposals, Vote, Mandate): interactive flows rendered inline
+- Active Discussion: summary + "Join Discussion" button → dedicated `DiscussionStageView`
+- Locked stages: greyed out, "Awaiting earlier stages"
+- Advance bar at bottom with threshold checks and confirm/cancel
+- All stage flows use shared contracts via `parentContractId={collaborationId}`
+- `ConvictionStaking` flow for mandate stage: time-weighted staking with duration multipliers (1w=1x to 1y=12x), country breakdown
 
 **Identity** (`IdentityView.tsx`): At `/identity/*`, default `/identity/communities`. Communities list with "Your Communities" title/description, single-column cards with description, member count (Users icon), mandate count (ScrollText icon), star/hide controls (high-contrast buttons), and "Create a community" dashed card linking to `/create-community`. Profile page with identity info hints. Join page with tutorial text. About, Contact pages.
 
@@ -64,7 +66,8 @@
 /identity/* → IdentityView (communities, profile, join, about, contact)
 /create-community → CreateCommunityPage (full onboarding page)
 /community/:communityId/* → CommunityView (feed, collab, collab/:collabId, chat, chat/:topicId, currency, members, identity, create-initiative)
-/initiative/:host/:agent/:communityId/:initiativeId/* → InitiativeView → PipelineView
+/initiative/:host/:agent/:communityId/:initiativeId/* → InitiativeView → InitiativeDashboard
+/initiative/:host/:agent/:communityId/:initiativeId/discussion → DiscussionStageView
 ```
 
 ## Flows
@@ -74,8 +77,9 @@
 2. **DiscussionFlow** — threaded comments, participation threshold
 3. **ApprovalFlow** — proposals + approve/withdraw + country-segmented results
 4. **QVFlow** — proposals + credit allocation + sqrt voting + results
-5. **ConcernsFlow** — raise concerns, propose resolutions, author resolves
-6. **ModificationSuggestions** — suggest changes to title/description, community votes, original author accept/reject. Used in Discussion (Stage 2) and Proposals (Stage 3). Contract: `modification_contract.py`.
+5. **ConvictionStaking** — time-weighted conviction staking for mandates, country breakdown. Contract: `conviction_contract.py`.
+6. **ConcernsFlow** — raise concerns, propose resolutions, author resolves (removed from pipeline UI, component retained)
+7. **ModificationSuggestions** — suggest changes to title/description, community votes, original author accept/reject. Used in Discussion (Stage 2) and Proposals (Stage 3). Contract: `modification_contract.py`.
 
 **Local (in-memory)**: Discussion, Document, Q&A, Roles, Scheduling, Taskboard — keyed by `instanceId`
 
@@ -93,7 +97,8 @@
 ## Known Limitations
 
 - **Collab contracts are per-user** — need shared mode (like Pipeline) to be truly collaborative
-- **Mandate pledges** (Step 5) not wired to contract storage
+- **Completed stage metrics** — Initiative Dashboard only shows problem tally for completed stages; discussion/proposals/vote completed summaries not yet fetched
+- **Test data seeding** — auto-seeds 5 initiatives in communities with "test" in name on first load
 - **Top 3 carry-over** from Proposals → Vote not yet implemented
 - **Chat is ephemeral** — in-memory only, lost on refresh
 - **Modification Suggestions author-decide**: `originalAuthor` prop not yet wired — author accept/reject buttons won't show until initiative contract stores author in details
