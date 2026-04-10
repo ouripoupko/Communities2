@@ -1,0 +1,332 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, Circle, Lock, AlertTriangle, MessageCircle } from 'lucide-react';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
+import { contractRead, contractWrite } from '../../services/api';
+import type { IMethod } from '../../services/interfaces';
+import type { PipelineStage } from '../../types/initiative';
+import ProblemVoteFlow from './flows/voting/ProblemVoteFlow';
+import ApprovalFlow from './flows/voting/ApprovalFlow';
+import QVFlow from './flows/voting/QVFlow';
+import ConvictionStaking from './flows/voting/ConvictionStaking';
+import PageHeader from '../PageHeader';
+import ErrorBoundary from '../shared/ErrorBoundary';
+import cs from '../../pages/Container.module.scss';
+import styles from './InitiativeDashboard.module.scss';
+
+interface StageConfig {
+  id: PipelineStage;
+  label: string;
+  description: string;
+}
+
+const STAGES: StageConfig[] = [
+  { id: 'problem', label: 'Problem', description: 'Community identifies whether this is a cross-border problem' },
+  { id: 'discussion', label: 'Discussion', description: 'Members share perspectives from their countries' },
+  { id: 'proposals', label: 'Proposals', description: 'Solution proposals are submitted and reviewed' },
+  { id: 'vote', label: 'Vote', description: 'Weighted voting on the best proposals' },
+  { id: 'mandate', label: 'Mandate', description: 'Community conviction and commitment to action' },
+];
+
+interface InitiativeDashboardProps {
+  title: string;
+  collaborationId: string;
+  communityId: string;
+}
+
+type StageStatus = 'completed' | 'active' | 'locked';
+
+const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collaborationId, communityId }) => {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const serverUrl = useAppSelector((s) => s.user.serverUrl);
+  const publicKey = useAppSelector((s) => s.user.publicKey);
+  const communityMembers = useAppSelector((s) => s.communities.communityMembers);
+  const communityProps = useAppSelector((s) => s.communities.communityProperties[communityId]);
+  const communityName = communityProps?.name || communityId.slice(0, 8);
+
+  const [stage, setStage] = useState<PipelineStage>('problem');
+  const [details, setDetails] = useState<Record<string, unknown>>({});
+  const [advancing, setAdvancing] = useState(false);
+  const [confirmAdvance, setConfirmAdvance] = useState(false);
+  const [problemTally, setProblemTally] = useState<{ up: number; down: number; total: number }>({ up: 0, down: 0, total: 0 });
+
+  // Fetch stage and details
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !collaborationId) return;
+    contractRead({
+      serverUrl, publicKey, contractId: collaborationId,
+      method: { name: 'get_stage', values: {} } as IMethod,
+    })
+      .then((result: unknown) => {
+        if (typeof result === 'string' && STAGES.some((s) => s.id === result)) {
+          setStage(result as PipelineStage);
+        }
+      })
+      .catch(() => {});
+
+    contractRead({
+      serverUrl, publicKey, contractId: collaborationId,
+      method: { name: 'get_details', values: {} } as IMethod,
+    })
+      .then((result: Record<string, unknown>) => {
+        if (result && typeof result === 'object') setDetails(result);
+      })
+      .catch(() => {});
+  }, [serverUrl, publicKey, collaborationId]);
+
+  // Fetch community members
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !communityId) return;
+    if (communityMembers[communityId]) return;
+    dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
+  }, [serverUrl, publicKey, communityId, communityMembers, dispatch]);
+
+  // Fetch problem tally for completed/active problem stage
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !collaborationId) return;
+    const fetchProblemData = async () => {
+      try {
+        const pvContractIdRaw = await contractRead({
+          serverUrl, publicKey, contractId: collaborationId,
+          method: { name: 'Storage', values: { key: 'problemVoteContractId' } } as IMethod,
+        });
+        const pvContractId = typeof pvContractIdRaw === 'string' ? pvContractIdRaw : null;
+        if (!pvContractId) return;
+
+        const tally = await contractRead({
+          serverUrl, publicKey, contractId: pvContractId,
+          method: { name: 'get_tally', values: {} } as IMethod,
+        });
+        if (tally && typeof tally === 'object') {
+          setProblemTally(tally as { up: number; down: number; total: number });
+        }
+      } catch { /* non-blocking */ }
+    };
+    fetchProblemData();
+  }, [serverUrl, publicKey, collaborationId]);
+
+  const memberCount = Array.isArray(communityMembers[communityId])
+    ? communityMembers[communityId].length : 0;
+
+  const currentStageIndex = STAGES.findIndex((s) => s.id === stage);
+  const nextStage = currentStageIndex < STAGES.length - 1 ? STAGES[currentStageIndex + 1] : null;
+
+  const getStageStatus = (stageId: PipelineStage): StageStatus => {
+    const idx = STAGES.findIndex((s) => s.id === stageId);
+    if (idx < currentStageIndex) return 'completed';
+    if (idx === currentStageIndex) return 'active';
+    return 'locked';
+  };
+
+  const getStageReadiness = (): { ready: boolean; reason: string } => {
+    if (stage === 'problem' && memberCount > 0) {
+      const threshold = Math.ceil(memberCount * 0.67);
+      if (problemTally.up < threshold) {
+        return {
+          ready: false,
+          reason: `${Math.max(threshold - problemTally.up, 0)} more upvote${threshold - problemTally.up !== 1 ? 's' : ''} needed (${problemTally.up}/${threshold})`,
+        };
+      }
+    }
+    return { ready: true, reason: '' };
+  };
+
+  const handleAdvance = async () => {
+    if (!nextStage || !serverUrl || !publicKey || advancing) return;
+    if (!confirmAdvance) { setConfirmAdvance(true); return; }
+    setAdvancing(true);
+    setConfirmAdvance(false);
+    try {
+      await contractWrite({
+        serverUrl, publicKey, contractId: collaborationId,
+        method: { name: 'set_stage', values: { stage: nextStage.id } } as IMethod,
+      });
+      setStage(nextStage.id);
+    } catch { /* silently fail */ }
+    finally { setAdvancing(false); }
+  };
+
+  const stageReadiness = getStageReadiness();
+  const description = typeof details.description === 'string' ? details.description : '';
+  const evidenceLinks = Array.isArray(details.evidence) ? (details.evidence as string[]) : [];
+  const countries = Array.isArray(details.countries) ? (details.countries as string[]) : [];
+
+  return (
+    <div className={cs.container}>
+      <PageHeader
+        showBackButton
+        backButtonText="Back"
+        onBackClick={() => navigate(-1)}
+        title={title}
+        subtitle={communityName}
+        layout="two-row"
+      />
+
+      <div className={cs.content}>
+        <div className={cs.main}>
+          {/* Description */}
+          {description && (
+            <p className={styles.description}>{description}</p>
+          )}
+
+          {/* Stage Progress Bar */}
+          <div className={styles.progressBar}>
+            {STAGES.map((s, i) => {
+              const status = getStageStatus(s.id);
+              return (
+                <React.Fragment key={s.id}>
+                  {i > 0 && (
+                    <div className={`${styles.connector} ${status !== 'locked' ? styles.connectorActive : ''}`} />
+                  )}
+                  <div className={styles.progressStep}>
+                    <div className={`${styles.stepDot} ${styles[status]}`}>
+                      {status === 'completed' ? <CheckCircle2 size={16} /> :
+                       status === 'locked' ? <Lock size={12} /> :
+                       <Circle size={16} />}
+                    </div>
+                    <span className={`${styles.stepLabel} ${styles[`${status}Label`]}`}>{s.label}</span>
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          {/* Stage Cards */}
+          <div className={styles.stageCards}>
+            {STAGES.map((s) => {
+              const status = getStageStatus(s.id);
+              return (
+                <div key={s.id} className={`${styles.stageCard} ${styles[`card${status.charAt(0).toUpperCase() + status.slice(1)}`]}`}>
+                  <div className={styles.cardHeader}>
+                    <h3 className={styles.cardTitle}>{s.label}</h3>
+                    <span className={`${styles.statusBadge} ${styles[`badge${status.charAt(0).toUpperCase() + status.slice(1)}`]}`}>
+                      {status === 'completed' ? 'Completed' : status === 'active' ? 'Active' : 'Locked'}
+                    </span>
+                  </div>
+                  <p className={styles.cardDescription}>{s.description}</p>
+
+                  {/* LOCKED */}
+                  {status === 'locked' && (
+                    <div className={styles.lockedOverlay}>
+                      <Lock size={20} />
+                      <span>Awaiting earlier stages</span>
+                    </div>
+                  )}
+
+                  {/* COMPLETED: problem summary */}
+                  {status === 'completed' && s.id === 'problem' && (
+                    <div className={styles.completedMetrics}>
+                      <span>{problemTally.up} upvotes / {problemTally.down} downvotes</span>
+                      <span className={styles.thresholdMet}>Threshold met</span>
+                    </div>
+                  )}
+
+                  {/* ACTIVE: inline flows */}
+                  {status === 'active' && s.id === 'problem' && (
+                    <ErrorBoundary fallbackMessage="Voting encountered an error.">
+                      <ProblemVoteFlow
+                        instanceId={`${collaborationId}_problem_vote`}
+                        description=""
+                        evidenceLinks={evidenceLinks}
+                        countries={countries}
+                        communityMemberCount={memberCount}
+                        parentContractId={collaborationId}
+                        stageKey="problemVoteContractId"
+                      />
+                    </ErrorBoundary>
+                  )}
+
+                  {status === 'active' && s.id === 'discussion' && (
+                    <div className={styles.discussionSummary}>
+                      <p className={styles.discussionHint}>
+                        Share perspectives on how this problem affects your country.
+                        At least {Math.ceil(memberCount * 0.33)} members (33%) must contribute.
+                      </p>
+                      <button
+                        className={styles.joinBtn}
+                        onClick={() => navigate(`/initiative/${encodeURIComponent(serverUrl || '')}/${encodeURIComponent(publicKey || '')}/${communityId}/${collaborationId}/discussion`)}
+                      >
+                        <MessageCircle size={16} /> Join Discussion
+                      </button>
+                    </div>
+                  )}
+
+                  {status === 'active' && s.id === 'proposals' && (
+                    <ErrorBoundary fallbackMessage="Proposals encountered an error.">
+                      <ApprovalFlow
+                        instanceId={`${collaborationId}_proposals`}
+                        collaborationId={collaborationId}
+                        collaborationType="initiative"
+                        parentContractId={collaborationId}
+                        stageKey="proposalsContractId"
+                      />
+                    </ErrorBoundary>
+                  )}
+
+                  {status === 'active' && s.id === 'vote' && (
+                    <ErrorBoundary fallbackMessage="Voting encountered an error.">
+                      <QVFlow
+                        instanceId={`${collaborationId}_vote`}
+                        collaborationId={collaborationId}
+                        collaborationType="initiative"
+                        parentContractId={collaborationId}
+                        stageKey="voteContractId"
+                      />
+                    </ErrorBoundary>
+                  )}
+
+                  {status === 'active' && s.id === 'mandate' && (
+                    <ErrorBoundary fallbackMessage="Conviction staking encountered an error.">
+                      <ConvictionStaking
+                        instanceId={`${collaborationId}_conviction`}
+                        parentContractId={collaborationId}
+                        stageKey="convictionContractId"
+                      />
+                    </ErrorBoundary>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Advance bar */}
+          {nextStage && (
+            <div className={styles.advanceBar}>
+              {!stageReadiness.ready && (
+                <div className={styles.advanceWarning}>
+                  <AlertTriangle size={14} />
+                  <span>{stageReadiness.reason}</span>
+                </div>
+              )}
+              {confirmAdvance ? (
+                <div className={styles.confirmRow}>
+                  <span className={styles.confirmText}>
+                    {stageReadiness.ready
+                      ? `Advance to ${nextStage.label}?`
+                      : `Threshold not met. Advance to ${nextStage.label} anyway?`}
+                  </span>
+                  <button className={styles.confirmYes} onClick={handleAdvance} disabled={advancing}>
+                    {advancing ? 'Moving...' : 'Confirm'}
+                  </button>
+                  <button className={styles.confirmNo} onClick={() => setConfirmAdvance(false)}>Cancel</button>
+                </div>
+              ) : (
+                <button
+                  className={`${styles.advanceButton} ${!stageReadiness.ready ? styles.advanceButtonWarn : ''}`}
+                  onClick={handleAdvance}
+                  disabled={advancing}
+                >
+                  {advancing ? 'Moving...' : `Move to ${nextStage.label}`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default InitiativeDashboard;
