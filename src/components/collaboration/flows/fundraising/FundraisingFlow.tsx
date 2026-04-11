@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Heart, Target, Users } from 'lucide-react';
+import { Heart, Target, Users, X } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import * as api from './fundraisingApi';
@@ -7,94 +7,89 @@ import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './FundraisingFlow.module.scss';
 
 // ---------------------------------------------------------------------------
-// Setup screen
+// Setup dialog (exported for pre-create use)
 // ---------------------------------------------------------------------------
-const SetupScreen: React.FC<{
-  flowServer: string;
-  flowAgent: string;
-  instanceId: string;
-  onDone: () => void;
-}> = ({ flowServer, flowAgent, instanceId, onDone }) => {
+export const FundraisingSetupDialog: React.FC<{
+  onDone:   (config: Record<string, unknown>) => void;
+  onCancel: () => void;
+}> = ({ onDone, onCancel }) => {
   const [name,        setName]        = useState('');
   const [description, setDescription] = useState('');
   const [goalInput,   setGoalInput]   = useState('');
   const [error,       setError]       = useState('');
-  const [saving,      setSaving]      = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!name.trim()) { setError('Please give the fund a name.'); return; }
     const goal = goalInput.trim() ? Number(goalInput) : null;
     if (goalInput.trim() && (isNaN(goal!) || goal! <= 0)) {
       setError('Goal must be a positive number.');
       return;
     }
-    setSaving(true);
-    try {
-      await api.configureFund(flowServer, flowAgent, instanceId, name, description, goal);
-      onDone();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save configuration.');
-    } finally {
-      setSaving(false);
-    }
+    onDone({ name: name.trim(), description: description.trim(), goal });
   };
 
   return (
-    <div className={styles.setup}>
-      <div className={styles.setupIcon}><Heart size={40} /></div>
-      <h2 className={styles.setupTitle}>Set Up the Fund</h2>
-      <p className={styles.setupSubtitle}>
-        Name this fundraiser so participants and budget allocations can identify it.
-      </p>
+    <div className={styles.overlay}>
+      <div className={styles.dialog}>
+        <div className={styles.dialogHeader}>
+          <h2 className={styles.dialogTitle}>Set Up Fundraiser</h2>
+          <button className={styles.closeButton} onClick={onCancel}><X size={18} /></button>
+        </div>
 
-      <div className={styles.formGroup}>
-        <label className={styles.label} htmlFor="fund-name">Fund name *</label>
-        <input
-          id="fund-name"
-          className={styles.input}
-          type="text"
-          placeholder="e.g. Community Garden Renovation"
-          value={name}
-          autoFocus
-          onChange={e => { setName(e.target.value); setError(''); }}
-          onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
-        />
+        <div className={styles.dialogContent}>
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="fund-name">Fund name *</label>
+            <input
+              id="fund-name"
+              className={styles.input}
+              type="text"
+              placeholder="e.g. Community Garden Renovation"
+              value={name}
+              autoFocus
+              onChange={e => { setName(e.target.value); setError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') onCancel(); }}
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="fund-desc">
+              Description <span className={styles.optional}>(optional)</span>
+            </label>
+            <textarea
+              id="fund-desc"
+              className={styles.textarea}
+              rows={3}
+              placeholder="What will the funds be used for?"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="fund-goal">
+              Target goal <span className={styles.optional}>(optional, in {api.CURRENCY_SYMBOL})</span>
+            </label>
+            <input
+              id="fund-goal"
+              className={styles.input}
+              type="number"
+              min={1}
+              placeholder="e.g. 500"
+              value={goalInput}
+              onChange={e => { setGoalInput(e.target.value); setError(''); }}
+            />
+          </div>
+
+          {error && <p className={styles.errorMsg}>{error}</p>}
+        </div>
+
+        <div className={styles.dialogActions}>
+          <button className={styles.btnSecondary} onClick={onCancel}>Cancel</button>
+          <button className={styles.btnPrimary} onClick={handleSubmit}>
+            <Heart size={15} /> Launch Fundraiser
+          </button>
+        </div>
       </div>
-
-      <div className={styles.formGroup}>
-        <label className={styles.label} htmlFor="fund-desc">
-          Description <span className={styles.optional}>(optional)</span>
-        </label>
-        <textarea
-          id="fund-desc"
-          className={styles.textarea}
-          rows={3}
-          placeholder="What will the funds be used for?"
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-        />
-      </div>
-
-      <div className={styles.formGroup}>
-        <label className={styles.label} htmlFor="fund-goal">
-          Target goal <span className={styles.optional}>(optional, in {api.CURRENCY_SYMBOL})</span>
-        </label>
-        <input
-          id="fund-goal"
-          className={styles.input}
-          type="number"
-          min={1}
-          placeholder="e.g. 500"
-          value={goalInput}
-          onChange={e => { setGoalInput(e.target.value); setError(''); }}
-        />
-      </div>
-
-      {error && <p className={styles.errorMsg}>{error}</p>}
-
-      <button className={styles.btnPrimary} onClick={handleSubmit} disabled={saving}>
-        {saving ? 'Saving…' : 'Launch Fundraiser'}
-      </button>
     </div>
   );
 };
@@ -320,16 +315,7 @@ const FundraisingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgen
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
 
-  if (!fund || fund.config === null) {
-    return (
-      <SetupScreen
-        flowServer={flowServer}
-        flowAgent={flowAgent}
-        instanceId={instanceId}
-        onDone={load}
-      />
-    );
-  }
+  if (!fund || fund.config === null) return <FlowLoading />;
 
   return (
     <ActiveFund

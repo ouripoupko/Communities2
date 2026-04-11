@@ -2,7 +2,9 @@ import { BarChart2, Star, FileText, Heart, MessageSquare, CalendarDays, PieChart
 import RankingFlow from './voting/RankingFlow';
 import ScoringFlow from './voting/ScoringFlow';
 import DocFlow from './document/DocFlow';
-import FundraisingFlow from './fundraising/FundraisingFlow';
+import FundraisingFlow, { FundraisingSetupDialog } from './fundraising/FundraisingFlow';
+import { configureFund } from './fundraising/fundraisingApi';
+import type { FundConfig } from './fundraising/fundraisingApi';
 import DiscussionFlow from './discussion/DiscussionFlow';
 import SchedulingFlow, { SchedulingSetupDialog } from './scheduling/SchedulingFlow';
 import { setupRange } from './scheduling/schedulingApi';
@@ -80,6 +82,11 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: Heart,
     component: FundraisingFlow,
     group: 'Governance & Finance',
+    setupComponent: FundraisingSetupDialog,
+    onInit: async (server, agent, contractId, config, _currentUser) => {
+      const { name, description, goal } = config as FundConfig;
+      await configureFund(server, agent, contractId, name, description ?? '', goal ?? null);
+    },
   },
   {
     id: 'budget-allocation',

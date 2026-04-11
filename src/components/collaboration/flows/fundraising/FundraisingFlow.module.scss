@@ -1,42 +1,87 @@
 @use '../../../../styles/variables' as *;
 @use 'sass:color';
 
-// ─── Setup screen ─────────────────────────────────────────────────────────────
-.setup {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: $spacing-lg;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: $spacing-2xl 0;
-}
-
-.setupIcon {
+// ─── Setup dialog ─────────────────────────────────────────────────────────────
+.overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
-  border-radius: $radius-full;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  z-index: 1000;
+  padding: $spacing-lg;
 }
 
-.setupTitle {
-  font-size: $text-2xl;
-  font-weight: $font-bold;
-  color: $gray-900;
+.dialog {
+  background: white;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-lg;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-xl;
+  border-bottom: 1px solid $gray-200;
+}
+
+.dialogTitle {
+  font-size: $text-lg;
+  font-weight: $font-semibold;
+  color: $gray-800;
   margin: 0;
-  text-align: center;
 }
 
-.setupSubtitle {
-  font-size: $text-sm;
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
   color: $gray-500;
-  margin: 0;
-  text-align: center;
-  line-height: 1.6;
+  cursor: pointer;
+  padding: $spacing-xs;
+  border-radius: $radius-sm;
+  transition: all $transition-base;
+  &:hover { background: $gray-100; color: $gray-800; }
+}
+
+.dialogContent {
+  padding: $spacing-xl;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.dialogActions {
+  display: flex;
+  gap: $spacing-md;
+  justify-content: flex-end;
+  padding: $spacing-lg $spacing-xl;
+  border-top: 1px solid $gray-200;
+  background: $gray-50;
+  border-radius: 0 0 $radius-lg $radius-lg;
+}
+
+.btnSecondary {
+  padding: $spacing-md $spacing-xl;
+  background: none;
+  border: 1.5px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-600;
+  cursor: pointer;
+  transition: all $transition-base;
+  &:hover { border-color: $gray-400; color: $gray-800; }
 }
 
 // ─── Shared form elements ──────────────────────────────────────────────────────

@@ -99,6 +99,10 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
   }, [items, filter, sort]);
 
   const handleWishClick = (item: Collaboration) => {
+    if (item.title === 'I want to build a community self governance descentralized application') {
+      window.open('https://www.wellofwishes.org/wishes/b33f1810-9c04-484a-9339-9d6d7f9f730b', '_blank');
+      return;
+    }
     navigate(`/wish/${communityId}/${item.id}/related`, { state: { wish: item } });
   };
 
