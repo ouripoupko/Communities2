@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { useSwipeRef } from '../../hooks/useSwipeNavigation';
 import { contractRead, contractWrite } from '../../services/api';
+import { resolveAndJoinInitiativeStageContract } from '../../services/contracts/initiative';
 import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 import type { IMethod } from '../../services/interfaces';
 import type { PipelineStage } from '../../types/initiative';
@@ -115,11 +116,13 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
     if (!serverUrl || !publicKey || !collaborationId || stage !== 'problem') return;
     const fetchProblemTally = async () => {
       try {
-        const pvStageContract = await contractRead({
-          serverUrl, publicKey, contractId: collaborationId,
-          method: { name: 'get_stage_contract', values: { stage_key: 'problemVoteContractId' } } as IMethod,
-        });
-        const pvContractId = (pvStageContract as { contractId?: string } | null)?.contractId ?? null;
+        const pvStageContract = await resolveAndJoinInitiativeStageContract(
+          serverUrl,
+          publicKey,
+          collaborationId,
+          'problemVoteContractId',
+        );
+        const pvContractId = pvStageContract?.contractId ?? null;
         if (!pvContractId) return;
         const tally = await contractRead({
           serverUrl, publicKey, contractId: pvContractId,

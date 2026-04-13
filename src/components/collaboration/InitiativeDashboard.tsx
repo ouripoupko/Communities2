@@ -4,6 +4,7 @@ import { CheckCircle2, Circle, Lock, AlertTriangle, MessageCircle } from 'lucide
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 import { contractRead, contractWrite } from '../../services/api';
+import { resolveAndJoinInitiativeStageContract } from '../../services/contracts/initiative';
 import type { IMethod } from '../../services/interfaces';
 import type { PipelineStage } from '../../types/initiative';
 import ProblemVoteFlow from './flows/voting/ProblemVoteFlow';
@@ -88,11 +89,13 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
     if (!serverUrl || !publicKey || !collaborationId) return;
     const fetchProblemData = async () => {
       try {
-        const pvStageContract = await contractRead({
-          serverUrl, publicKey, contractId: collaborationId,
-          method: { name: 'get_stage_contract', values: { stage_key: 'problemVoteContractId' } } as IMethod,
-        });
-        const pvContractId = (pvStageContract as { contractId?: string } | null)?.contractId ?? null;
+        const pvStageContract = await resolveAndJoinInitiativeStageContract(
+          serverUrl,
+          publicKey,
+          collaborationId,
+          'problemVoteContractId',
+        );
+        const pvContractId = pvStageContract?.contractId ?? null;
         if (!pvContractId) return;
 
         const tally = await contractRead({

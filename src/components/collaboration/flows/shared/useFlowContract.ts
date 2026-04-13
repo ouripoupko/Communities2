@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
 import { setContract, setDeploying, clearDeploying } from './flowContractsSlice';
-import { deployContract, joinContract, contractRead, contractWrite } from '../../../../services/api';
+import { deployContract, joinContract, contractWrite } from '../../../../services/api';
+import { resolveInitiativeStageContract } from '../../../../services/contracts/initiative';
 import type { IMethod } from '../../../../services/interfaces';
 
 interface UseFlowContractResult {
@@ -131,32 +132,33 @@ export function useFlowContract(
 
     (async () => {
       try {
-        // Read parent contract details to check for an existing sub-contract
-        const stored = await contractRead({
+        // Read the parent contract to check for an existing sub-contract.
+        // Fall back to get_details for older immutable initiative contracts.
+        const stored = await resolveInitiativeStageContract(
           serverUrl,
           publicKey,
-          contractId: parentContractId,
-          method: { name: 'get_stage_contract', values: { stage_key: stageKey } } as IMethod,
-        });
+          parentContractId,
+          stageKey!,
+        );
         if (failed.current) return; // Timeout already fired
 
-        const existing = stored && typeof stored === 'object'
-          ? stored as { contractId?: string; address?: string; agent?: string }
-          : undefined;
+        const existing = stored ?? undefined;
 
-        if (existing?.contractId && existing?.address && existing?.agent) {
-          setStatusMessage('Joining shared contract...');
-          // Sub-contract exists → join it
-          try {
-            await joinContract({
-              serverUrl,
-              publicKey,
-              address: existing.address,
-              agent: existing.agent,
-              contract: existing.contractId,
-            });
-          } catch {
-            // May fail if already joined — that's OK
+        if (existing?.contractId) {
+          if (existing.address && existing.agent) {
+            setStatusMessage('Joining shared contract...');
+            // Sub-contract exists → join it
+            try {
+              await joinContract({
+                serverUrl,
+                publicKey,
+                address: existing.address,
+                agent: existing.agent,
+                contract: existing.contractId,
+              });
+            } catch {
+              // May fail if already joined — that's OK
+            }
           }
           if (failed.current) return;
           setStatusMessage('');
