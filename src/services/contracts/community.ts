@@ -26,10 +26,10 @@ export async function createCommunity(
   communityName: string,
   communityDescription: string,
   profile: string | null
-  
-) {
+
+): Promise<string | null> {
   // Deploy the community contract
-  const contractId = await deployContract({
+  const deployResponse = await deployContract({
     serverUrl,
     publicKey,
     name: communityName,
@@ -37,7 +37,9 @@ export async function createCommunity(
     code: communityContractCode,
     profile: profile || undefined,
   });
-  
+
+  const contractId = (deployResponse as { id?: string })?.id ?? (deployResponse as string | undefined);
+
   // Set properties: name, description, createdAt
   if (contractId) {
     await contractWrite({
@@ -90,6 +92,8 @@ export async function createCommunity(
       } as IMethod,
     });
   }
+
+  return contractId ?? null;
 }
 
 /**

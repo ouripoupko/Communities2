@@ -1,6 +1,9 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, Navigate } from 'react-router-dom';
-import { Home, Menu, X, Users2, MessageSquare, Users, Coins, Share2, UserPlus, LogOut, AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText, PlusCircle, Shield } from 'lucide-react';
+import { Home, Menu, X, Users2, MessageSquare, Users, Coins, Share2, UserPlus, LogOut, AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText, PlusCircle, Shield, Link2, RotateCcw } from 'lucide-react';
+import { isDemoContract } from '../services/demo/demoRegistry';
+import { resetDemoCommunity } from '../services/demo/seedDemoCommunity';
+import { buildDemoShareLink } from '../services/demo/demoUrlShare';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
@@ -302,16 +305,43 @@ const CommunityView: React.FC = () => {
   }
 
   const memberCount = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : 0;
+  const isDemo = isDemoContract(communityId);
+
+  const handleShareDemoLink = async () => {
+    try {
+      const link = await buildDemoShareLink();
+      await navigator.clipboard.writeText(link);
+      // eslint-disable-next-line no-alert
+      alert('Demo link copied to clipboard. Anyone who opens it will land on this populated demo.');
+    } catch (err) {
+      console.error('[CommunityView] Failed to build demo share link:', err);
+    }
+    setShowMenu(false);
+  };
+
+  const handleResetDemo = () => {
+    if (!publicKey) return;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm('Reset this demo to its seeded state? All demo interactions will be wiped.')) return;
+    resetDemoCommunity(communityId, publicKey);
+    setShowMenu(false);
+    window.location.reload();
+  };
 
   return (
     <div className={styles.page}>
       {/* Dark header */}
       <div className={styles.header}>
         <div className={styles.headerRow}>
-          <button className={styles.menuButton} onClick={() => setShowMenu(true)}>
-            <Menu size={18} />
+          <button
+            className={styles.menuButton}
+            onClick={() => setShowMenu(true)}
+            aria-label="Open community menu"
+          >
+            <Menu size={22} strokeWidth={2.5} />
           </button>
           <h1 className={styles.communityName}>{props.name}</h1>
+          {isDemo && <span className={styles.demoPill}>DEMO</span>}
         </div>
         {props.description && <p className={styles.communityDesc}>{props.description}</p>}
         <span className={styles.memberCount}>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
@@ -373,6 +403,21 @@ const CommunityView: React.FC = () => {
                 <UserPlus size={20} />
                 <span>Invite Members</span>
               </button>
+
+              {isDemo && (
+                <>
+                  <div className={styles.menuDivider} />
+                  <button className={styles.menuItem} onClick={handleShareDemoLink}>
+                    <Link2 size={20} />
+                    <span>Share Demo Link</span>
+                  </button>
+                  <button className={styles.menuItem} onClick={handleResetDemo}>
+                    <RotateCcw size={20} />
+                    <span>Reset Demo</span>
+                  </button>
+                </>
+              )}
+
               <button className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={() => { navigate('/identity/communities'); setShowMenu(false); }}>
                 <LogOut size={20} />
                 <span>Leave Community</span>

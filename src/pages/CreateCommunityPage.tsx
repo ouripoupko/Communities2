@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, GitBranch, Coins, Users2, Shield, Globe } from 'lucide-react';
-import { useAppSelector } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createCommunity } from '../services/contracts/community';
+import { isDemoContract } from '../services/demo/demoRegistry';
+import { seedDemoCommunity } from '../services/demo/seedDemoCommunity';
+import { fetchContracts } from '../store/slices/userSlice';
 import styles from './CreateCommunityPage.module.scss';
 
 const FEATURES = [
@@ -35,6 +38,7 @@ const FEATURES = [
 
 const CreateCommunityPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { publicKey, serverUrl, profileContractId } = useAppSelector((s) => s.user);
 
   const [name, setName] = useState('');
@@ -56,14 +60,22 @@ const CreateCommunityPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await createCommunity(
+      const contractId = await createCommunity(
         serverUrl,
         publicKey,
         name.trim(),
         description.trim(),
         profileContractId,
       );
-      navigate('/identity/communities');
+
+      if (contractId && isDemoContract(contractId)) {
+        seedDemoCommunity(contractId, publicKey);
+      }
+
+      // Refresh the contracts list so the new (including demo) community shows up.
+      await dispatch(fetchContracts());
+
+      navigate(contractId && isDemoContract(contractId) ? `/community/${contractId}` : '/identity/communities');
     } catch {
       setError('Failed to create community. Please try again.');
     } finally {

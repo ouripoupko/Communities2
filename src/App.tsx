@@ -1,9 +1,10 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import StageFooter from './components/shared/StageFooter';
+import { tryHydrateFromHash } from './services/demo/demoUrlShare';
 
 // Get the base path from Vite's import.meta.env.BASE_URL
 const getBasename = () => {
@@ -24,8 +25,15 @@ const CreateCommunityPage = lazy(() => import('./pages/CreateCommunityPage'));
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [hydratingDemo, setHydratingDemo] = useState(true);
 
-  if (isLoading) {
+  // Hydrate demo state from URL hash before rendering routes so a shared demo
+  // link lands straight on populated content.
+  useEffect(() => {
+    tryHydrateFromHash().finally(() => setHydratingDemo(false));
+  }, []);
+
+  if (isLoading || hydratingDemo) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>

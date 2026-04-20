@@ -137,15 +137,17 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
                     className={`${styles.starBtn} ${isStarred ? styles.starBtnActive : ''}`}
                     onClick={() => dispatch(toggleStar(contract.id))}
                     title={isStarred ? 'Unstar' : 'Star'}
+                    aria-label={isStarred ? 'Unstar community' : 'Star community'}
                   >
-                    <Star size={16} fill={isStarred ? 'currentColor' : 'none'} />
+                    <Star size={18} strokeWidth={2.25} fill={isStarred ? 'currentColor' : 'none'} />
                   </button>
                   <button
                     className={styles.hideBtn}
                     onClick={() => dispatch(toggleHide(contract.id))}
                     title="Hide community"
+                    aria-label="Hide community"
                   >
-                    <EyeOff size={16} />
+                    <EyeOff size={18} strokeWidth={2.25} />
                   </button>
                 </div>
               </div>

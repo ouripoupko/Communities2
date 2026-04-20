@@ -1,6 +1,17 @@
 // Real API utility for contract and server calls
+// Demo mode: calls targeting demo-prefixed contract IDs are intercepted
+// locally (no network) by the mock layer in ./demo. Everything else hits the
+// real backend.
 
-import type { IMethod } from "./interfaces";
+import type { IMethod, IContract } from "./interfaces";
+import {
+  isDemoContract,
+  mockContractRead,
+  mockContractWrite,
+  mockJoinContract,
+  tryMockDeployContract,
+  mergeDemoContracts,
+} from "./demo/mockApi";
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 10000) {
   const controller = new AbortController();
@@ -56,21 +67,32 @@ export async function registerAgent({
   );
 }
 
-// GET_CONTRACTS
+// GET_CONTRACTS — merges demo contracts into the real list so demo
+// communities appear alongside real ones.
 export async function getContracts({
   serverUrl,
   publicKey,
 }: {
   serverUrl: string;
   publicKey: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=get_contracts`,
-    { method: 'GET' }
-  );
+}): Promise<IContract[]> {
+  let real: IContract[] = [];
+  try {
+    const result = await fetchWithTimeout(
+      `${serverUrl}/ibc/app/${publicKey}?action=get_contracts`,
+      { method: 'GET' }
+    );
+    real = Array.isArray(result) ? (result as IContract[]) : [];
+  } catch (err) {
+    // If the real backend is unreachable, we still surface demo contracts so
+    // the user can explore demo communities offline.
+    console.warn('[api] getContracts real fetch failed, returning demo-only list:', err);
+  }
+  return mergeDemoContracts(real);
 }
 
-// DEPLOY_CONTRACT
+// DEPLOY_CONTRACT — demo communities (name starts with "Demo") are intercepted
+// and synthesised locally. All other deploys go to the real backend.
 export async function deployContract({
   serverUrl,
   publicKey,
@@ -86,6 +108,9 @@ export async function deployContract({
   code: string;
   profile?: string;
 }) {
+  const mock = await tryMockDeployContract({ serverUrl, publicKey, name, contract, code, profile });
+  if (mock.handled) return mock.result;
+
   // Construct contractData object with defaults
   const contractData = {
     id: '',
@@ -128,6 +153,7 @@ export async function joinContract({
   contract: string;
   profile?: string;
 }) {
+  if (isDemoContract(contract)) return mockJoinContract();
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}?action=join_contract`,
     {
@@ -150,7 +176,9 @@ export async function contractWrite({
   contractId: string;
   method: IMethod;
 }) {
-  // Construct IMethod object
+  if (isDemoContract(contractId)) {
+    return mockContractWrite({ serverUrl, publicKey, contractId, method });
+  }
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method.name}?action=contract_write`,
     {
@@ -173,6 +201,9 @@ export async function contractRead({
   contractId: string;
   method: IMethod;
 }) {
+  if (isDemoContract(contractId)) {
+    return mockContractRead({ serverUrl, publicKey, contractId, method });
+  }
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method.name}?action=contract_read`,
     {

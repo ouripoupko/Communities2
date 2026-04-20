@@ -28,20 +28,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(white, 0.1);
-  border: 1px solid rgba(white, 0.2);
+  width: 40px;
+  height: 40px;
+  background: rgba(white, 0.18);
+  border: 1px solid rgba(white, 0.35);
   border-radius: $radius-md;
-  color: rgba(white, 0.8);
+  color: white;
   cursor: pointer;
   flex-shrink: 0;
   transition: all $transition-base;
 
   &:hover {
-    background: rgba(white, 0.2);
+    background: rgba(white, 0.3);
     color: white;
   }
+}
+
+.demoPill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: $radius-full;
+  background: #f59e0b;
+  color: #1f1f1f;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 // ─── Community slide-out menu ───────────────
