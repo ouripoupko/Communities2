@@ -11,6 +11,7 @@ class Initiative:
             'proposalsModsContractId',
             'voteContractId',
             'convictionContractId',
+            'mergeContractId',
         ]
 
     def _stage_order(self):
@@ -181,4 +182,113 @@ class Initiative:
             'edit_proposals': self.get_edit_proposals(),
             'proposal_votes': self.get_proposal_votes(),
             'members': self.get_members(),
+        }
+
+    # Roles (earned)
+    def add_co_author(self, public_key):
+        details = self.get_details()
+        if 'coAuthors' in details and isinstance(details['coAuthors'], list):
+            co_authors = list(details['coAuthors'])
+        else:
+            co_authors = []
+        if public_key in co_authors:
+            return co_authors
+        if 'author' in details and details['author'] == public_key:
+            return co_authors
+        co_authors.append(public_key)
+        details['coAuthors'] = co_authors
+        self.db['details'] = self._protected_details(details)
+        return co_authors
+
+    def endorse_expert(self, public_key):
+        caller = master()
+        if caller == public_key:
+            return {'error': 'cannot endorse self'}
+
+        details = self.get_details()
+        if 'endorsements' in details and isinstance(details['endorsements'], dict):
+            endorsements = dict(details['endorsements'])
+        else:
+            endorsements = {}
+
+        if public_key in endorsements and isinstance(endorsements[public_key], list):
+            endorsers = list(endorsements[public_key])
+        else:
+            endorsers = []
+
+        if caller in endorsers:
+            return endorsers
+        endorsers.append(caller)
+        endorsements[public_key] = endorsers
+        details['endorsements'] = endorsements
+
+        threshold = 3
+        if len(endorsers) >= threshold:
+            if 'experts' in details and isinstance(details['experts'], list):
+                experts = list(details['experts'])
+            else:
+                experts = []
+            if public_key not in experts:
+                experts.append(public_key)
+                details['experts'] = experts
+
+        self.db['details'] = self._protected_details(details)
+        return endorsers
+
+    def unendorse_expert(self, public_key):
+        caller = master()
+        details = self.get_details()
+        if 'endorsements' not in details or not isinstance(details['endorsements'], dict):
+            return []
+        endorsements = dict(details['endorsements'])
+        if public_key not in endorsements or not isinstance(endorsements[public_key], list):
+            return []
+        endorsers = list(endorsements[public_key])
+        if caller not in endorsers:
+            return endorsers
+        endorsers.remove(caller)
+        endorsements[public_key] = endorsers
+        details['endorsements'] = endorsements
+
+        threshold = 3
+        if len(endorsers) < threshold:
+            if 'experts' in details and isinstance(details['experts'], list):
+                experts = list(details['experts'])
+                if public_key in experts:
+                    experts.remove(public_key)
+                    details['experts'] = experts
+
+        self.db['details'] = self._protected_details(details)
+        return endorsers
+
+    def mark_merged_into(self, target_initiative_id):
+        details = self.get_details()
+        details['status'] = 'merged_into'
+        details['mergedInto'] = target_initiative_id
+        self.db['details'] = self._protected_details(details)
+        return target_initiative_id
+
+    def get_roles(self):
+        details = self.get_details()
+        author = details['author'] if 'author' in details else ''
+        co_authors = details['coAuthors'] if 'coAuthors' in details and isinstance(details['coAuthors'], list) else []
+        experts = details['experts'] if 'experts' in details and isinstance(details['experts'], list) else []
+        endorsements = details['endorsements'] if 'endorsements' in details and isinstance(details['endorsements'], dict) else {}
+        status = details['status'] if 'status' in details else 'active'
+        merged_into = details['mergedInto'] if 'mergedInto' in details else None
+
+        endorsement_counts = {}
+        for key in endorsements:
+            if isinstance(endorsements[key], list):
+                endorsement_counts[key] = len(endorsements[key])
+            else:
+                endorsement_counts[key] = 0
+
+        return {
+            'author': author,
+            'coAuthors': co_authors,
+            'experts': experts,
+            'endorsementCounts': endorsement_counts,
+            'status': status,
+            'mergedInto': merged_into,
         }
