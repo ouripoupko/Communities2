@@ -25,11 +25,14 @@ class MergeProposals:
     def vote_on_merge(self, merge_id, vote):
         if merge_id not in self.proposals:
             return {'error': 'merge not found'}
+        if vote != 'for' and vote != 'against':
+            return {'error': 'invalid vote'}
+        p = self.proposals[merge_id].get_dict()
+        if p['status'] != 'pending':
+            return {'error': 'already decided'}
         voter = master()
         if merge_id not in self.votes:
             self.votes[merge_id] = {}
-        if vote != 'for' and vote != 'against':
-            return {'error': 'invalid vote'}
         self.votes[merge_id][voter] = vote
         return vote
 
