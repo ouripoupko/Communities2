@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import InitiativeDashboard from '../../components/collaboration/InitiativeDashboard';
 import DiscussionStageView from '../../components/collaboration/DiscussionStageView';
+import CollaborationFullView from '../../components/collaboration/CollaborationFullView';
 import { useAppSelector } from '../../store/hooks';
 import { contractRead } from '../../services/api';
 import type { IMethod } from '../../services/interfaces';
@@ -33,12 +34,23 @@ const InitiativeView: React.FC = () => {
       .catch(() => {});
   }, [initiative?.title, serverUrl, publicKey, initiativeId]);
 
-  // Check if we're on the discussion sub-route
+  // Check if we're on a sub-route
   const isDiscussion = location.pathname.endsWith('/discussion');
+  const isCollaboration = location.pathname.endsWith('/collaboration');
 
   if (isDiscussion) {
     return (
       <DiscussionStageView
+        title={title}
+        collaborationId={initiativeId!}
+        communityId={communityId!}
+      />
+    );
+  }
+
+  if (isCollaboration) {
+    return (
+      <CollaborationFullView
         title={title}
         collaborationId={initiativeId!}
         communityId={communityId!}

@@ -8,6 +8,7 @@ import wishReducer from './slices/wishSlice';
 import agreementReducer from './slices/agreementSlice';
 import flowContractsReducer from '../components/collaboration/flows/shared/flowContractsSlice';
 import preferencesReducer from './slices/preferencesSlice';
+import notificationsReducer from './slices/notificationsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     agreement: agreementReducer,
     flowContracts: flowContractsReducer,
     preferences: preferencesReducer,
+    notifications: notificationsReducer,
   },
 });
 

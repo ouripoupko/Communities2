@@ -279,6 +279,12 @@
   width: 100%;
 }
 
+.homepageActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
 .wordmark {
   display: flex;
   align-items: center;

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import CollaborationPanel from './CollaborationPanel';
+import RoleDisplay from '../shared/RoleDisplay';
+import { getInitiativeRoles, type InitiativeRoles } from '../../services/initiativeRoles';
 import { CheckCircle2, Circle, Lock, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
@@ -52,6 +55,17 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
   const [advancing, setAdvancing] = useState(false);
   const [confirmAdvance, setConfirmAdvance] = useState(false);
   const [problemTally, setProblemTally] = useState<{ up: number; down: number; total: number }>({ up: 0, down: 0, total: 0 });
+  const [roles, setRoles] = useState<InitiativeRoles | null>(null);
+  const params = useParams<{ initiativeHostServer: string; initiativeHostAgent: string }>();
+
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !collaborationId) return;
+    let cancelled = false;
+    getInitiativeRoles(serverUrl, publicKey, collaborationId).then((r) => {
+      if (!cancelled) setRoles(r);
+    });
+    return () => { cancelled = true; };
+  }, [serverUrl, publicKey, collaborationId]);
 
   // Fetch stage and details
   useEffect(() => {
@@ -170,6 +184,22 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
 
       <div className={cs.content}>
         <div className={cs.main}>
+          {roles?.status === 'merged_into' && roles.mergedInto && (
+            <div className={styles.absorbedBanner}>
+              <div>
+                <strong>This initiative merged into another one.</strong>
+                <p>Continue the conversation on the surviving initiative.</p>
+              </div>
+              <button onClick={() => navigate(`/initiative/${encodeURIComponent(params.initiativeHostServer || '')}/${encodeURIComponent(params.initiativeHostAgent || '')}/${communityId}/${roles.mergedInto}`)}>
+                Go to merged initiative →
+              </button>
+            </div>
+          )}
+
+          {roles && (
+            <RoleDisplay roles={roles} />
+          )}
+
           {/* Description */}
           {description && (
             <p className={styles.description}>{description}</p>
@@ -243,22 +273,40 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
                   )}
 
                   {status === 'active' && s.id === 'discussion' && (
-                    <div className={styles.discussionSummary}>
-                      <p className={styles.discussionHint}>
-                        Share perspectives on how this problem affects your country.
-                        At least {Math.ceil(memberCount * 0.33)} members (33%) must contribute.
-                      </p>
-                      <button
-                        className={styles.joinBtn}
-                        onClick={() => navigate(`/initiative/${encodeURIComponent(serverUrl || '')}/${encodeURIComponent(publicKey || '')}/${communityId}/${collaborationId}/discussion`)}
-                      >
-                        <MessageCircle size={16} /> Join Discussion
-                      </button>
-                    </div>
+                    <>
+                      <CollaborationPanel
+                        initiativeId={collaborationId}
+                        communityId={communityId}
+                        initiativeTitle={title}
+                        initiativeHostServer={params.initiativeHostServer || ''}
+                        initiativeHostAgent={params.initiativeHostAgent || ''}
+                        defaultTab="suggestions"
+                      />
+                      <div className={styles.discussionSummary}>
+                        <p className={styles.discussionHint}>
+                          Share perspectives on how this problem affects your country.
+                          At least {Math.ceil(memberCount * 0.33)} members (33%) must contribute.
+                        </p>
+                        <button
+                          className={styles.joinBtn}
+                          onClick={() => navigate(`/initiative/${encodeURIComponent(serverUrl || '')}/${encodeURIComponent(publicKey || '')}/${communityId}/${collaborationId}/discussion`)}
+                        >
+                          <MessageCircle size={16} /> Join Discussion
+                        </button>
+                      </div>
+                    </>
                   )}
 
                   {status === 'active' && s.id === 'proposals' && (
                     <ErrorBoundary fallbackMessage="Proposals encountered an error.">
+                      <CollaborationPanel
+                        initiativeId={collaborationId}
+                        communityId={communityId}
+                        initiativeTitle={title}
+                        initiativeHostServer={params.initiativeHostServer || ''}
+                        initiativeHostAgent={params.initiativeHostAgent || ''}
+                        defaultTab="merges"
+                      />
                       <ApprovalFlow
                         instanceId={`${collaborationId}_proposals`}
                         collaborationId={collaborationId}

@@ -5,6 +5,7 @@ import * as api from './modificationApi';
 import { useAppSelector } from '../../../../store/hooks';
 import modificationCode from '../../../../assets/contracts/modification_contract.py?raw';
 import styles from './ModificationSuggestions.module.scss';
+import { addCoAuthor } from '../../../../services/initiativeRoles';
 
 interface Suggestion {
   id: string;
@@ -22,7 +23,10 @@ interface ModificationSuggestionsProps {
   parentContractId: string;
   stageKey: string;
   originalAuthor?: string;
-  fieldLabel?: string; // 'problem' or 'solution' — for display context
+  coAuthors?: string[];
+  fieldLabel?: string;
+  targetInitiativeId?: string; // used to call add_co_author on accept; defaults to parentContractId
+  onAccept?: (suggestionAuthor: string) => void;
 }
 
 const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
@@ -30,7 +34,10 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
   parentContractId,
   stageKey,
   originalAuthor,
+  coAuthors = [],
   fieldLabel = 'problem',
+  targetInitiativeId,
+  onAccept,
 }) => {
   const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(
     instanceId, 'modification', 'modification_contract.py', modificationCode,
@@ -50,7 +57,7 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const [authorSet, setAuthorSet] = useState(false);
 
-  const isAuthor = publicKey === originalAuthor;
+  const canDecide = Boolean(publicKey && (publicKey === originalAuthor || coAuthors.includes(publicKey)));
 
   useEffect(() => {
     setAuthorSet(false);
@@ -115,6 +122,18 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
         setAuthorSet(true);
       }
       await api.authorDecide(serverUrl, publicKey, contractId, suggestionId, decision);
+      if (decision === 'accept') {
+        const suggestion = suggestions.find((s) => s.id === suggestionId);
+        const initiativeId = targetInitiativeId || parentContractId;
+        if (suggestion && initiativeId && suggestion.author) {
+          try {
+            await addCoAuthor(serverUrl, publicKey, initiativeId, suggestion.author);
+          } catch {
+            // non-fatal: promotion can be retried later
+          }
+          if (onAccept) onAccept(suggestion.author);
+        }
+      }
       await fetchData();
     } catch { /* silent */ }
     finally { setDecidingId(null); }
@@ -240,7 +259,7 @@ const ModificationSuggestions: React.FC<ModificationSuggestionsProps> = ({
                 </button>
               </div>
 
-              {isAuthor && (
+              {canDecide && (
                 <div className={styles.authorActions}>
                   <button
                     className={styles.acceptBtn}

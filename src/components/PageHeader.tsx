@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import EarthFlag from './shared/EarthFlag';
+import NotificationsBell from './shared/NotificationsBell';
 import styles from './PageHeader.module.scss';
 
 export interface ActionButton {
@@ -54,11 +55,14 @@ const PageHeader: React.FC<PageHeaderProps> = ({
             <EarthFlag size={40} />
             Gloki
           </button>
-          {onMenuClick && (
-            <button className={styles.menuButton} onClick={onMenuClick}>
-              Menu
-            </button>
-          )}
+          <div className={styles.homepageActions}>
+            <NotificationsBell />
+            {onMenuClick && (
+              <button className={styles.menuButton} onClick={onMenuClick}>
+                Menu
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -81,21 +85,20 @@ const PageHeader: React.FC<PageHeaderProps> = ({
             </div>
             {subtitle && <p>{subtitle}</p>}
           </div>
-          {actionButtons.length > 0 && (
-            <div className={styles.headerActions}>
-              {actionButtons.map((button, index) => (
-                <button
-                  key={index}
-                  className={`${styles.actionButton} ${button.variant === 'logout' ? styles.logoutButton : ''}`}
-                  onClick={button.onClick}
-                  title={button.title || button.label}
-                >
-                  <button.icon size={18} />
-                  <span>{button.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className={styles.headerActions}>
+            {actionButtons.map((button, index) => (
+              <button
+                key={index}
+                className={`${styles.actionButton} ${button.variant === 'logout' ? styles.logoutButton : ''}`}
+                onClick={button.onClick}
+                title={button.title || button.label}
+              >
+                <button.icon size={18} />
+                <span>{button.label}</span>
+              </button>
+            ))}
+            <NotificationsBell />
+          </div>
         </div>
       </div>
     );
@@ -113,21 +116,20 @@ const PageHeader: React.FC<PageHeaderProps> = ({
             {backButtonVariant === 'default' && backButtonText}
           </button>
         )}
-        {actionButtons.length > 0 && (
-          <div className={styles.headerActions}>
-            {actionButtons.map((button, index) => (
-              <button
-                key={index}
-                className={`${styles.actionButton} ${button.variant === 'logout' ? styles.logoutButton : ''}`}
-                onClick={button.onClick}
-                title={button.title || button.label}
-              >
-                <button.icon size={18} />
-                <span>{button.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        <div className={styles.headerActions}>
+          {actionButtons.map((button, index) => (
+            <button
+              key={index}
+              className={`${styles.actionButton} ${button.variant === 'logout' ? styles.logoutButton : ''}`}
+              onClick={button.onClick}
+              title={button.title || button.label}
+            >
+              <button.icon size={18} />
+              <span>{button.label}</span>
+            </button>
+          ))}
+          <NotificationsBell />
+        </div>
       </div>
       <div className={styles.headerBottom}>
         <div className={styles.info}>

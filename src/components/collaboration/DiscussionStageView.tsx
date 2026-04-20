@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchCollaborations } from '../../store/slices/communitiesSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -7,6 +7,7 @@ import ModificationSuggestions from './flows/modifications/ModificationSuggestio
 import PageHeader from '../PageHeader';
 import ErrorBoundary from '../shared/ErrorBoundary';
 import cs from '../../pages/Container.module.scss';
+import { getInitiativeRoles, type InitiativeRoles } from '../../services/initiativeRoles';
 
 interface DiscussionStageViewProps {
   title: string;
@@ -37,6 +38,16 @@ const DiscussionStageView: React.FC<DiscussionStageViewProps> = ({ title, collab
     return collab?.author;
   }, [collaborations, collaborationId]);
 
+  const [roles, setRoles] = useState<InitiativeRoles | null>(null);
+  useEffect(() => {
+    if (!serverUrl || !publicKey) return;
+    let cancelled = false;
+    getInitiativeRoles(serverUrl, publicKey, collaborationId).then((r) => {
+      if (!cancelled) setRoles(r);
+    });
+    return () => { cancelled = true; };
+  }, [serverUrl, publicKey, collaborationId]);
+
   return (
     <div className={cs.container}>
       <PageHeader
@@ -55,7 +66,14 @@ const DiscussionStageView: React.FC<DiscussionStageViewProps> = ({ title, collab
               parentContractId={collaborationId}
               stageKey="discussionModsContractId"
               fieldLabel="problem"
-              originalAuthor={originalAuthor}
+              originalAuthor={roles?.author || originalAuthor}
+              coAuthors={roles?.coAuthors ?? []}
+              targetInitiativeId={collaborationId}
+              onAccept={() => {
+                if (serverUrl && publicKey) {
+                  getInitiativeRoles(serverUrl, publicKey, collaborationId).then(setRoles);
+                }
+              }}
             />
             <DiscussionFlow
               instanceId={`${collaborationId}_discussion`}

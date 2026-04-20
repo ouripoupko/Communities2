@@ -7,6 +7,8 @@ import CountryBadge from '../shared/CountryBadge';
 import * as api from './approvalApi';
 import { useAppSelector } from '../../../../store/hooks';
 import { getCountryColor, getCountryName } from '../../../../utils/countries';
+import { getInitiativeRoles, type InitiativeRoles } from '../../../../services/initiativeRoles';
+import ExpertEndorseButton from '../../../shared/ExpertEndorseButton';
 import approvalContractCode from '../../../../assets/contracts/approval_contract.py?raw';
 import styles from './ApprovalFlow.module.scss';
 
@@ -17,7 +19,7 @@ interface Proposal {
   timestamp: string;
 }
 
-const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey }) => {
+const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, collaborationId, parentContractId, stageKey }) => {
   const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(
     instanceId,
     'approval_voting',
@@ -40,6 +42,16 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const [roles, setRoles] = useState<InitiativeRoles | null>(null);
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !collaborationId) return;
+    let cancelled = false;
+    getInitiativeRoles(serverUrl, publicKey, collaborationId).then((r) => {
+      if (!cancelled) setRoles(r);
+    });
+    return () => { cancelled = true; };
+  }, [serverUrl, publicKey, collaborationId]);
 
   const countApprovals = useCallback((approvalMap: Record<string, Record<string, boolean>>) => {
     const counts: Record<string, number> = {};
@@ -242,7 +254,23 @@ const ApprovalFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stage
                   <div className={styles.proposalBody}>
                     <div className={styles.proposalText}>{p.text}</div>
                     <div className={styles.proposalMeta}>
-                      <span>{p.author.slice(0, 8)}...</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span>{p.author.slice(0, 8)}...</span>
+                        {roles && (
+                          <ExpertEndorseButton
+                            initiativeId={collaborationId}
+                            target={p.author}
+                            endorsementCount={roles.endorsementCounts[p.author] ?? 0}
+                            isExpert={roles.experts.includes(p.author)}
+                            iEndorse={Boolean(publicKey && roles.endorsements[p.author]?.includes(publicKey))}
+                            onChange={() => {
+                              if (serverUrl && publicKey) {
+                                getInitiativeRoles(serverUrl, publicKey, collaborationId).then(setRoles);
+                              }
+                            }}
+                          />
+                        )}
+                      </div>
                       <CountryBadge countryCode={profiles[p.author]?.country} />
                     </div>
                   </div>
