@@ -449,6 +449,44 @@ $initiative-color: #ea580c;
   }
 }
 
+// ─── Absorbed Banner ─────────────────────────────────────────────────────────
+
+.absorbedBanner {
+  background: rgba(217, 167, 59, 0.12);
+  border: 1px solid rgba(217, 167, 59, 0.4);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+
+  strong {
+    color: #f0c65b;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  p {
+    color: #c8d2e0;
+    font-size: 13px;
+    margin: 0;
+  }
+
+  button {
+    background: #2a5bd7;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+  }
+}
+
 // ─── Mobile ───────────────────────────────────────────────────────────────────
 
 @media (max-width: $breakpoint-sm) {
