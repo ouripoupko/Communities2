@@ -352,11 +352,13 @@
 
         .starBtn,
         .hideBtn {
-          color: $dark-text-secondary;
+          background: $dark-border;
+          border-color: $dark-text-secondary;
+          color: $dark-text;
 
           &:hover {
-            background-color: $dark-border;
-            color: $dark-text;
+            background-color: $dark-text-secondary;
+            color: $dark-surface;
           }
         }
 
