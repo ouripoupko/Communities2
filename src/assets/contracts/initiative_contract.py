@@ -262,7 +262,18 @@ class Initiative:
         return endorsers
 
     def mark_merged_into(self, target_initiative_id):
+        if not isinstance(target_initiative_id, str) or len(target_initiative_id) == 0:
+            return {'error': 'invalid target'}
         details = self.get_details()
+        caller = master()
+        is_author = 'author' in details and details['author'] == caller
+        co_authors = details['coAuthors'] if 'coAuthors' in details and isinstance(details['coAuthors'], list) else []
+        is_co_author = caller in co_authors
+        if not is_author and not is_co_author:
+            return {'error': 'only author or co-author can mark merged'}
+        if 'status' in details and details['status'] == 'merged_into':
+            existing = details['mergedInto'] if 'mergedInto' in details else ''
+            return existing
         details['status'] = 'merged_into'
         details['mergedInto'] = target_initiative_id
         self.db['details'] = self._protected_details(details)
