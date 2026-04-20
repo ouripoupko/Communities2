@@ -16,11 +16,11 @@
 - `FlowProps`: `{ instanceId, collaborationId, collaborationType, parentContractId?, stageKey? }`. Flow registry uses `context: 'collab' | 'initiative'` to separate flows shown in collab menu vs pipeline.
 - `useFlowContract` hook (`flows/shared/useFlowContract.ts`): returns `{ contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry }`. Two modes:
   - **Per-user** (default): deploys a contract per user. Used by Collab flows.
-  - **Shared** (`parentContractId` + `stageKey`): reads parent contract for stored sub-contract; joins if found, deploys and stores if not. All PipelineView flows use this so community members share one contract.
+  - **Shared** (`parentContractId` + `stageKey`): reads parent contract for stored sub-contract; joins if found, deploys and stores if not. All initiative dashboard flows use this so community members share one contract.
   - **Resilience**: 30s deploy timeout, stale deploying recovery on mount, cancellation-safe. Diagnostic logs prefixed `[FlowContract]`.
 - `flowContractsSlice` (`flows/shared/flowContractsSlice.ts`): localStorage-backed contract ID cache
 - `preferencesSlice` (`store/slices/preferencesSlice.ts`): localStorage-backed starred/hidden community IDs
-- `useSwipeRef` (`hooks/useSwipeNavigation.ts`): callback ref for horizontal swipe, used in PipelineView stages
+- `useSwipeRef` (`hooks/useSwipeNavigation.ts`): callback ref for horizontal swipe
 - Profiles at `state.communities.profiles[publicKey]`; fields: `firstName`, `lastName`, `userPhoto`, `userBio`, `country?`
 - Auth at `state.user.serverUrl`/`publicKey`
 - Country utilities: `src/utils/countries.ts` — 197 countries (ISO 3166-1), `getCountryByCode()`, `getCountryColor()`, `getCountryName()`, `getCountryFlag()`
@@ -93,6 +93,28 @@
 - `public/404.html` handles SPA deep-link routing
 - **Production build runs `tsc -b`** — fix all TS errors before pushing
 - Contracts are immutable after deploy — new methods require new communities
+
+## Recent Changes (2026-04-20)
+
+**Initiative Dashboard & Stage Feed Mini-Apps** — spec at `docs/superpowers/specs/2026-04-10-initiative-dashboard-stage-feeds-design.md`, plan at `docs/superpowers/plans/2026-04-10-initiative-dashboard-stage-feeds.md`.
+
+What shipped:
+- `PipelineView` replaced by `InitiativeDashboard` as the default initiative view — shows all 5 stages at once with inline voting flows for active stages
+- `DiscussionStageView` created as dedicated sub-view for threaded discussion (navigated from dashboard)
+- `ConcernsFlow` disconnected from pipeline UI (component files retained)
+- `ConvictionStaking` flow + `conviction_contract.py` — new time-weighted staking system for mandate stage
+- `CountryParticipation` shared component for country flag display
+- `StageFeedView` redesigned as 5 mini-apps with inline `ApprovalFlow`, `QVFlow`, `ConvictionStaking` per card
+- Problem vote buttons now have optimistic UI updates + press animations
+- Test data auto-seeding for communities with "test" in name (5 initiatives, one per stage)
+
+## Architecture Learnings
+
+- **Flow components are reusable across contexts**: `ApprovalFlow`, `QVFlow`, `ProblemVoteFlow`, and `ConvictionStaking` work both in the Initiative Dashboard (expanded) and in StageFeedView cards (compact). The `compact` prop on `ConvictionStaking` controls density. Other flows adapt naturally.
+- **Shared contract mode is the standard for initiative flows**: All initiative stage flows use `parentContractId={collaborationId}` + `stageKey` to share one contract per stage across all community members. Per-user mode is only for Collab workspaces.
+- **`deployContract` return value handling**: Returns either `{ id: string }` object or a plain string. Pattern: `const id = (response as { id?: string }).id || (response as string)`.
+- **Optimistic UI pattern**: Snapshot state before async write, update UI immediately, rollback on error. Used in ProblemVoteFlow and StageFeedView inline voting.
+- **Route sub-views via pathname check**: `InitiativeView` checks `location.pathname.endsWith('/discussion')` to render `DiscussionStageView` vs `InitiativeDashboard` — no extra route entries needed since the parent route uses `/*` wildcard.
 
 ## Known Limitations
 
