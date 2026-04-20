@@ -15,6 +15,9 @@ dist-ssr
 # Superpowers brainstorming session files
 .superpowers/
 
+# Git worktrees (isolated workspaces)
+.worktrees/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
