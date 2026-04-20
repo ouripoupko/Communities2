@@ -195,9 +195,23 @@ export function useFlowContract(
           });
           if (failed.current) return;
 
-          const registered = registration && typeof registration === 'object'
-            ? registration as { contractId?: string; address?: string; agent?: string }
+          const registrationObj = registration && typeof registration === 'object'
+            ? registration as { contractId?: string; address?: string; agent?: string; error?: string }
             : undefined;
+
+          if (registrationObj?.error) {
+            clearTimeout(timeoutId);
+            if (failed.current) return;
+            console.warn(`[FlowContract] Registration rejected for ${stageKey} on ${parentContractId}:`, registrationObj.error);
+            failed.current = true;
+            setHasError(true);
+            setErrorMessage(`This feature isn't available on this initiative. ${registrationObj.error}`);
+            setStatusMessage('');
+            dispatch(clearDeploying({ instanceId }));
+            return;
+          }
+
+          const registered = registrationObj;
           const finalContractId = registered?.contractId || newId;
 
           if (registered?.contractId && registered.contractId !== newId && registered.address && registered.agent) {

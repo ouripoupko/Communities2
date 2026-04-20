@@ -261,16 +261,14 @@ class Initiative:
         self.db['details'] = self._protected_details(details)
         return endorsers
 
+    # mark_merged_into: NO caller gate in v1 — the cross-contract acceptance flow
+    # invokes this from the target-side author, who is usually not on the source.
+    # Gate is idempotency only: once set, cannot be changed. Harden in v2 by
+    # proving the call is backed by an accepted merge proposal.
     def mark_merged_into(self, target_initiative_id):
         if not isinstance(target_initiative_id, str) or len(target_initiative_id) == 0:
             return {'error': 'invalid target'}
         details = self.get_details()
-        caller = master()
-        is_author = 'author' in details and details['author'] == caller
-        co_authors = details['coAuthors'] if 'coAuthors' in details and isinstance(details['coAuthors'], list) else []
-        is_co_author = caller in co_authors
-        if not is_author and not is_co_author:
-            return {'error': 'only author or co-author can mark merged'}
         if 'status' in details and details['status'] == 'merged_into':
             existing = details['mergedInto'] if 'mergedInto' in details else ''
             return existing

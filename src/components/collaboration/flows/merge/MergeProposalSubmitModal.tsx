@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useAppSelector } from '../../../../store/hooks';
+import { contractRead } from '../../../../services/api';
+import type { IMethod } from '../../../../services/interfaces';
 import { proposeMerge } from './mergeApi';
 import styles from './MergeProposalSubmitModal.module.scss';
 
@@ -16,6 +18,12 @@ interface MergeProposalSubmitModalProps {
 const MIN_RATIONALE = 50;
 const ELIGIBLE_STAGES: string[] = ['problem', 'discussion', 'proposals'];
 
+interface EligibleCollab {
+  id: string;
+  title: string;
+  stage: string;
+}
+
 const MergeProposalSubmitModal: React.FC<MergeProposalSubmitModalProps> = ({
   targetInitiativeId, targetTitle, targetCommunityId, mergeContractId, onClose, onSubmitted,
 }) => {
@@ -27,17 +35,35 @@ const MergeProposalSubmitModal: React.FC<MergeProposalSubmitModalProps> = ({
   const [rationale, setRationale] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
+  const [eligibleSources, setEligibleSources] = useState<EligibleCollab[] | null>(null);
 
-  const eligibleSources = useMemo(() => {
+  const ownAuthored = useMemo(() => {
     if (!Array.isArray(collaborations) || !publicKey) return [];
-    return collaborations.filter((c) => {
-      if (c.id === targetInitiativeId) return false;
-      if (c.author !== publicKey) return false;
-      const stage = (c as unknown as { stage?: string }).stage;
-      if (!stage || !ELIGIBLE_STAGES.includes(stage)) return false;
-      return true;
-    });
+    return collaborations.filter((c) => c.id !== targetInitiativeId && c.author === publicKey);
   }, [collaborations, publicKey, targetInitiativeId]);
+
+  useEffect(() => {
+    if (!serverUrl || !publicKey) { setEligibleSources([]); return; }
+    let cancelled = false;
+    (async () => {
+      const results: EligibleCollab[] = [];
+      await Promise.all(ownAuthored.map(async (c) => {
+        try {
+          const stage = await contractRead({
+            serverUrl, publicKey, contractId: c.id,
+            method: { name: 'get_stage', values: {} } as IMethod,
+          });
+          if (typeof stage === 'string' && ELIGIBLE_STAGES.includes(stage)) {
+            results.push({ id: c.id, title: c.title, stage });
+          }
+        } catch {
+          // non-fatal per candidate
+        }
+      }));
+      if (!cancelled) setEligibleSources(results);
+    })();
+    return () => { cancelled = true; };
+  }, [serverUrl, publicKey, ownAuthored]);
 
   const handleSubmit = async () => {
     if (!serverUrl || !publicKey || !mergeContractId) {
@@ -70,7 +96,11 @@ const MergeProposalSubmitModal: React.FC<MergeProposalSubmitModalProps> = ({
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close"><X size={16} /></button>
         </div>
 
-        {eligibleSources.length === 0 ? (
+        {eligibleSources === null ? (
+          <div className={styles.emptyState}>
+            <p>Loading your initiatives…</p>
+          </div>
+        ) : eligibleSources.length === 0 ? (
           <div className={styles.emptyState}>
             <p>You need an initiative you authored in Problem, Discussion, or Proposals stage to propose a merge.</p>
             <p className={styles.hint}>Vote- and Mandate-stage initiatives can&rsquo;t be merged.</p>
