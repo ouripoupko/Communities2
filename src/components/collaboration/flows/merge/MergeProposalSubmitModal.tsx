@@ -1,0 +1,123 @@
+import React, { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
+import { useAppSelector } from '../../../../store/hooks';
+import { proposeMerge } from './mergeApi';
+import styles from './MergeProposalSubmitModal.module.scss';
+
+interface MergeProposalSubmitModalProps {
+  targetInitiativeId: string;
+  targetTitle: string;
+  targetCommunityId: string;
+  mergeContractId: string;
+  onClose: () => void;
+  onSubmitted?: () => void;
+}
+
+const MIN_RATIONALE = 50;
+const ELIGIBLE_STAGES: string[] = ['problem', 'discussion', 'proposals'];
+
+const MergeProposalSubmitModal: React.FC<MergeProposalSubmitModalProps> = ({
+  targetInitiativeId, targetTitle, targetCommunityId, mergeContractId, onClose, onSubmitted,
+}) => {
+  const serverUrl = useAppSelector((s) => s.user.serverUrl);
+  const publicKey = useAppSelector((s) => s.user.publicKey);
+  const collaborations = useAppSelector((s) => s.communities.communityCollaborations[targetCommunityId]);
+
+  const [sourceId, setSourceId] = useState<string>('');
+  const [rationale, setRationale] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>('');
+
+  const eligibleSources = useMemo(() => {
+    if (!Array.isArray(collaborations) || !publicKey) return [];
+    return collaborations.filter((c) => {
+      if (c.id === targetInitiativeId) return false;
+      if (c.author !== publicKey) return false;
+      const stage = (c as unknown as { stage?: string }).stage;
+      if (!stage || !ELIGIBLE_STAGES.includes(stage)) return false;
+      return true;
+    });
+  }, [collaborations, publicKey, targetInitiativeId]);
+
+  const handleSubmit = async () => {
+    if (!serverUrl || !publicKey || !mergeContractId) {
+      setError('Merge contract is not ready yet. Try again in a moment.');
+      return;
+    }
+    if (!sourceId) { setError('Pick a source initiative.'); return; }
+    if (rationale.trim().length < MIN_RATIONALE) {
+      setError(`Rationale must be at least ${MIN_RATIONALE} characters.`);
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await proposeMerge(serverUrl, publicKey, mergeContractId, sourceId, rationale.trim());
+      if (onSubmitted) onSubmitted();
+      onClose();
+    } catch (err) {
+      setError(`Failed to submit: ${err instanceof Error ? err.message : 'unknown error'}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.header}>
+          <h3>Propose a merge into &ldquo;{targetTitle}&rdquo;</h3>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+
+        {eligibleSources.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>You need an initiative you authored in Problem, Discussion, or Proposals stage to propose a merge.</p>
+            <p className={styles.hint}>Vote- and Mandate-stage initiatives can&rsquo;t be merged.</p>
+          </div>
+        ) : (
+          <>
+            <label className={styles.label}>
+              Which of your initiatives should be merged into this one?
+              <select
+                className={styles.select}
+                value={sourceId}
+                onChange={(e) => setSourceId(e.target.value)}
+              >
+                <option value="">Choose one…</option>
+                {eligibleSources.map((c) => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className={styles.label}>
+              Rationale (why should these merge?)
+              <textarea
+                className={styles.textarea}
+                value={rationale}
+                onChange={(e) => setRationale(e.target.value)}
+                placeholder="Explain the overlap and the benefits of consolidating."
+                rows={5}
+              />
+              <span className={styles.charCount}>
+                {rationale.trim().length} / {MIN_RATIONALE} min
+              </span>
+            </label>
+
+            {error && <p className={styles.error}>{error}</p>}
+
+            <div className={styles.actions}>
+              <button className={styles.cancelBtn} onClick={onClose} disabled={submitting}>Cancel</button>
+              <button className={styles.submitBtn} onClick={handleSubmit} disabled={submitting}>
+                {submitting ? 'Submitting…' : 'Submit Merge Proposal'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MergeProposalSubmitModal;
