@@ -1,0 +1,48 @@
+.container { padding: 8px 0; }
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.title { margin: 0; font-size: 14px; font-weight: 600; color: #e6edf7; }
+
+.proposeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #2a5bd7;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.loading, .emptyText {
+  font-size: 12px;
+  color: #8fa0bb;
+  text-align: center;
+  padding: 16px;
+}
+
+.error {
+  color: #ff9b9b;
+  font-size: 12px;
+  padding: 10px;
+}
+
+.retryBtn {
+  background: #2a5bd7;
+  color: #fff;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  margin-top: 6px;
+}
