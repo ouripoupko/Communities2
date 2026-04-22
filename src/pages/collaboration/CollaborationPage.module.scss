@@ -109,18 +109,70 @@
 }
 
 // Empty state shown when no tabs have been added
-.emptyState {
+.emptyState,
+.unknownFlowCard {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 300px;
   gap: $spacing-md;
+  padding: $spacing-xl;
   color: $gray-500;
   text-align: center;
 
   p {
-    font-size: $text-base;
+    font-size: $text-sm;
     margin: 0;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+
+  code {
+    font-family: inherit;
+    color: $gray-700;
+    background: $gray-100;
+    padding: 0 $spacing-xs;
+    border-radius: $radius-sm;
+  }
+}
+
+.emptyStateIcon {
+  color: $gray-300;
+}
+
+.unknownFlowIcon {
+  color: $warning;
+}
+
+.emptyStateTitle {
+  margin: 0;
+  font-size: $text-lg;
+  font-weight: $font-medium;
+  color: $gray-700;
+}
+
+.emptyStateButton {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  min-height: 44px; // touch target
+  padding: 0 $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background $transition-base;
+
+  &:hover {
+    background: $primary-dark;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary;
+    outline-offset: 2px;
   }
 }

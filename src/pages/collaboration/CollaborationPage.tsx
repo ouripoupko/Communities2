@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, PackageOpen, AlertTriangle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
+import ErrorBoundary from '../../components/shared/ErrorBoundary';
 import { FLOW_REGISTRY, FLOW_GROUPS, getFlow } from '../../components/collaboration/flows/registry';
 import { removeContract } from '../../components/collaboration/flows/shared/flowContractsSlice';
 import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
@@ -9,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import cs from '../Container.module.scss';
 import styles from './CollaborationPage.module.scss';
 
-export type CollaborationType = 'initiative' | 'wish' | 'agreement';
+export type CollaborationType = 'initiative' | 'wish' | 'agreement' | 'collab';
 
 interface CollaborationTab {
   instanceId: string;
@@ -116,6 +117,14 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const activeFlow = activeTab ? getFlow(activeTab.flowId) : null;
   const ActiveComponent = activeFlow?.component ?? null;
 
+  const unknownFlowId = activeTab && !activeFlow ? activeTab.flowId : null;
+  useEffect(() => {
+    if (unknownFlowId) {
+      // Stale localStorage entry or a removed flow.
+      console.error('[CollaborationPage] Unknown flowId on active tab:', unknownFlowId);
+    }
+  }, [unknownFlowId]);
+
   return (
     <div className={cs.container}>
       <PageHeader
@@ -201,16 +210,45 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
 
         <div className={cs.main}>
           {ActiveComponent && activeTab ? (
-            <ActiveComponent
-              instanceId={activeTab.instanceId}
-              collaborationId={collaborationId}
-              collaborationType={type}
-            />
+            <ErrorBoundary fallbackMessage="This flow hit an error. Your other tabs are unaffected.">
+              <ActiveComponent
+                instanceId={activeTab.instanceId}
+                collaborationId={collaborationId}
+                collaborationType={type}
+              />
+            </ErrorBoundary>
+          ) : activeTab && !activeFlow ? (
+            <div className={styles.unknownFlowCard}>
+              <AlertTriangle size={32} className={styles.unknownFlowIcon} />
+              <h3 className={styles.emptyStateTitle}>Unknown tool</h3>
+              <p>
+                This tab references a flow that isn't available
+                (<code>{activeTab.flowId}</code>).
+              </p>
+              <button
+                type="button"
+                className={styles.emptyStateButton}
+                onClick={() => removeTab(activeTab.instanceId)}
+              >
+                Remove this tab
+              </button>
+            </div>
           ) : (
             <div className={styles.emptyState}>
+              <PackageOpen size={48} className={styles.emptyStateIcon} />
+              <h3 className={styles.emptyStateTitle}>No tools added yet</h3>
               <p>
-                No tabs yet. Click <strong>Add</strong> to add your first flow.
+                Add a flow like Discussion, Task Board, or Shared Document to start
+                collaborating.
               </p>
+              <button
+                type="button"
+                className={styles.emptyStateButton}
+                onClick={() => setShowAddMenu(true)}
+              >
+                <Plus size={16} />
+                Add your first flow
+              </button>
             </div>
           )}
         </div>

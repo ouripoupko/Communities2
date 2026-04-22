@@ -66,6 +66,9 @@ const ChatTopicList: React.FC<ChatTopicListProps> = ({ communityId }) => {
       <div className={styles.header}>
         <h2>Chat</h2>
         <p>Open conversations about anything in your community.</p>
+        <p className={styles.ephemeralNotice}>
+          Chat is live-only — topics and messages reset when you reload the page.
+        </p>
       </div>
 
       {/* New topic input */}

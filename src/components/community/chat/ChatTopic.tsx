@@ -62,6 +62,10 @@ const ChatTopic: React.FC = () => {
     return (
       <div className={styles.notFound}>
         <p>Topic not found.</p>
+        <p className={styles.notFoundHint}>
+          This topic may have ended or was created in a previous session.
+          Chat history resets on page refresh.
+        </p>
         <button
           className={styles.backBtn}
           onClick={() => navigate(`/community/${communityId}/chat`)}

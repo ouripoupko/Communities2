@@ -68,7 +68,7 @@ const CollabPage: React.FC<{ communityId: string }> = ({ communityId }) => {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <CollaborationPage
-        type="initiative"
+        type="collab"
         title={title}
         collaborationId={collabId}
         communityId={communityId}
@@ -487,8 +487,22 @@ const CommunityView: React.FC = () => {
               <Route path="share" element={<Navigate to={`/community/${communityId}/members`} replace />} />
               <Route path="collab" element={<CollabList communityId={communityId!} />} />
               <Route path="collab/:collabId" element={<CollabPage communityId={communityId!} />} />
-              <Route path="chat" element={<ChatTopicList communityId={communityId!} />} />
-              <Route path="chat/:topicId" element={<ChatTopic />} />
+              <Route
+                path="chat"
+                element={
+                  <ErrorBoundary fallbackMessage="Chat ran into an error. Try again in a moment.">
+                    <ChatTopicList communityId={communityId!} />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="chat/:topicId"
+                element={
+                  <ErrorBoundary fallbackMessage="Chat ran into an error. Try again in a moment.">
+                    <ChatTopic />
+                  </ErrorBoundary>
+                }
+              />
               <Route path="members" element={<Members communityId={communityId!} />} />
               <Route path="currency" element={<Currency communityId={communityId!} />} />
               <Route path="identity" element={<IdentityTrust communityId={communityId!} />} />

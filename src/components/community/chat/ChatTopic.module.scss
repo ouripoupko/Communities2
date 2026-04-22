@@ -13,10 +13,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $spacing-lg;
-  padding: $spacing-3xl 0;
+  gap: $spacing-md;
+  padding: $spacing-3xl $spacing-lg;
   color: $gray-500;
   font-size: $text-sm;
+  text-align: center;
+
+  p {
+    margin: 0;
+  }
+}
+
+.notFoundHint {
+  max-width: 380px;
+  color: $gray-400;
+  font-size: $text-xs;
+  line-height: 1.5;
 }
 
 // ─── Top bar ──────────────────────────────────────────────────────────────────

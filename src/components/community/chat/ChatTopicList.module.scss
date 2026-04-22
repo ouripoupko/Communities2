@@ -23,6 +23,12 @@
   }
 }
 
+.ephemeralNotice {
+  margin-top: $spacing-xs !important;
+  font-size: $text-xs !important;
+  color: $gray-400 !important;
+}
+
 // ─── Input bar ────────────────────────────────────────────────────────────────
 .inputBar {
   display: flex;
