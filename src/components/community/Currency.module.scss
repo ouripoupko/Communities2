@@ -62,8 +62,9 @@
 
       .balanceCard {
         background: white;
+        border: 1px solid $gray-100;
         border-radius: $radius-lg;
-        padding: $spacing-2xl;
+        padding: $spacing-lg;
         box-shadow: $shadow-base;
         text-align: center;
 
@@ -139,8 +140,9 @@
 
       .actionCard {
         background: white;
+        border: 1px solid $gray-100;
         border-radius: $radius-lg;
-        padding: $spacing-xl;
+        padding: $spacing-lg;
         box-shadow: $shadow-base;
 
         h3 {
@@ -265,7 +267,7 @@
   }
 
   .burnIcon {
-    color: #ef4444;
+    color: $error;
   }
 
   .paymentFormOverlay {
@@ -356,6 +358,7 @@
       .balanceSection .balanceCard,
       .actionsSection .actionCard {
         background-color: $dark-bg;
+        border-color: $dark-border;
 
         h3 {
           color: $dark-text;

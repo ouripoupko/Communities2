@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, EyeOff, Eye, ArrowLeft, Users, ScrollText, PlusCircle } from 'lucide-react';
+import { Star, EyeOff, Eye, ArrowLeft, Users, ScrollText, PlusCircle, Calendar } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
-import { fetchCommunityProperties, fetchCommunityMembers } from '../../store/slices/communitiesSlice';
+import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../../store/slices/communitiesSlice';
 import { toggleStar, toggleHide, unhide } from '../../store/slices/preferencesSlice';
 import { useEventStream } from '../../hooks/useEventStream';
 import styles from './Communities.module.scss';
@@ -12,13 +12,20 @@ interface CommunitiesProps {
   showHidden?: boolean;
 }
 
+const formatCreatedDate = (value: unknown): string | null => {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
 const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user);
   const { contracts, loading } = useAppSelector((state) => state.user);
   const { starred, hidden } = useAppSelector((state) => state.preferences);
-  const { communityProperties, communityMembers } = useAppSelector((state) => state.communities);
+  const { communityProperties, communityMembers, communityCollaborations } = useAppSelector((state) => state.communities);
 
   const communityContracts = contracts.filter(
     (contract) => contract.contract === 'community_contract.py'
@@ -32,7 +39,7 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
 
   useEventStream('deploy_contract', handleDeployContract);
 
-  // Fetch properties and members for each community
+  // Fetch properties, members, and collaborations for each community
   useEffect(() => {
     if (!user.serverUrl || !user.publicKey) return;
     communityContracts.forEach((c) => {
@@ -42,8 +49,11 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
       if (!communityMembers[c.id]) {
         dispatch(fetchCommunityMembers({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, contractId: c.id }));
       }
+      if (!communityCollaborations[c.id]) {
+        dispatch(fetchCollaborations({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, contractId: c.id }));
+      }
     });
-  }, [user.serverUrl, user.publicKey, communityContracts, communityProperties, communityMembers, dispatch]);
+  }, [user.serverUrl, user.publicKey, communityContracts, communityProperties, communityMembers, communityCollaborations, dispatch]);
 
   const handleCommunityClick = (contractId: string) => {
     navigate(`/community/${contractId}`);
@@ -125,6 +135,9 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
           const props = communityProperties[contract.id] || {};
           const description = props.description || '';
           const memberCount = Array.isArray(communityMembers[contract.id]) ? communityMembers[contract.id].length : 0;
+          const collaborations = communityCollaborations[contract.id] || [];
+          const mandateCount = collaborations.filter((c) => c.type === 'initiative').length;
+          const createdDate = props.createdAt ? formatCreatedDate(props.createdAt) : null;
           return (
             <div
               key={contract.id}
@@ -155,7 +168,10 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
               {description && <p className={styles.cardDescription}>{description}</p>}
               <div className={styles.cardMeta}>
                 <span className={styles.metaItem}><Users size={12} /> {memberCount} member{memberCount !== 1 ? 's' : ''}</span>
-                <span className={styles.metaItem}><ScrollText size={12} /> 0 mandates</span>
+                <span className={styles.metaItem}><ScrollText size={12} /> {mandateCount} mandate{mandateCount !== 1 ? 's' : ''}</span>
+                {createdDate && (
+                  <span className={styles.metaItem}><Calendar size={12} /> {createdDate}</span>
+                )}
               </div>
             </div>
           );
