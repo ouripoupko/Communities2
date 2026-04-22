@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { MessageSquare, Reply, Trash2, ChevronDown, ChevronRight, Search, Globe, Lightbulb, AlertTriangle } from 'lucide-react';
 
 import type { FlowProps } from '../types';
@@ -6,6 +6,8 @@ import * as api from './discussionApi';
 import type { Comment, CommentCategory } from './discussionApi';
 import CountryBadge from '../shared/CountryBadge';
 import { useAppSelector } from '../../../../store/hooks';
+import { useFlowContract } from '../shared/useFlowContract';
+import discussionContractCode from '../../../../assets/contracts/discussion_contract.py?raw';
 import styles from './DiscussionFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -130,28 +132,26 @@ const ComposeBox: React.FC<{
 
 const CommentItem: React.FC<{
   node: CommentNode;
-  instanceId: string;
   depth: number;
-  refresh: () => void;
   profiles: Record<string, { firstName?: string; lastName?: string; country?: string }>;
   currentUserKey: string;
-}> = ({ node, instanceId, depth, refresh, profiles, currentUserKey }) => {
+  onReply: (parentId: string, text: string, category?: CommentCategory) => void | Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
+}> = ({ node, depth, profiles, currentUserKey, onReply, onDelete }) => {
   const [replying,   setReplying]   = useState(false);
   const [collapsed,  setCollapsed]  = useState(false);
 
-  const isOwn      = node.author === currentUserKey;
+  const isOwn      = node.author === currentUserKey && !node.deleted;
   const hasChildren = node.children.length > 0;
 
-  const handleReply = useCallback((text: string) => {
-    api.addComment(instanceId, currentUserKey, text, node.id, node.category);
-    refresh();
+  const handleReplySubmit = useCallback(async (text: string) => {
+    await onReply(node.id, text, node.category);
     setReplying(false);
-  }, [instanceId, currentUserKey, node.id, node.category, refresh]);
+  }, [node.id, node.category, onReply]);
 
-  const handleDelete = useCallback(() => {
-    api.deleteComment(instanceId, node.id);
-    refresh();
-  }, [instanceId, node.id, refresh]);
+  const handleDeleteClick = useCallback(() => {
+    onDelete(node.id);
+  }, [node.id, onDelete]);
 
   return (
     <div className={`${styles.commentItem} ${depth > 0 ? styles.nested : ''}`}>
@@ -162,7 +162,7 @@ const CommentItem: React.FC<{
         {/* Header */}
         <div className={styles.commentHeader}>
           <span className={`${styles.avatar} ${isOwn ? styles.avatarMe : ''}`}>
-            {authorLabel(node.author, currentUserKey)[0].toUpperCase()}
+            {authorLabel(node.author, currentUserKey)[0]?.toUpperCase() ?? '?'}
           </span>
           <span className={styles.authorName}>
             {authorLabel(node.author, currentUserKey)}
@@ -188,16 +188,18 @@ const CommentItem: React.FC<{
 
         {/* Actions */}
         <div className={styles.commentActions}>
-          <button
-            className={styles.actionBtn}
-            onClick={() => setReplying(v => !v)}
-          >
-            <Reply size={13} /> Reply
-          </button>
+          {!node.deleted && (
+            <button
+              className={styles.actionBtn}
+              onClick={() => setReplying(v => !v)}
+            >
+              <Reply size={13} /> Reply
+            </button>
+          )}
           {isOwn && (
             <button
               className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
             >
               <Trash2 size={13} /> Delete
             </button>
@@ -208,7 +210,7 @@ const CommentItem: React.FC<{
         {replying && (
           <ComposeBox
             placeholder={`Replying to ${authorLabel(node.author, currentUserKey)}…`}
-            onSubmit={(text) => handleReply(text)}
+            onSubmit={(text) => handleReplySubmit(text)}
             onCancel={() => setReplying(false)}
             autoFocus
           />
@@ -222,11 +224,11 @@ const CommentItem: React.FC<{
             <CommentItem
               key={child.id}
               node={child}
-              instanceId={instanceId}
               depth={depth + 1}
-              refresh={refresh}
               profiles={profiles}
               currentUserKey={currentUserKey}
+              onReply={onReply}
+              onDelete={onDelete}
             />
           ))}
         </div>
@@ -238,14 +240,55 @@ const CommentItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Root flow component
 // ---------------------------------------------------------------------------
-const DiscussionFlow: React.FC<FlowProps> = ({ instanceId }) => {
+const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey }) => {
   const profiles = useAppSelector((s) => s.communities.profiles) || {};
+  const serverUrl = useAppSelector((s) => s.user.serverUrl);
   const publicKey = useAppSelector((s) => s.user.publicKey);
-  const currentUserKey = publicKey || api.CURRENT_USER;
-  const [flat, setFlat] = useState<Comment[]>(() => api.getComments(instanceId));
+  const currentUserKey = publicKey || '';
+
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(
+    instanceId,
+    'discussion',
+    'discussion_contract.py',
+    discussionContractCode,
+    parentContractId,
+    stageKey,
+  );
+
+  const [flat, setFlat] = useState<Comment[]>([]);
   const [activeFilter, setActiveFilter] = useState<CommentCategory | 'all'>('all');
 
-  const refresh = useCallback(() => setFlat(api.getComments(instanceId)), [instanceId]);
+  const refresh = useCallback(async () => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    try {
+      const list = await api.getComments(serverUrl, publicKey, contractId);
+      setFlat(list);
+    } catch (err) {
+      console.error('[DiscussionFlow] Failed to fetch comments:', err);
+    }
+  }, [serverUrl, publicKey, contractId]);
+
+  useEffect(() => {
+    if (isReady) refresh();
+  }, [isReady, refresh]);
+
+  const handleTopLevel = useCallback(async (text: string, category?: CommentCategory) => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    await api.addComment(serverUrl, publicKey, contractId, text, null, category);
+    await refresh();
+  }, [serverUrl, publicKey, contractId, refresh]);
+
+  const handleReply = useCallback(async (parentId: string, text: string, category?: CommentCategory) => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    await api.addComment(serverUrl, publicKey, contractId, text, parentId, category);
+    await refresh();
+  }, [serverUrl, publicKey, contractId, refresh]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    await api.deleteComment(serverUrl, publicKey, contractId, id);
+    await refresh();
+  }, [serverUrl, publicKey, contractId, refresh]);
 
   // Count comments per category (top-level only for progress)
   const categoryCounts = useMemo(() => {
@@ -277,10 +320,28 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId }) => {
 
   const tree = useMemo(() => buildTree(filteredFlat), [filteredFlat]);
 
-  const handleTopLevel = useCallback((text: string, category?: CommentCategory) => {
-    api.addComment(instanceId, currentUserKey, text, null, category);
-    refresh();
-  }, [instanceId, currentUserKey, refresh]);
+  if (hasError) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.empty}>
+          <AlertTriangle size={36} />
+          <p>{errorMessage}</p>
+          <button className={styles.btnSubmit} onClick={retry}>Try again</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.empty}>
+          <MessageSquare size={36} />
+          <p>{statusMessage || (isDeploying ? 'Setting up discussion…' : 'Loading…')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -343,11 +404,11 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId }) => {
             <CommentItem
               key={node.id}
               node={node}
-              instanceId={instanceId}
               depth={0}
-              refresh={refresh}
               profiles={profiles}
               currentUserKey={currentUserKey}
+              onReply={handleReply}
+              onDelete={handleDelete}
             />
           ))}
         </div>

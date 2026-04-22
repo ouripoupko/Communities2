@@ -10,9 +10,21 @@ class Community:
         self.collaborations = Storage('collaborations')
         self.issues = Storage('issues')
         self.accounts = Storage('accounts')
+        self.stage_contracts = Storage('stage_contracts')
         if 'centralAccount' not in self.accounts:
             self.accounts['centralAccount'] = {'balanceOf':0, 'creationTime': timestamp(), 'elapsedDays': 0}
 
+    def register_stage_contract(self, stage_key, contract_id, address, agent):
+        if stage_key in self.stage_contracts:
+            return self.stage_contracts[stage_key].get_dict()
+        entry = {'contractId': contract_id, 'address': address, 'agent': agent}
+        self.stage_contracts[stage_key] = entry
+        return entry
+
+    def get_stage_contract(self, stage_key):
+        if stage_key not in self.stage_contracts:
+            return None
+        return self.stage_contracts[stage_key].get_dict()
 
     def add_issue(self, issue):
         self.issues.append(issue)

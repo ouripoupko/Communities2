@@ -210,7 +210,7 @@ export function useFlowContract(
             console.warn(`[FlowContract] Registration rejected for ${stageKey} on ${parentContractId}:`, registrationObj.error);
             failed.current = true;
             setHasError(true);
-            setErrorMessage(`This feature isn't available on this initiative. ${registrationObj.error}`);
+            setErrorMessage(`This feature isn't available on this community or initiative. ${registrationObj.error}`);
             setStatusMessage('');
             dispatch(clearDeploying({ instanceId }));
             return;

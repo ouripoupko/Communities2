@@ -6,6 +6,7 @@ class Initiative:
     def _allowed_stage_keys(self):
         return [
             'problemVoteContractId',
+            'discussionContractId',
             'discussionModsContractId',
             'proposalsContractId',
             'proposalsModsContractId',

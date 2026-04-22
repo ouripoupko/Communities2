@@ -215,6 +215,8 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
                 instanceId={activeTab.instanceId}
                 collaborationId={collaborationId}
                 collaborationType={type}
+                parentContractId={communityId}
+                stageKey={`${activeTab.flowId}_${collaborationId}`}
               />
             </ErrorBoundary>
           ) : activeTab && !activeFlow ? (

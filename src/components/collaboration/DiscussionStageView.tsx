@@ -79,6 +79,8 @@ const DiscussionStageView: React.FC<DiscussionStageViewProps> = ({ title, collab
               instanceId={`${collaborationId}_discussion`}
               collaborationId={collaborationId}
               collaborationType="initiative"
+              parentContractId={collaborationId}
+              stageKey="discussionContractId"
             />
           </ErrorBoundary>
         </div>
