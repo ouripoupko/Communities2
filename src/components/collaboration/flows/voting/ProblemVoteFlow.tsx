@@ -168,6 +168,7 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
             disabled={voting}
           >
             <ThumbsUp size={20} />
+            <span>Problem for me</span>
             <span className={styles.voteCount}>{tally.up}</span>
           </button>
           <button
@@ -176,6 +177,7 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
             disabled={voting}
           >
             <ThumbsDown size={20} />
+            <span>Not a problem for me</span>
             <span className={styles.voteCount}>{tally.down}</span>
           </button>
         </div>
