@@ -95,9 +95,10 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
                 <button
                   className={styles.unhideBtn}
                   onClick={() => dispatch(unhide(contract.id))}
-                  title="Unhide"
+                  title={`Show ${contract.name || 'Community'}`}
+                  aria-label={`Show ${contract.name || 'Community'}`}
                 >
-                  <Eye size={16} />
+                  <Eye size={18} strokeWidth={2.25} />
                 </button>
               </div>
             ))}
@@ -144,8 +145,8 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
                   <button
                     className={styles.hideBtn}
                     onClick={() => dispatch(toggleHide(contract.id))}
-                    title="Hide community"
-                    aria-label="Hide community"
+                    title={`Hide ${contract.name || 'Community'}`}
+                    aria-label={`Hide ${contract.name || 'Community'}`}
                   >
                     <EyeOff size={18} strokeWidth={2.25} />
                   </button>
