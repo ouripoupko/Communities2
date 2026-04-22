@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
-import { setContract, setDeploying, clearDeploying } from './flowContractsSlice';
+import { setContract, setDeploying, clearDeploying, buildFlowContractsScope } from './flowContractsSlice';
 import { deployContract, joinContract, contractWrite } from '../../../../services/api';
 import { resolveInitiativeStageContract } from '../../../../services/contracts/initiative';
 import type { IMethod } from '../../../../services/interfaces';
@@ -30,6 +30,9 @@ export function useFlowContract(
   const isDeploying = useAppSelector((s) => s.flowContracts.deploying[instanceId] ?? false);
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
   const publicKey = useAppSelector((s) => s.user.publicKey);
+  const storageScope = useAppSelector((s) => s.flowContracts.storageScope);
+  const expectedScope = serverUrl && publicKey ? buildFlowContractsScope(serverUrl, publicKey) : null;
+  const scopeReady = expectedScope !== null && storageScope === expectedScope;
   const attempted = useRef(false);
   const failed = useRef(false);
   const [hasError, setHasError] = useState(false);
@@ -61,6 +64,7 @@ export function useFlowContract(
     if (isShared) return;
     if (contractId || isDeploying || attempted.current || failed.current) return;
     if (!serverUrl || !publicKey) return;
+    if (!scopeReady) return;
 
     attempted.current = true;
     dispatch(setDeploying({ instanceId }));
@@ -105,13 +109,14 @@ export function useFlowContract(
       });
 
     return () => { clearTimeout(timeoutId); };
-  }, [isShared, instanceId, contractId, isDeploying, serverUrl, publicKey, contractName, contractFileName, contractCode, dispatch, hasError]);
+  }, [isShared, instanceId, contractId, isDeploying, serverUrl, publicKey, contractName, contractFileName, contractCode, dispatch, hasError, scopeReady]);
 
   // ── Shared contract mode ───────────────────────────────────────────────────
   useEffect(() => {
     if (!isShared) return;
     if (contractId || isDeploying || attempted.current || failed.current) return;
     if (!serverUrl || !publicKey || !parentContractId) return;
+    if (!scopeReady) return;
 
     attempted.current = true;
     dispatch(setDeploying({ instanceId }));
@@ -246,7 +251,7 @@ export function useFlowContract(
     })();
 
     return () => { clearTimeout(timeoutId); };
-  }, [isShared, instanceId, contractId, isDeploying, serverUrl, publicKey, parentContractId, stageKey, contractName, contractFileName, contractCode, dispatch, hasError]);
+  }, [isShared, instanceId, contractId, isDeploying, serverUrl, publicKey, parentContractId, stageKey, contractName, contractFileName, contractCode, dispatch, hasError, scopeReady]);
 
   return {
     contractId,
