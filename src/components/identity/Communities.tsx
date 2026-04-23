@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Star, EyeOff, Eye, ArrowLeft, Users, ScrollText, PlusCircle, Calendar } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -25,10 +25,13 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
   const user = useAppSelector((state) => state.user);
   const { contracts, loading } = useAppSelector((state) => state.user);
   const { starred, hidden } = useAppSelector((state) => state.preferences);
-  const { communityProperties, communityMembers, communityCollaborations } = useAppSelector((state) => state.communities);
+  const { communityProperties, communityMembers, communityCollaborations } = useAppSelector(
+    (state) => state.communities,
+  );
 
-  const communityContracts = contracts.filter(
-    (contract) => contract.contract === 'community_contract.py'
+  const communityContracts = useMemo(
+    () => contracts.filter((contract) => contract.contract === 'community_contract.py'),
+    [contracts],
   );
 
   const handleDeployContract = useCallback(() => {
@@ -39,21 +42,41 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
 
   useEventStream('deploy_contract', handleDeployContract);
 
-  // Fetch properties, members, and collaborations for each community
+  // Fetch properties, members, and collaborations for each community.
+  // dispatchedRef prevents duplicate in-flight dispatches: when one fetch's
+  // .fulfilled re-runs this effect, sibling fetches may still be pending (data
+  // still undefined), so a data-only guard would redispatch them. The ref tracks
+  // "already kicked off fetches for this community" regardless of which ones
+  // have settled.
+  const dispatchedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!user.serverUrl || !user.publicKey) return;
     communityContracts.forEach((c) => {
-      if (!communityProperties[c.id]) {
+      if (dispatchedRef.current.has(c.id)) return;
+      const needsProps = !communityProperties[c.id];
+      const needsMembers = !communityMembers[c.id];
+      const needsCollabs = !communityCollaborations[c.id];
+      if (!needsProps && !needsMembers && !needsCollabs) return;
+      dispatchedRef.current.add(c.id);
+      if (needsProps) {
         dispatch(fetchCommunityProperties({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, contractId: c.id }));
       }
-      if (!communityMembers[c.id]) {
+      if (needsMembers) {
         dispatch(fetchCommunityMembers({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, contractId: c.id }));
       }
-      if (!communityCollaborations[c.id]) {
+      if (needsCollabs) {
         dispatch(fetchCollaborations({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, contractId: c.id }));
       }
     });
-  }, [user.serverUrl, user.publicKey, communityContracts, communityProperties, communityMembers, communityCollaborations, dispatch]);
+  }, [
+    user.serverUrl,
+    user.publicKey,
+    communityContracts,
+    communityProperties,
+    communityMembers,
+    communityCollaborations,
+    dispatch,
+  ]);
 
   const handleCommunityClick = (contractId: string) => {
     navigate(`/community/${contractId}`);
