@@ -9,6 +9,7 @@ import {
 } from '../../services/contracts/community';
 import { getTopics } from './chat/chatApi';
 import type { ChatTopic } from './chat/chatApi';
+import { resolveInitiativeStageContract } from '../../services/contracts/initiative';
 import CreateCollabDialog from './dialogs/CreateCollabDialog';
 import type { CollabTemplate } from '../collaboration/collabTemplates';
 import styles from './ActivityHub.module.scss';
@@ -57,16 +58,35 @@ const ActivityHub: React.FC<ActivityHubProps> = ({ communityId }) => {
     dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
   }, [communityId, serverUrl, publicKey, dispatch]);
 
-  // Load chat topics and refresh periodically
+  // Load chat topics (read-only — does not deploy a chat contract if one
+  // isn't already registered on the community)
   useEffect(() => {
-    const loadTopics = () => {
-      const topics = getTopics(communityId);
-      setChatTopics(topics);
+    if (!communityId || !serverUrl || !publicKey) return;
+    let cancelled = false;
+
+    const loadTopics = async () => {
+      try {
+        const stage = await resolveInitiativeStageContract(
+          serverUrl, publicKey, communityId, 'chatContractId',
+        );
+        if (cancelled || !stage?.contractId) {
+          if (!cancelled) setChatTopics([]);
+          return;
+        }
+        const topics = await getTopics(serverUrl, publicKey, stage.contractId);
+        if (!cancelled) setChatTopics(topics);
+      } catch (err) {
+        console.error('[ActivityHub] Failed to load chat topics:', err);
+      }
     };
+
     loadTopics();
-    const interval = setInterval(loadTopics, 5000);
-    return () => clearInterval(interval);
-  }, [communityId]);
+    const interval = setInterval(loadTopics, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [communityId, serverUrl, publicKey]);
 
   const handleCreateCollab = async (name: string, template: CollabTemplate) => {
     if (!serverUrl || !publicKey) throw new Error('Not logged in');

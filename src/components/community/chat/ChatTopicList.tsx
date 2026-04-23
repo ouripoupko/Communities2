@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, AlertTriangle } from 'lucide-react';
 import { useAppSelector } from '../../../store/hooks';
 import CountryBadge from '../../collaboration/flows/shared/CountryBadge';
+import { useFlowContract } from '../../collaboration/flows/shared/useFlowContract';
+import chatContractCode from '../../../assets/contracts/chat_contract.py?raw';
 import { getTopics, createTopic } from './chatApi';
+import type { ChatTopic } from './chatApi';
 import styles from './ChatTopicList.module.scss';
 
 interface ChatTopicListProps {
@@ -26,31 +29,68 @@ function timeAgo(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+const POLL_INTERVAL_MS = 10_000;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const ChatTopicList: React.FC<ChatTopicListProps> = ({ communityId }) => {
   const navigate = useNavigate();
+  const serverUrl = useAppSelector((state) => state.user.serverUrl);
   const publicKey = useAppSelector((state) => state.user.publicKey);
   const profiles = useAppSelector((state) => state.communities.profiles);
 
-  const [refreshKey, setRefreshKey] = useState(0);
+  const instanceId = `chat_${communityId}`;
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } =
+    useFlowContract(
+      instanceId,
+      'chat',
+      'chat_contract.py',
+      chatContractCode,
+      communityId,
+      'chatContractId',
+    );
+
+  const [topics, setTopics] = useState<ChatTopic[]>([]);
   const [newTitle, setNewTitle] = useState('');
+  const [creating, setCreating] = useState(false);
+  const cancelledRef = useRef(false);
 
-  let topics: ReturnType<typeof getTopics> = [];
-  try {
-    topics = getTopics(communityId);
-  } catch {
-    // chatApi may fail on corrupt state
-  }
+  const refresh = useCallback(async () => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    try {
+      const list = await getTopics(serverUrl, publicKey, contractId);
+      if (!cancelledRef.current) setTopics(list);
+    } catch (err) {
+      console.error('[ChatTopicList] Failed to fetch topics:', err);
+    }
+  }, [serverUrl, publicKey, contractId]);
 
-  const handleCreate = () => {
+  useEffect(() => {
+    cancelledRef.current = false;
+    if (!isReady) return;
+    refresh();
+    const interval = setInterval(refresh, POLL_INTERVAL_MS);
+    return () => {
+      cancelledRef.current = true;
+      clearInterval(interval);
+    };
+  }, [isReady, refresh]);
+
+  const handleCreate = async () => {
     const trimmed = newTitle.trim();
-    if (!trimmed || !publicKey) return;
-    createTopic(communityId, trimmed, publicKey);
-    setNewTitle('');
-    setRefreshKey(k => k + 1);
+    if (!trimmed || !publicKey || !serverUrl || !contractId || creating) return;
+    setCreating(true);
+    try {
+      await createTopic(serverUrl, publicKey, contractId, trimmed);
+      setNewTitle('');
+      await refresh();
+    } catch (err) {
+      console.error('[ChatTopicList] Failed to create topic:', err);
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -60,15 +100,35 @@ const ChatTopicList: React.FC<ChatTopicListProps> = ({ communityId }) => {
     }
   };
 
+  if (hasError) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.empty}>
+          <AlertTriangle size={36} />
+          <p>{errorMessage}</p>
+          <button className={styles.newTopicBtn} onClick={retry}>Try again</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.empty}>
+          <MessageSquare size={36} />
+          <p>{statusMessage || (isDeploying ? 'Setting up chat…' : 'Loading…')}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={styles.container} data-refresh={refreshKey}>
+    <div className={styles.container}>
       {/* Header */}
       <div className={styles.header}>
         <h2>Chat</h2>
         <p>Open conversations about anything in your community.</p>
-        <p className={styles.ephemeralNotice}>
-          Chat is live-only — topics and messages reset when you reload the page.
-        </p>
       </div>
 
       {/* New topic input */}
@@ -80,13 +140,14 @@ const ChatTopicList: React.FC<ChatTopicListProps> = ({ communityId }) => {
           value={newTitle}
           onChange={e => setNewTitle(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={creating}
         />
         <button
           className={styles.newTopicBtn}
           onClick={handleCreate}
-          disabled={!newTitle.trim() || !publicKey}
+          disabled={!newTitle.trim() || !publicKey || creating}
         >
-          New Topic
+          {creating ? 'Creating…' : 'New Topic'}
         </button>
       </div>
 

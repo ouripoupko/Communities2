@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, AlertTriangle, MessageSquare } from 'lucide-react';
 import { useAppSelector } from '../../../store/hooks';
 import CountryBadge from '../../collaboration/flows/shared/CountryBadge';
+import { useFlowContract } from '../../collaboration/flows/shared/useFlowContract';
+import chatContractCode from '../../../assets/contracts/chat_contract.py?raw';
 import { getMessages, addMessage, getTopics } from './chatApi';
-import type { ChatMessage } from './chatApi';
+import type { ChatMessage, ChatTopic as ChatTopicType } from './chatApi';
 import styles from './ChatTopic.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -18,6 +20,8 @@ function formatTime(ts: number): string {
   });
 }
 
+const POLL_INTERVAL_MS = 5_000;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -26,19 +30,61 @@ const ChatTopic: React.FC = () => {
   const { communityId, topicId } = useParams<{ communityId: string; topicId: string }>();
   const navigate = useNavigate();
 
+  const serverUrl = useAppSelector((state) => state.user.serverUrl);
   const publicKey = useAppSelector((state) => state.user.publicKey);
   const profiles = useAppSelector((state) => state.communities.profiles);
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    try {
-      return topicId ? getMessages(topicId) : [];
-    } catch {
-      return [];
-    }
-  });
+  const instanceId = communityId ? `chat_${communityId}` : 'chat_unknown';
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } =
+    useFlowContract(
+      instanceId,
+      'chat',
+      'chat_contract.py',
+      chatContractCode,
+      communityId,
+      'chatContractId',
+    );
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [topic, setTopic] = useState<ChatTopicType | null>(null);
   const [inputText, setInputText] = useState('');
+  const [sending, setSending] = useState(false);
+  const cancelledRef = useRef(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const refreshMessages = useCallback(async () => {
+    if (!serverUrl || !publicKey || !contractId || !topicId) return;
+    try {
+      const list = await getMessages(serverUrl, publicKey, contractId, topicId);
+      if (!cancelledRef.current) setMessages(list);
+    } catch (err) {
+      console.error('[ChatTopic] Failed to fetch messages:', err);
+    }
+  }, [serverUrl, publicKey, contractId, topicId]);
+
+  const refreshTopic = useCallback(async () => {
+    if (!serverUrl || !publicKey || !contractId || !topicId) return;
+    try {
+      const topics = await getTopics(serverUrl, publicKey, contractId);
+      const found = topics.find(t => t.id === topicId) ?? null;
+      if (!cancelledRef.current) setTopic(found);
+    } catch (err) {
+      console.error('[ChatTopic] Failed to fetch topic:', err);
+    }
+  }, [serverUrl, publicKey, contractId, topicId]);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    if (!isReady) return;
+    refreshTopic();
+    refreshMessages();
+    const interval = setInterval(refreshMessages, POLL_INTERVAL_MS);
+    return () => {
+      cancelledRef.current = true;
+      clearInterval(interval);
+    };
+  }, [isReady, refreshTopic, refreshMessages]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -49,23 +95,29 @@ const ChatTopic: React.FC = () => {
     return <div className={styles.notFound}>Topic not found.</div>;
   }
 
-  // Find topic for title display
-  let allTopics: ReturnType<typeof getTopics> = [];
-  try {
-    allTopics = getTopics(communityId);
-  } catch {
-    // chatApi may fail on corrupt state
+  if (hasError) {
+    return (
+      <div className={styles.notFound}>
+        <AlertTriangle size={36} />
+        <p>{errorMessage}</p>
+        <button className={styles.backBtn} onClick={retry}>Try again</button>
+      </div>
+    );
   }
-  const topic = allTopics.find(t => t.id === topicId);
+
+  if (!isReady) {
+    return (
+      <div className={styles.notFound}>
+        <MessageSquare size={36} />
+        <p>{statusMessage || (isDeploying ? 'Setting up chat…' : 'Loading…')}</p>
+      </div>
+    );
+  }
 
   if (!topic) {
     return (
       <div className={styles.notFound}>
         <p>Topic not found.</p>
-        <p className={styles.notFoundHint}>
-          This topic may have ended or was created in a previous session.
-          Chat history resets on page refresh.
-        </p>
         <button
           className={styles.backBtn}
           onClick={() => navigate(`/community/${communityId}/chat`)}
@@ -76,15 +128,32 @@ const ChatTopic: React.FC = () => {
     );
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmed = inputText.trim();
-    if (!trimmed || !publicKey) return;
-    addMessage(topicId, trimmed, publicKey);
+    if (!trimmed || !publicKey || !serverUrl || !contractId || sending) return;
+
+    // Optimistic append
+    const optimistic: ChatMessage = {
+      id: `optimistic_${Date.now()}`,
+      topicId,
+      author: publicKey,
+      text: trimmed,
+      timestamp: Date.now(),
+    };
+    const snapshot = messages;
+    setMessages([...snapshot, optimistic]);
     setInputText('');
+    setSending(true);
+
     try {
-      setMessages(getMessages(topicId));
-    } catch {
-      // Refresh failed — keep existing messages
+      await addMessage(serverUrl, publicKey, contractId, topicId, trimmed);
+      await refreshMessages();
+    } catch (err) {
+      console.error('[ChatTopic] Failed to send message:', err);
+      // Rollback
+      if (!cancelledRef.current) setMessages(snapshot);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -158,11 +227,12 @@ const ChatTopic: React.FC = () => {
           value={inputText}
           onChange={e => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={sending}
         />
         <button
           className={styles.sendBtn}
           onClick={handleSend}
-          disabled={!inputText.trim() || !publicKey}
+          disabled={!inputText.trim() || !publicKey || sending}
           title="Send"
         >
           <Send size={18} />

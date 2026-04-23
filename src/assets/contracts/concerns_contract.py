@@ -1,24 +1,20 @@
 class ConcernResolution:
     def __init__(self):
         self.concerns = Storage('concerns')
-        self.concern_count = Storage('concern_count')
         self.resolutions = Storage('resolutions')
         self.resolution_counts = Storage('resolution_counts')
-        if not self.concern_count.exists():
-            self.concern_count['count'] = 0
 
     def add_concern(self, text, severity):
-        count = self.concern_count['count']
-        concern_id = 'c' + str(count)
+        ts = timestamp()
+        concern_id = 'c' + str(ts)
         self.concerns[concern_id] = {
             'id': concern_id,
             'text': text,
             'severity': severity,
             'author': master(),
-            'timestamp': timestamp(),
+            'timestamp': ts,
             'resolved': False,
         }
-        self.concern_count['count'] = count + 1
         return concern_id
 
     def add_resolution(self, concern_id, text):

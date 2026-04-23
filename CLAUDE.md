@@ -54,7 +54,7 @@
 
 **Collab**: Template-based workspaces via `CollaborationPage`. Navigates from community collab tab to `/community/:communityId/collab/:collabId`. Templates in `collabTemplates.ts`. Per-user contracts.
 
-**Chat**: `ChatTopicList` + `ChatTopic` in `community/chat/`. In-memory only (ephemeral, lost on refresh). Defensive try-catch in `chatApi.ts`.
+**Chat**: `ChatTopicList` + `ChatTopic` in `community/chat/`. On-chain via `chat_contract.py` using `useFlowContract` shared mode (`stageKey='chatContractId'`). Topics and messages persist across sessions and sync across community members. Light polling (10s list, 5s topic view) for liveness. Optimistic send with rollback. `ActivityHub` preview card reads the chat contract read-only — it does not auto-deploy.
 
 **Currency**: Balance display, send payment, median-voted mint/burn preferences. Explainer card at top. Single-column card layout.
 
@@ -74,14 +74,15 @@
 
 **Blockchain-backed** (contract methods match Python ↔ TypeScript):
 1. **ProblemVoteFlow** — upvote/downvote with tally + threshold progress bar
-2. **DiscussionFlow** — threaded comments, participation threshold
+2. **DiscussionFlow** — threaded comments, participation threshold. Contract: `discussion_contract.py` (shared via community `stage_contracts`).
 3. **ApprovalFlow** — proposals + approve/withdraw + country-segmented results
 4. **QVFlow** — proposals + credit allocation + sqrt voting + results
 5. **ConvictionStaking** — time-weighted conviction staking for mandates, country breakdown. Contract: `conviction_contract.py`.
-6. **ConcernsFlow** — raise concerns, propose resolutions, author resolves (removed from pipeline UI, component retained)
+6. **ConcernsFlow** — raise concerns, propose resolutions, author resolves (removed from pipeline UI, component retained). Contract: `concerns_contract.py` (timestamp-keyed, no counters).
 7. **ModificationSuggestions** — suggest changes to title/description, community votes, original author accept/reject. Used in Discussion (Stage 2) and Proposals (Stage 3). Contract: `modification_contract.py`.
+8. **Chat** — community topics + messages. Contract: `chat_contract.py` (shared via community `stage_contracts`). See Chat under App Structure.
 
-**Local (in-memory)**: Discussion, Document, Q&A, Roles, Scheduling, Taskboard — keyed by `instanceId`
+**Local (in-memory)**: Document, Q&A, Roles, Scheduling, Taskboard — keyed by `instanceId` (next targets for on-chain migration)
 
 **AI Tools** (`components/shared/AITools.tsx`): `TranslateButton` (12 languages via OpenAI API), `SummaryButton` (discussion summarizer), `AIToolbar` (combined). Requires OpenAI API key in user profile. Shows key hint icon if no key set. Service layer in `services/ai.ts`.
 
@@ -93,6 +94,16 @@
 - `public/404.html` handles SPA deep-link routing
 - **Production build runs `tsc -b`** — fix all TS errors before pushing
 - Contracts are immutable after deploy — new methods require new communities
+
+## Recent Changes (2026-04-23)
+
+**Chat persistence + concerns-contract fix**:
+- `chat_contract.py` — on-chain topics + messages, timestamp-keyed IDs, registered on community under `stage_key='chatContractId'`
+- `chatApi.ts` rewritten as async `contractRead`/`Write` wrappers with `normalizeTimestamp` (parses Gloki's packed-digit timestamp format)
+- `ChatTopicList` and `ChatTopic` call `useFlowContract` in shared mode; loading/error/retry states; 10s/5s polling; optimistic send with rollback
+- `ActivityHub` chat preview now calls `resolveInitiativeStageContract` read-only — it no longer auto-deploys a chat contract for every community member
+- Removed "Chat is ephemeral" UI copy
+- `concerns_contract.py` — switched from counter-based IDs to timestamp-keyed IDs (matches discussion pattern) to eliminate the `__init__`-time write that would 500 on first read of a freshly-deployed contract
 
 ## Recent Changes (2026-04-20)
 
@@ -112,15 +123,21 @@ What shipped:
 
 - **Flow components are reusable across contexts**: `ApprovalFlow`, `QVFlow`, `ProblemVoteFlow`, and `ConvictionStaking` work both in the Initiative Dashboard (expanded) and in StageFeedView cards (compact). The `compact` prop on `ConvictionStaking` controls density. Other flows adapt naturally.
 - **Shared contract mode is the standard for initiative flows**: All initiative stage flows use `parentContractId={collaborationId}` + `stageKey` to share one contract per stage across all community members. Per-user mode is only for Collab workspaces.
+- **Community-hosted sub-contracts**: `community_contract.py` exposes generic `register_stage_contract(stage_key, contract_id, address, agent)` + `get_stage_contract(stage_key)` so communities host arbitrary sub-contracts without needing the community contract to know about them in advance. Used by Chat and (from initiative parents) Discussion. No allowlist — any `stage_key` is accepted.
+- **Read-only sub-contract access**: `resolveInitiativeStageContract` (in `services/contracts/initiative.ts`) is generic despite the name — it calls `get_stage_contract` on any parent. Use it when you want to *read* a sub-contract without triggering the full `useFlowContract` deploy path (e.g., `ActivityHub` chat preview).
+- **Gloki contracts re-run `__init__` on every invocation AND disallow writes during read calls**: never do `if not self.counter.exists(): self.counter['x'] = 0` in `__init__` — it will 500 on the first read. Prefer `timestamp()`-keyed IDs over counters (pattern: `discussion_contract.py`, `chat_contract.py`, `concerns_contract.py`).
 - **`deployContract` return value handling**: Returns either `{ id: string }` object or a plain string. Pattern: `const id = (response as { id?: string }).id || (response as string)`.
-- **Optimistic UI pattern**: Snapshot state before async write, update UI immediately, rollback on error. Used in ProblemVoteFlow and StageFeedView inline voting.
+- **Optimistic UI pattern**: Snapshot state before async write, update UI immediately, rollback on error. Used in ProblemVoteFlow, StageFeedView inline voting, and ChatTopic message send.
 - **Route sub-views via pathname check**: `InitiativeView` checks `location.pathname.endsWith('/discussion')` to render `DiscussionStageView` vs `InitiativeDashboard` — no extra route entries needed since the parent route uses `/*` wildcard.
 
 ## Known Limitations
 
 - **Collab contracts are per-user** — need shared mode (like Pipeline) to be truly collaborative
+- **Collab Document / Taskboard / Q&A / Roles / Scheduling** — still in-memory; ephemeral on refresh, not shared across users. Migrate to on-chain using the Chat/Discussion template (`useFlowContract` shared mode + stage_contracts registration).
 - **Completed stage metrics** — Initiative Dashboard only shows problem tally for completed stages; discussion/proposals/vote completed summaries not yet fetched
 - **Test data seeding** — auto-seeds 5 initiatives in communities with "test" in name on first load
 - **Top 3 carry-over** from Proposals → Vote not yet implemented
-- **Chat is ephemeral** — in-memory only, lost on refresh
+- **Old communities can't host Chat/Discussion sub-contracts** — any community deployed before `register_stage_contract` was added silently no-ops. The `useFlowContract` shared mode shows the "feature isn't available on this community" error card in those cases. Fresh communities work.
+- **`chat_contract.get_messages` is O(N)** — scans all messages, filters in Python. Fine at community-scale; add a per-topic index if it bites.
+- **Activity/quorum thresholds use raw member count** — current 67% / 33% thresholds operate on total community members, not "active" members. No last-seen tracking yet. See next-session prompt for the planned change.
 - **Modification Suggestions author-decide**: `originalAuthor` prop not yet wired — author accept/reject buttons won't show until initiative contract stores author in details

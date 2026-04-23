@@ -1,12 +1,14 @@
+import { contractRead, contractWrite } from '../../../services/api';
+import type { IMethod } from '../../../services/interfaces';
+
 // ---------------------------------------------------------------------------
-// Chat — local in-memory store, per-community topics and per-topic messages
+// Chat — on-chain topics and messages, shared across the community
 // ---------------------------------------------------------------------------
 
 export interface ChatTopic {
   id: string;
-  communityId: string;
   title: string;
-  author: string; // public key
+  author: string;
   createdAt: number;
   lastActivity: number;
   messageCount: number;
@@ -15,112 +17,143 @@ export interface ChatTopic {
 export interface ChatMessage {
   id: string;
   topicId: string;
-  author: string; // public key
+  author: string;
   text: string;
   timestamp: number;
 }
 
-// ---------------------------------------------------------------------------
-// In-memory stores
-// ---------------------------------------------------------------------------
-
-const topicsByCommunity = new Map<string, ChatTopic[]>();
-const messagesByTopic = new Map<string, ChatMessage[]>();
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function genId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+interface RawTopic {
+  id?: string;
+  title?: string;
+  author?: string;
+  createdAt?: number | string;
+  lastActivity?: number | string;
+  messageCount?: number | string;
 }
 
-function getCommunityTopics(communityId: string): ChatTopic[] {
-  if (!topicsByCommunity.has(communityId)) {
-    topicsByCommunity.set(communityId, []);
-  }
-  return topicsByCommunity.get(communityId)!;
+interface RawMessage {
+  id?: string;
+  topicId?: string;
+  author?: string;
+  text?: string;
+  timestamp?: number | string;
 }
 
-function getTopicMessages(topicId: string): ChatMessage[] {
-  if (!messagesByTopic.has(topicId)) {
-    messagesByTopic.set(topicId, []);
+function normalizeTimestamp(raw: number | string | undefined): number {
+  if (typeof raw === 'number') return raw;
+  if (typeof raw !== 'string' || !raw) return 0;
+
+  // Gloki's `timestamp()` returns a packed digit string: YYYYMMDDHHMMSS + fractional digits.
+  if (/^\d{14,}$/.test(raw)) {
+    const year = parseInt(raw.slice(0, 4), 10);
+    const month = parseInt(raw.slice(4, 6), 10) - 1;
+    const day = parseInt(raw.slice(6, 8), 10);
+    const hour = parseInt(raw.slice(8, 10), 10);
+    const minute = parseInt(raw.slice(10, 12), 10);
+    const second = parseInt(raw.slice(12, 14), 10);
+    const fractional = raw.slice(14);
+    const millis = fractional ? Math.floor(parseInt(fractional.padEnd(6, '0').slice(0, 6), 10) / 1000) : 0;
+    const ms = Date.UTC(year, month, day, hour, minute, second, millis);
+    if (!Number.isNaN(ms)) return ms;
   }
-  return messagesByTopic.get(topicId)!;
+
+  const parsed = Number(raw);
+  if (!Number.isNaN(parsed)) return parsed;
+  const asDate = Date.parse(raw);
+  if (!Number.isNaN(asDate)) return asDate;
+  return 0;
 }
 
-// ---------------------------------------------------------------------------
-// API
-// ---------------------------------------------------------------------------
-
-/** Returns topics for a community sorted by lastActivity descending. */
-export function getTopics(communityId: string): ChatTopic[] {
-  try {
-    return [...getCommunityTopics(communityId)].sort(
-      (a, b) => b.lastActivity - a.lastActivity
-    );
-  } catch (err) {
-    console.error('[chatApi] getTopics failed:', err);
-    return [];
-  }
+function normalizeCount(raw: number | string | undefined): number {
+  if (typeof raw === 'number') return raw;
+  if (typeof raw !== 'string' || !raw) return 0;
+  const parsed = Number(raw);
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-/** Creates a new topic in the community and returns it. */
-export function createTopic(communityId: string, title: string, author: string): ChatTopic {
-  try {
-    const now = Date.now();
-    const topic: ChatTopic = {
-      id: genId('topic'),
-      communityId,
-      title: title.trim(),
-      author,
-      createdAt: now,
-      lastActivity: now,
-      messageCount: 0,
-    };
-    getCommunityTopics(communityId).push(topic);
-    return { ...topic };
-  } catch (err) {
-    console.error('[chatApi] createTopic failed:', err);
-    throw err;
-  }
+function normalizeTopic(raw: RawTopic): ChatTopic {
+  return {
+    id: String(raw.id ?? ''),
+    title: String(raw.title ?? ''),
+    author: String(raw.author ?? ''),
+    createdAt: normalizeTimestamp(raw.createdAt),
+    lastActivity: normalizeTimestamp(raw.lastActivity),
+    messageCount: normalizeCount(raw.messageCount),
+  };
 }
 
-/** Returns all messages for a topic in chronological order. */
-export function getMessages(topicId: string): ChatMessage[] {
-  try {
-    return [...getTopicMessages(topicId)].sort((a, b) => a.timestamp - b.timestamp);
-  } catch (err) {
-    console.error('[chatApi] getMessages failed:', err);
-    return [];
-  }
+function normalizeMessage(raw: RawMessage): ChatMessage {
+  return {
+    id: String(raw.id ?? ''),
+    topicId: String(raw.topicId ?? ''),
+    author: String(raw.author ?? ''),
+    text: String(raw.text ?? ''),
+    timestamp: normalizeTimestamp(raw.timestamp),
+  };
 }
 
-/** Adds a message to a topic and updates the topic's lastActivity and messageCount. */
-export function addMessage(topicId: string, text: string, author: string): ChatMessage {
-  try {
-    const message: ChatMessage = {
-      id: genId('msg'),
-      topicId,
-      author,
-      text: text.trim(),
-      timestamp: Date.now(),
-    };
-    getTopicMessages(topicId).push(message);
+export async function getTopics(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+): Promise<ChatTopic[]> {
+  const raw = await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'get_topics', values: {} } as IMethod,
+  });
+  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, RawTopic>;
+  return Object.values(obj)
+    .map(normalizeTopic)
+    .filter((t) => t.id)
+    .sort((a, b) => b.lastActivity - a.lastActivity);
+}
 
-    // Update topic metadata — find it across all communities
-    for (const topics of topicsByCommunity.values()) {
-      const topic = topics.find(t => t.id === topicId);
-      if (topic) {
-        topic.lastActivity = message.timestamp;
-        topic.messageCount += 1;
-        break;
-      }
-    }
+export async function createTopic(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  title: string,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'create_topic', values: { title } } as IMethod,
+  });
+}
 
-    return { ...message };
-  } catch (err) {
-    console.error('[chatApi] addMessage failed:', err);
-    throw err;
-  }
+export async function getMessages(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  topicId: string,
+): Promise<ChatMessage[]> {
+  const raw = await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'get_messages', values: { topic_id: topicId } } as IMethod,
+  });
+  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, RawMessage>;
+  return Object.values(obj)
+    .map(normalizeMessage)
+    .filter((m) => m.id)
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function addMessage(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  topicId: string,
+  text: string,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'add_message', values: { topic_id: topicId, text } } as IMethod,
+  });
 }
