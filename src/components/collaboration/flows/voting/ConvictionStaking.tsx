@@ -1,16 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Lock, TrendingUp } from 'lucide-react';
 import { useFlowContract } from '../shared/useFlowContract';
 import * as api from './convictionApi';
 import { useAppSelector } from '../../../../store/hooks';
 import { getCountryColor, getCountryName, getCountryFlag } from '../../../../utils/countries';
 import convictionCode from '../../../../assets/contracts/conviction_contract.py?raw';
+import type { FlowProps } from '../types';
 import styles from './ConvictionStaking.module.scss';
 
-interface ConvictionStakingProps {
-  instanceId: string;
-  parentContractId?: string;
-  stageKey?: string;
+interface ConvictionStakingProps extends Pick<FlowProps, 'instanceId' | 'parentContractId' | 'stageKey'> {
   compact?: boolean;
 }
 
@@ -70,6 +68,18 @@ const ConvictionStaking: React.FC<ConvictionStakingProps> = ({
 
   const selectedDuration = DURATIONS.find((d) => d.value === duration) || DURATIONS[1];
   const previewWeight = Number(amount) * selectedDuration.multiplier;
+
+  // Precompute myStake-derived values once per stake/total change so the two
+  // duplicate DURATIONS lookups (label + multiplier) collapse to one pass.
+  const myStakeInfo = useMemo(() => {
+    if (!myStake) return null;
+    const matched = DURATIONS.find((d) => d.value === myStake.duration);
+    const multiplier = matched?.multiplier ?? 1;
+    const label = matched?.label ?? myStake.duration;
+    const weight = myStake.amount * multiplier;
+    const share = totalConviction.total > 0 ? (weight / totalConviction.total) * 100 : 0;
+    return { label, multiplier, weight, share };
+  }, [myStake, totalConviction.total]);
 
   const handleStake = async () => {
     const numAmount = Number(amount);
@@ -146,24 +156,19 @@ const ConvictionStaking: React.FC<ConvictionStakingProps> = ({
       </div>
 
       {/* Active stake */}
-      {myStake && (() => {
-        const myMultiplier = DURATIONS.find((d) => d.value === myStake.duration)?.multiplier || 1;
-        const myWeight = myStake.amount * myMultiplier;
-        const share = totalConviction.total > 0 ? (myWeight / totalConviction.total) * 100 : 0;
-        return (
-          <div className={styles.myStake}>
-            <h4 className={styles.sectionTitle}>Your Active Stake</h4>
-            <div className={styles.stakeDetails}>
-              <span>Amount: <strong>{myStake.amount}</strong></span>
-              <span>Duration: <strong>{DURATIONS.find((d) => d.value === myStake.duration)?.label || myStake.duration}</strong></span>
-              <span>Weight: <strong>{myWeight}</strong></span>
-              {totalConviction.total > 0 && (
-                <span>Share: <strong>{share.toFixed(1)}%</strong></span>
-              )}
-            </div>
+      {myStake && myStakeInfo && (
+        <div className={styles.myStake}>
+          <h4 className={styles.sectionTitle}>Your Active Stake</h4>
+          <div className={styles.stakeDetails}>
+            <span>Amount: <strong>{myStake.amount}</strong></span>
+            <span>Duration: <strong>{myStakeInfo.label}</strong></span>
+            <span>Weight: <strong>{myStakeInfo.weight}</strong></span>
+            {totalConviction.total > 0 && (
+              <span>Share: <strong>{myStakeInfo.share.toFixed(1)}%</strong></span>
+            )}
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* Community aggregate */}
       <div className={styles.aggregate}>
