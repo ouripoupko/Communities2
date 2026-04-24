@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, GitBranch, Coins, Users2, Shield, Globe } from 'lucide-react';
+import { ArrowLeft, GitBranch, Coins, Users2, Shield, Globe, AlertCircle } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createCommunity } from '../services/contracts/community';
 import { isDemoContract } from '../services/demo/demoRegistry';
@@ -76,8 +76,10 @@ const CreateCommunityPage: React.FC = () => {
       await dispatch(fetchContracts());
 
       navigate(contractId && isDemoContract(contractId) ? `/community/${contractId}` : '/identity/communities');
-    } catch {
-      setError('Failed to create community. Please try again.');
+    } catch (err) {
+      console.error('[CreateCommunity] Deploy failed:', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(`Failed to create community: ${detail}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -179,7 +181,12 @@ const CreateCommunityPage: React.FC = () => {
           <p className={styles.hint}>A good description helps attract the right members.</p>
         </div>
 
-        {error && <div className={styles.errorMessage}>{error}</div>}
+        {error && (
+          <div className={styles.errorMessage} role="alert">
+            <AlertCircle size={18} />
+            <span>{error}</span>
+          </div>
+        )}
 
         <button
           className={styles.submitButton}
@@ -188,6 +195,9 @@ const CreateCommunityPage: React.FC = () => {
         >
           {isSubmitting ? 'Creating...' : 'Create Community'}
         </button>
+        {!isSubmitting && !name.trim() && (
+          <p className={styles.submitHint}>Enter a community name to continue.</p>
+        )}
       </div>
     </div>
   );
