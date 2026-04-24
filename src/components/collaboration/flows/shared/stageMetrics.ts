@@ -1,11 +1,16 @@
 import { contractRead } from '../../../../services/api';
 import { resolveInitiativeStageContract } from '../../../../services/contracts/initiative';
+import { getProposalsAndCounts } from '../voting/approvalApi';
 import type { IMethod } from '../../../../services/interfaces';
 
 // Per-stage compact summaries fetched from the initiative's sub-contracts.
 // Each function returns `null` when the sub-contract can't be resolved or
 // the read fails (old initiatives, missing registrations, network hiccups).
 // Callers render a single summary line or hide it silently.
+//
+// Fresh communities expose a compact `get_summary` method on each sub-contract
+// that pre-aggregates the line we want. Old communities don't have it — we
+// detect missing/invalid responses and fall back to the full-scan path.
 
 export interface ProblemSummary { up: number; down: number; total: number; }
 export interface DiscussionSummary { participants: number; comments: number; }
@@ -27,6 +32,10 @@ async function readMethod(
   });
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 export async function fetchProblemSummary(
   serverUrl: string,
   publicKey: string,
@@ -36,7 +45,7 @@ export async function fetchProblemSummary(
     const stage = await resolveInitiativeStageContract(serverUrl, publicKey, initiativeId, 'problemVoteContractId');
     if (!stage?.contractId) return null;
     const raw = await readMethod(serverUrl, publicKey, stage.contractId, 'get_tally');
-    if (!raw || typeof raw !== 'object') return null;
+    if (!isPlainObject(raw)) return null;
     const t = raw as { up?: number; down?: number; total?: number };
     return {
       up: Number(t.up ?? 0),
@@ -56,12 +65,23 @@ export async function fetchDiscussionSummary(
   try {
     const stage = await resolveInitiativeStageContract(serverUrl, publicKey, initiativeId, 'discussionContractId');
     if (!stage?.contractId) return null;
+
+    // Fresh contracts: get_summary is O(1) server-side.
+    const summaryRaw = await readMethod(serverUrl, publicKey, stage.contractId, 'get_summary').catch(() => null);
+    if (isPlainObject(summaryRaw) && 'participants' in summaryRaw && 'comments' in summaryRaw) {
+      return {
+        participants: Number(summaryRaw.participants ?? 0),
+        comments: Number(summaryRaw.comments ?? 0),
+      };
+    }
+
+    // Old contracts: scan all comments locally.
     const raw = await readMethod(serverUrl, publicKey, stage.contractId, 'get_comments');
-    if (!raw || typeof raw !== 'object') return null;
-    const comments = raw as Record<string, { author?: string; deleted?: boolean }>;
+    if (!isPlainObject(raw)) return null;
     const authors = new Set<string>();
     let liveCount = 0;
-    for (const c of Object.values(comments)) {
+    for (const c of Object.values(raw)) {
+      if (!isPlainObject(c)) continue;
       if (c.deleted) continue;
       liveCount += 1;
       if (typeof c.author === 'string' && c.author) authors.add(c.author);
@@ -80,14 +100,23 @@ export async function fetchProposalsSummary(
   try {
     const stage = await resolveInitiativeStageContract(serverUrl, publicKey, initiativeId, 'proposalsContractId');
     if (!stage?.contractId) return null;
-    const [proposalsRaw, countsRaw] = await Promise.all([
-      readMethod(serverUrl, publicKey, stage.contractId, 'get_proposals'),
-      readMethod(serverUrl, publicKey, stage.contractId, 'get_approval_counts'),
-    ]);
-    const proposals = (proposalsRaw && typeof proposalsRaw === 'object' ? proposalsRaw : {}) as Record<string, { text?: string }>;
-    const counts = (countsRaw && typeof countsRaw === 'object' ? countsRaw : {}) as Record<string, number>;
-    const entries = Object.entries(proposals)
-      .map(([pid, p]) => ({ pid, text: String(p.text ?? ''), count: Number(counts[pid] ?? 0) }))
+
+    // Fresh contracts: single call.
+    const summaryRaw = await readMethod(serverUrl, publicKey, stage.contractId, 'get_summary').catch(() => null);
+    if (isPlainObject(summaryRaw) && 'proposals' in summaryRaw) {
+      const topText = summaryRaw.top_text;
+      return {
+        proposals: Number(summaryRaw.proposals ?? 0),
+        topApprovedText: typeof topText === 'string' && topText ? topText : null,
+        topApprovedCount: Number(summaryRaw.top_count ?? 0),
+      };
+    }
+
+    // Old contracts: fetch proposals + counts (with size-mismatch warn),
+    // rank client-side.
+    const { proposals, counts } = await getProposalsAndCounts(serverUrl, publicKey, stage.contractId);
+    const entries = Object.entries(proposals as Record<string, { text?: string }>)
+      .map(([pid, p]) => ({ pid, text: String(p?.text ?? ''), count: Number((counts as Record<string, number>)[pid] ?? 0) }))
       .filter((e) => e.text);
     if (entries.length === 0) {
       return { proposals: 0, topApprovedText: null, topApprovedCount: 0 };
@@ -112,14 +141,27 @@ export async function fetchVoteSummary(
   try {
     const stage = await resolveInitiativeStageContract(serverUrl, publicKey, initiativeId, 'voteContractId');
     if (!stage?.contractId) return null;
+
+    // Fresh contracts: single call.
+    const summaryRaw = await readMethod(serverUrl, publicKey, stage.contractId, 'get_summary').catch(() => null);
+    if (isPlainObject(summaryRaw) && 'voters' in summaryRaw) {
+      const winnerText = summaryRaw.winner_text;
+      return {
+        winnerText: typeof winnerText === 'string' && winnerText ? winnerText : null,
+        winnerCredits: Number(summaryRaw.winner_credits ?? 0),
+        voters: Number(summaryRaw.voters ?? 0),
+      };
+    }
+
+    // Old contracts: scan allocations/results/proposals.
     const [proposalsRaw, resultsRaw, allocationsRaw] = await Promise.all([
       readMethod(serverUrl, publicKey, stage.contractId, 'get_proposals'),
       readMethod(serverUrl, publicKey, stage.contractId, 'get_results'),
       readMethod(serverUrl, publicKey, stage.contractId, 'get_allocations'),
     ]);
-    const proposals = (proposalsRaw && typeof proposalsRaw === 'object' ? proposalsRaw : {}) as Record<string, { text?: string }>;
-    const results = (resultsRaw && typeof resultsRaw === 'object' ? resultsRaw : {}) as Record<string, number>;
-    const allocations = (allocationsRaw && typeof allocationsRaw === 'object' ? allocationsRaw : {}) as Record<string, unknown>;
+    const proposals = (isPlainObject(proposalsRaw) ? proposalsRaw : {}) as Record<string, { text?: string }>;
+    const results = (isPlainObject(resultsRaw) ? resultsRaw : {}) as Record<string, number>;
+    const allocations = (isPlainObject(allocationsRaw) ? allocationsRaw : {}) as Record<string, unknown>;
     const voters = Object.keys(allocations).length;
     let winnerId: string | null = null;
     let winnerCredits = 0;
@@ -130,7 +172,7 @@ export async function fetchVoteSummary(
         winnerId = pid;
       }
     }
-    const winnerText = winnerId && proposals[winnerId] ? String(proposals[winnerId].text ?? '') : null;
+    const winnerText = winnerId && proposals[winnerId] ? String(proposals[winnerId]?.text ?? '') : null;
     return { winnerText, winnerCredits, voters };
   } catch {
     return null;
