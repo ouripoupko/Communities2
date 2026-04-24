@@ -8,6 +8,14 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCommunityMembers, fetchCommunityActiveMembers } from '../../store/slices/communitiesSlice';
 import { contractRead, contractWrite } from '../../services/api';
 import { resolveAndJoinInitiativeStageContract } from '../../services/contracts/initiative';
+import {
+  fetchDiscussionSummary,
+  fetchProposalsSummary,
+  fetchVoteSummary,
+  type DiscussionSummary,
+  type ProposalsSummary,
+  type VoteSummary,
+} from './flows/shared/stageMetrics';
 import type { IMethod } from '../../services/interfaces';
 import type { PipelineStage } from '../../types/initiative';
 import ProblemVoteFlow from './flows/voting/ProblemVoteFlow';
@@ -56,6 +64,9 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
   const [advancing, setAdvancing] = useState(false);
   const [confirmAdvance, setConfirmAdvance] = useState(false);
   const [problemTally, setProblemTally] = useState<{ up: number; down: number; total: number }>({ up: 0, down: 0, total: 0 });
+  const [discussionSummary, setDiscussionSummary] = useState<DiscussionSummary | null>(null);
+  const [proposalsSummary, setProposalsSummary] = useState<ProposalsSummary | null>(null);
+  const [voteSummary, setVoteSummary] = useState<VoteSummary | null>(null);
   const [roles, setRoles] = useState<InitiativeRoles | null>(null);
   const params = useParams<{ initiativeHostServer: string; initiativeHostAgent: string }>();
 
@@ -131,6 +142,25 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
     };
     fetchProblemData();
   }, [serverUrl, publicKey, collaborationId]);
+
+  // Fetch compact summaries for completed stages. Each returns null silently
+  // on old initiatives without the relevant sub-contract — the UI hides that
+  // line accordingly.
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !collaborationId) return;
+    let cancelled = false;
+    Promise.allSettled([
+      fetchDiscussionSummary(serverUrl, publicKey, collaborationId),
+      fetchProposalsSummary(serverUrl, publicKey, collaborationId),
+      fetchVoteSummary(serverUrl, publicKey, collaborationId),
+    ]).then(([d, p, v]) => {
+      if (cancelled) return;
+      setDiscussionSummary(d.status === 'fulfilled' ? d.value : null);
+      setProposalsSummary(p.status === 'fulfilled' ? p.value : null);
+      setVoteSummary(v.status === 'fulfilled' ? v.value : null);
+    });
+    return () => { cancelled = true; };
+  }, [serverUrl, publicKey, collaborationId, stage]);
 
   // Resolve the approval (proposals stage) contract once so QV can carry over
   // the top 3 approved proposals into the vote stage.
@@ -282,6 +312,27 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
                     <div className={styles.completedMetrics}>
                       <span>{problemTally.up} upvotes / {problemTally.down} downvotes</span>
                       <span className={styles.thresholdMet}>Threshold met</span>
+                    </div>
+                  )}
+
+                  {/* COMPLETED: discussion summary */}
+                  {status === 'completed' && s.id === 'discussion' && discussionSummary && (
+                    <div className={styles.completedMetrics}>
+                      <span>{discussionSummary.participants} participant{discussionSummary.participants !== 1 ? 's' : ''} · {discussionSummary.comments} comment{discussionSummary.comments !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+
+                  {/* COMPLETED: proposals summary */}
+                  {status === 'completed' && s.id === 'proposals' && proposalsSummary && (
+                    <div className={styles.completedMetrics}>
+                      <span>{proposalsSummary.proposals} proposal{proposalsSummary.proposals !== 1 ? 's' : ''}{proposalsSummary.topApprovedText ? ` · top: "${proposalsSummary.topApprovedText}" (${proposalsSummary.topApprovedCount} approval${proposalsSummary.topApprovedCount !== 1 ? 's' : ''})` : ''}</span>
+                    </div>
+                  )}
+
+                  {/* COMPLETED: vote summary */}
+                  {status === 'completed' && s.id === 'vote' && voteSummary && (
+                    <div className={styles.completedMetrics}>
+                      <span>{voteSummary.winnerText ? `Winner: "${voteSummary.winnerText}" (${voteSummary.winnerCredits.toFixed(1)} votes)` : `${voteSummary.voters} voter${voteSummary.voters !== 1 ? 's' : ''}`}</span>
                     </div>
                   )}
 
