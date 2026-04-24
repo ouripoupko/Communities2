@@ -7,7 +7,7 @@ import { CheckCircle2, Circle, Lock, AlertTriangle, MessageCircle } from 'lucide
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCommunityMembers, fetchCommunityActiveMembers, setInitiativeStage } from '../../store/slices/communitiesSlice';
 import { contractRead, contractWrite } from '../../services/api';
-import { resolveAndJoinInitiativeStageContract } from '../../services/contracts/initiative';
+import { resolveInitiativeStageContract } from '../../services/contracts/initiative';
 import {
   fetchDiscussionSummary,
   fetchProposalsSummary,
@@ -122,7 +122,10 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
     if (!serverUrl || !publicKey || !collaborationId) return;
     const fetchProblemData = async () => {
       try {
-        const pvStageContract = await resolveAndJoinInitiativeStageContract(
+        // Read-only use — don't join (that would auto-register the caller as
+        // a partner on the sub-contract, which has to be gated by the active
+        // ProblemVoteFlow deploy path, not by the dashboard summary fetch).
+        const pvStageContract = await resolveInitiativeStageContract(
           serverUrl,
           publicKey,
           collaborationId,
@@ -160,7 +163,11 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
       setVoteSummary(v.status === 'fulfilled' ? v.value : null);
     });
     return () => { cancelled = true; };
-  }, [serverUrl, publicKey, collaborationId, stage]);
+    // `stage` intentionally omitted — the summaries reflect historical data
+    // that doesn't change with the active stage, and re-fetching on every
+    // advance is wasteful.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverUrl, publicKey, collaborationId]);
 
   const memberCount = Array.isArray(communityMembers[communityId])
     ? communityMembers[communityId].length : 0;
