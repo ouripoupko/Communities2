@@ -163,9 +163,20 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
         <div className={styles.explainerText}>
           <h3>How Community Currency Works</h3>
           <p>
-            Community currency lets members allocate value to initiatives and proposals,
-            creating a transparent resource allocation system governed by the community.
-            Credits are created and removed at rates set collectively through median voting.
+            <strong>Every community runs its own currency.</strong> It&apos;s a shared
+            unit of value members use to signal what matters — supporting initiatives,
+            backing proposals, sending payments to each other.
+          </p>
+          <p>
+            <strong>The community controls the supply.</strong> Each member votes on how
+            many credits are minted per day and how many are removed (burned) per day.
+            The contract uses the median of all votes, so no single voter can tilt the
+            rates — they reflect the group&apos;s consensus.
+          </p>
+          <p>
+            <strong>You can use it right now.</strong> Check your balance below, send
+            credits to any other member, or set your preferred mint and burn rates so
+            your voice counts in the next median.
           </p>
         </div>
       </div>
