@@ -57,17 +57,35 @@ function formatTimeAgo(timestamp: number): string {
 
 // ─── Collab page wrapper ────────────────────
 const CollabPage: React.FC<{ communityId: string }> = ({ communityId }) => {
+  const navigate = useNavigate();
   const { collabId } = useParams<{ collabId: string }>();
   const { communityCollaborations } = useAppSelector((s) => s.communities);
 
+  const collabsLoaded = Array.isArray(communityCollaborations[communityId]);
   const collabs = communityCollaborations[communityId] ?? [];
   const collab = collabs.find((c) => c.id === collabId);
   const title = collab?.title || 'Collab';
 
-  if (!collabId) return <div>Collab not found.</div>;
+  if (!collabId) {
+    return (
+      <div className={styles.loadingState}>
+        <p>Collab link is missing an id.</p>
+        <button onClick={() => navigate(`/community/${communityId}/collab`)}>Back to collabs</button>
+      </div>
+    );
+  }
+
+  if (collabsLoaded && !collab) {
+    return (
+      <div className={styles.loadingState}>
+        <p>This collab isn&apos;t part of the community, or it hasn&apos;t synced yet.</p>
+        <button onClick={() => navigate(`/community/${communityId}/collab`)}>Back to collabs</button>
+      </div>
+    );
+  }
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className={styles.loadingState}><p>Loading collab…</p></div>}>
       <CollaborationPage
         type="collab"
         title={title}
@@ -495,7 +513,14 @@ const CommunityView: React.FC = () => {
               <Route path="collaborations" element={<Navigate to={`/community/${communityId}`} replace />} />
               <Route path="share" element={<Navigate to={`/community/${communityId}/members`} replace />} />
               <Route path="collab" element={<CollabList communityId={communityId!} />} />
-              <Route path="collab/:collabId" element={<CollabPage communityId={communityId!} />} />
+              <Route
+                path="collab/:collabId"
+                element={
+                  <ErrorBoundary fallbackMessage="Couldn't load this collab workspace. Try again or pick a different template.">
+                    <CollabPage communityId={communityId!} />
+                  </ErrorBoundary>
+                }
+              />
               <Route
                 path="chat"
                 element={
