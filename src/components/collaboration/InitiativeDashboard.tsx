@@ -5,7 +5,7 @@ import RoleDisplay from '../shared/RoleDisplay';
 import { getInitiativeRoles, type InitiativeRoles } from '../../services/initiativeRoles';
 import { CheckCircle2, Circle, Lock, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchCommunityMembers, fetchCommunityActiveMembers } from '../../store/slices/communitiesSlice';
+import { fetchCommunityMembers, fetchCommunityActiveMembers, setInitiativeStage } from '../../store/slices/communitiesSlice';
 import { contractRead, contractWrite } from '../../services/api';
 import { resolveAndJoinInitiativeStageContract } from '../../services/contracts/initiative';
 import {
@@ -162,25 +162,6 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
     return () => { cancelled = true; };
   }, [serverUrl, publicKey, collaborationId, stage]);
 
-  // Resolve the approval (proposals stage) contract once so QV can carry over
-  // the top 3 approved proposals into the vote stage.
-  const [approvalContractId, setApprovalContractId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!serverUrl || !publicKey || !collaborationId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const stage = await resolveAndJoinInitiativeStageContract(
-          serverUrl, publicKey, collaborationId, 'proposalsContractId',
-        );
-        if (!cancelled) setApprovalContractId(stage?.contractId ?? null);
-      } catch {
-        if (!cancelled) setApprovalContractId(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [serverUrl, publicKey, collaborationId]);
-
   const memberCount = Array.isArray(communityMembers[communityId])
     ? communityMembers[communityId].length : 0;
   const activeMemberCount = communityActiveMembers[communityId] ?? memberCount;
@@ -220,6 +201,8 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
         method: { name: 'set_stage', values: { stage: nextStage.id } } as IMethod,
       });
       setStage(nextStage.id);
+      // Keep Communities mandate counts fresh in this tab without a refetch.
+      dispatch(setInitiativeStage({ initiativeId: collaborationId, stage: nextStage.id }));
     } catch { /* silently fail */ }
     finally { setAdvancing(false); }
   };
@@ -404,7 +387,6 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
                         collaborationType="initiative"
                         parentContractId={collaborationId}
                         stageKey="voteContractId"
-                        approvalContractId={approvalContractId}
                       />
                     </ErrorBoundary>
                   )}

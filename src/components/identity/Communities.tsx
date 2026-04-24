@@ -79,7 +79,11 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
   ]);
 
   // Fetch stage for each initiative so mandate count can be stage-accurate.
-  // Guarded by `initiativeStages[id] === undefined` so each initiative is fetched once.
+  // `stageDispatchedRef` tracks initiatives we have already dispatched for
+  // this session — without it, every fulfilled stage fetch would re-run the
+  // effect (because `initiativeStages` is in deps) and redispatch reads for
+  // every still-pending sibling, producing O(N^2) traffic on large communities.
+  const stageDispatchedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!user.serverUrl || !user.publicKey) return;
     communityContracts.forEach((c) => {
@@ -88,6 +92,8 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
       collabs.forEach((item) => {
         if (item.type !== 'initiative') return;
         if (initiativeStages[item.id] !== undefined) return;
+        if (stageDispatchedRef.current.has(item.id)) return;
+        stageDispatchedRef.current.add(item.id);
         dispatch(fetchInitiativeStage({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, initiativeId: item.id }));
       });
     });
@@ -174,11 +180,16 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
           const description = props.description || '';
           const memberCount = Array.isArray(communityMembers[contract.id]) ? communityMembers[contract.id].length : 0;
           const collaborations = communityCollaborations[contract.id] || [];
-          // Count only initiatives currently in the 'mandate' stage. Initiatives
-          // whose stage hasn't resolved yet are excluded — they'll appear once
-          // fetchInitiativeStage returns.
-          const mandateCount = collaborations.filter(
-            (c) => c.type === 'initiative' && initiativeStages[c.id] === 'mandate',
+          // Separate truly-in-mandate from initiatives whose stage lookup
+          // failed (`_unknown`, e.g. old contracts or transient errors).
+          // Treating `_unknown` as "not mandate" silently undercounts — show
+          // it as an explicit "unresolved" hint instead.
+          const initiatives = collaborations.filter((c) => c.type === 'initiative');
+          const mandateCount = initiatives.filter(
+            (c) => initiativeStages[c.id] === 'mandate',
+          ).length;
+          const unresolvedCount = initiatives.filter(
+            (c) => initiativeStages[c.id] === '_unknown',
           ).length;
           const createdDate = props.createdAt ? formatCreatedDate(props.createdAt) : null;
           return (
@@ -211,7 +222,13 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
               {description && <p className={styles.cardDescription}>{description}</p>}
               <div className={styles.cardMeta}>
                 <span className={styles.metaItem}><Users size={12} /> {memberCount} member{memberCount !== 1 ? 's' : ''}</span>
-                <span className={styles.metaItem}><ScrollText size={12} /> {mandateCount} mandate{mandateCount !== 1 ? 's' : ''}</span>
+                <span
+                  className={styles.metaItem}
+                  title={unresolvedCount > 0 ? `${unresolvedCount} initiative${unresolvedCount !== 1 ? 's' : ''} couldn't be resolved and aren't counted` : undefined}
+                >
+                  <ScrollText size={12} /> {mandateCount} mandate{mandateCount !== 1 ? 's' : ''}
+                  {unresolvedCount > 0 && <span className={styles.metaItemHint}> · {unresolvedCount} unresolved</span>}
+                </span>
                 {createdDate && (
                   <span className={styles.metaItem}><Calendar size={12} /> {createdDate}</span>
                 )}
