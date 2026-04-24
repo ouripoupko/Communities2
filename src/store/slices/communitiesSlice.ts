@@ -217,6 +217,13 @@ const communitiesSlice = createSlice({
       const { memberAgent, profile } = action.payload;
       state.profiles[memberAgent] = profile;
     },
+    // Local-only stage update — call after a successful `set_stage` write so
+    // Communities mandate counts refresh without a round-trip. Does not fix
+    // cross-tab staleness (other tabs still see cached data until their next
+    // fetchInitiativeStage).
+    setInitiativeStage: (state, action: PayloadAction<{ initiativeId: string; stage: string }>) => {
+      state.initiativeStages[action.payload.initiativeId] = action.payload.stage;
+    },
   },
   extraReducers: (builder) => {
     // Fetch community properties
@@ -303,5 +310,5 @@ const communitiesSlice = createSlice({
   },
 });
 
-export const { setCurrentCommunity, clearError, clearCommunityData, updateMemberProfile } = communitiesSlice.actions;
+export const { setCurrentCommunity, clearError, clearCommunityData, updateMemberProfile, setInitiativeStage } = communitiesSlice.actions;
 export default communitiesSlice.reducer;

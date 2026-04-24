@@ -5,7 +5,7 @@ import RoleDisplay from '../shared/RoleDisplay';
 import { getInitiativeRoles, type InitiativeRoles } from '../../services/initiativeRoles';
 import { CheckCircle2, Circle, Lock, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchCommunityMembers, fetchCommunityActiveMembers } from '../../store/slices/communitiesSlice';
+import { fetchCommunityMembers, fetchCommunityActiveMembers, setInitiativeStage } from '../../store/slices/communitiesSlice';
 import { contractRead, contractWrite } from '../../services/api';
 import { resolveAndJoinInitiativeStageContract } from '../../services/contracts/initiative';
 import {
@@ -201,6 +201,8 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
         method: { name: 'set_stage', values: { stage: nextStage.id } } as IMethod,
       });
       setStage(nextStage.id);
+      // Keep Communities mandate counts fresh in this tab without a refetch.
+      dispatch(setInitiativeStage({ initiativeId: collaborationId, stage: nextStage.id }));
     } catch { /* silently fail */ }
     finally { setAdvancing(false); }
   };

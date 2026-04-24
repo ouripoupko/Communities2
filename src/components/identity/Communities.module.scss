@@ -114,6 +114,12 @@
           align-items: center;
           gap: 4px;
         }
+
+        .metaItemHint {
+          margin-left: 4px;
+          opacity: 0.7;
+          font-style: italic;
+        }
       }
 
       .cardActions {
