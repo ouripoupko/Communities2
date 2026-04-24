@@ -5,7 +5,7 @@ import RoleDisplay from '../shared/RoleDisplay';
 import { getInitiativeRoles, type InitiativeRoles } from '../../services/initiativeRoles';
 import { CheckCircle2, Circle, Lock, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
+import { fetchCommunityMembers, fetchCommunityActiveMembers } from '../../store/slices/communitiesSlice';
 import { contractRead, contractWrite } from '../../services/api';
 import { resolveAndJoinInitiativeStageContract } from '../../services/contracts/initiative';
 import type { IMethod } from '../../services/interfaces';
@@ -47,6 +47,7 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
   const publicKey = useAppSelector((s) => s.user.publicKey);
   const communityMembers = useAppSelector((s) => s.communities.communityMembers);
+  const communityActiveMembers = useAppSelector((s) => s.communities.communityActiveMembers);
   const communityProps = useAppSelector((s) => s.communities.communityProperties[communityId]);
   const communityName = communityProps?.name || communityId.slice(0, 8);
 
@@ -98,6 +99,13 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
     dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
   }, [serverUrl, publicKey, communityId, communityMembers, dispatch]);
 
+  // Fetch active-member count (falls back to raw count on old communities)
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !communityId) return;
+    if (communityActiveMembers[communityId] !== undefined) return;
+    dispatch(fetchCommunityActiveMembers({ serverUrl, publicKey, contractId: communityId }));
+  }, [serverUrl, publicKey, communityId, communityActiveMembers, dispatch]);
+
   // Fetch problem tally for completed/active problem stage
   useEffect(() => {
     if (!serverUrl || !publicKey || !collaborationId) return;
@@ -126,6 +134,7 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
 
   const memberCount = Array.isArray(communityMembers[communityId])
     ? communityMembers[communityId].length : 0;
+  const activeMemberCount = communityActiveMembers[communityId] ?? memberCount;
 
   const currentStageIndex = STAGES.findIndex((s) => s.id === stage);
   const nextStage = currentStageIndex < STAGES.length - 1 ? STAGES[currentStageIndex + 1] : null;
@@ -138,8 +147,8 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
   };
 
   const getStageReadiness = (): { ready: boolean; reason: string } => {
-    if (stage === 'problem' && memberCount > 0) {
-      const threshold = Math.ceil(memberCount * 0.67);
+    if (stage === 'problem' && activeMemberCount > 0) {
+      const threshold = Math.ceil(activeMemberCount * 0.50);
       if (problemTally.up < threshold) {
         return {
           ready: false,
@@ -265,7 +274,7 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
                         description=""
                         evidenceLinks={evidenceLinks}
                         countries={countries}
-                        communityMemberCount={memberCount}
+                        communityMemberCount={activeMemberCount}
                         parentContractId={collaborationId}
                         stageKey="problemVoteContractId"
                       />

@@ -6,8 +6,9 @@ import { resetDemoCommunity } from '../services/demo/seedDemoCommunity';
 import { buildDemoShareLink } from '../services/demo/demoUrlShare';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
-import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
+import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations, fetchCommunityActiveMembers } from '../store/slices/communitiesSlice';
 import { contractRead } from '../services/api';
+import { recordActivity } from '../services/contracts/community';
 import type { IMethod } from '../services/interfaces';
 import { seedTestDataIfNeeded } from '../utils/seedTestData';
 import type { Collaboration } from '../services/contracts/community';
@@ -273,6 +274,14 @@ const CommunityView: React.FC = () => {
       eventStreamService.removeEventListener('contract_write', handleContractWrite);
     };
   }, [communityId, props, dispatch, publicKey, serverUrl, communityMembers, handleContractWrite]);
+
+  // Record user activity + fetch active-member count on community entry.
+  // Old communities lack `record_activity` / `get_active_members`; both fall back silently.
+  useEffect(() => {
+    if (!serverUrl || !publicKey || !communityId) return;
+    recordActivity(serverUrl, publicKey, communityId).catch(() => { /* old community — silent */ });
+    dispatch(fetchCommunityActiveMembers({ serverUrl, publicKey, contractId: communityId }));
+  }, [serverUrl, publicKey, communityId, dispatch]);
 
   useEffect(() => {
     if (!serverUrl || !publicKey || !communityId) return;

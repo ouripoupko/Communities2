@@ -29,7 +29,7 @@ const STAGES: StageConfig[] = [
   {
     id: 'problem',
     label: 'Problem',
-    hint: 'Does this problem affect people across multiple countries? Review the evidence, then vote. The community needs 67% upvotes to move forward.',
+    hint: 'Does this problem affect people across multiple countries? Review the evidence, then vote. The community needs 50% upvotes to move forward.',
   },
   {
     id: 'discussion',
@@ -181,11 +181,11 @@ const PipelineView: React.FC<PipelineViewProps> = ({ title, collaborationId, com
 
   const getStageReadiness = (): { ready: boolean; reason: string } => {
     if (stage === 'problem' && memberCount > 0) {
-      const threshold = Math.ceil(memberCount * 0.67);
+      const threshold = Math.ceil(memberCount * 0.50);
       if (problemTally.up < threshold) {
         return {
           ready: false,
-          reason: `${Math.max(threshold - problemTally.up, 0)} more upvote${threshold - problemTally.up !== 1 ? 's' : ''} needed to reach 67% threshold (${problemTally.up}/${threshold})`,
+          reason: `${Math.max(threshold - problemTally.up, 0)} more upvote${threshold - problemTally.up !== 1 ? 's' : ''} needed to reach 50% threshold (${problemTally.up}/${threshold})`,
         };
       }
     }

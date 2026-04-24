@@ -111,7 +111,7 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
     }
   };
 
-  const thresholdMet = communityMemberCount > 0 && tally.up / communityMemberCount >= 0.67;
+  const thresholdMet = communityMemberCount > 0 && tally.up / communityMemberCount >= 0.50;
   const safeEvidenceLinks = evidenceLinks
     .map((link) => sanitizeExternalUrl(link))
     .filter((link): link is string => link !== null);
@@ -187,14 +187,14 @@ const ProblemVoteFlow: React.FC<ProblemVoteFlowProps> = ({
           <div className={styles.progressTrack}>
             <div
               className={`${styles.progressFill} ${thresholdMet ? styles.thresholdMet : ''}`}
-              style={{ width: `${Math.min((tally.up / Math.max(Math.ceil(communityMemberCount * 0.67), 1)) * 100, 100)}%` }}
+              style={{ width: `${Math.min((tally.up / Math.max(Math.ceil(communityMemberCount * 0.50), 1)) * 100, 100)}%` }}
             />
             <div className={styles.thresholdMarker} style={{ left: '100%' }} />
           </div>
           <div className={styles.thresholdLabels}>
             <span>{tally.up} upvote{tally.up !== 1 ? 's' : ''}</span>
             <span className={styles.thresholdTarget}>
-              {thresholdMet ? 'Threshold met!' : `${Math.max(Math.ceil(communityMemberCount * 0.67) - tally.up, 0)} more needed`}
+              {thresholdMet ? 'Threshold met!' : `${Math.max(Math.ceil(communityMemberCount * 0.50) - tally.up, 0)} more needed`}
             </span>
           </div>
         </div>

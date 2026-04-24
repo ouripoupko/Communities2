@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, MessageCircle, Lightbulb, Vote, ScrollText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { fetchCollaborations, fetchCommunityProperties, fetchCommunityMembers } from '../store/slices/communitiesSlice';
+import { fetchCollaborations, fetchCommunityProperties, fetchCommunityMembers, fetchCommunityActiveMembers } from '../store/slices/communitiesSlice';
 import { contractRead } from '../services/api';
 import type { IMethod } from '../services/interfaces';
 import type { Collaboration } from '../services/contracts/community';
@@ -58,7 +58,7 @@ const STAGE_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ 
     label: 'Discussion',
     icon: MessageCircle,
     description: 'Problems under community discussion.',
-    emptyHint: 'No problems in discussion. Problems advance here after reaching 67% community approval.',
+    emptyHint: 'No problems in discussion. Problems advance here after reaching 50% community approval.',
   },
   proposals: {
     label: 'Proposals',
@@ -87,7 +87,7 @@ const StageFeedView: React.FC = () => {
   const { logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const { contracts, serverUrl, publicKey } = useAppSelector((s) => s.user);
-  const { communityCollaborations, communityProperties, communityMembers } = useAppSelector((s) => s.communities);
+  const { communityCollaborations, communityProperties, communityMembers, communityActiveMembers } = useAppSelector((s) => s.communities);
   const profiles = useAppSelector((s) => s.communities.profiles);
   const { hidden } = useAppSelector((s) => s.preferences);
 
@@ -112,8 +112,11 @@ const StageFeedView: React.FC = () => {
       if (!communityMembers[c.id]) {
         dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: c.id }));
       }
+      if (communityActiveMembers[c.id] === undefined) {
+        dispatch(fetchCommunityActiveMembers({ serverUrl, publicKey, contractId: c.id }));
+      }
     });
-  }, [serverUrl, publicKey, communityContracts, communityCollaborations, communityProperties, communityMembers, dispatch]);
+  }, [serverUrl, publicKey, communityContracts, communityCollaborations, communityProperties, communityMembers, communityActiveMembers, dispatch]);
 
   // Collect all initiatives across communities
   const allInitiatives: InitiativeWithMeta[] = useMemo(() => {
@@ -227,7 +230,7 @@ const StageFeedView: React.FC = () => {
         {stage === 'problem' && (
           <div className={styles.thresholdBanner}>
             <AlertCircle size={16} />
-            <span>25% of all Gloki users must participate. 67% must approve a problem for it to advance to discussion.</span>
+            <span>25% of active community members must participate. 50% must approve a problem for it to advance to discussion.</span>
           </div>
         )}
         {stage === 'discussion' && (
@@ -271,6 +274,7 @@ const StageFeedView: React.FC = () => {
           const memberCount = Array.isArray(communityMembers[item.communityId])
             ? communityMembers[item.communityId].length
             : 0;
+          const activeMemberCount = communityActiveMembers[item.communityId] ?? memberCount;
 
           return (
             <div key={item.id} className={`${styles.card} ${stage !== 'discussion' ? styles.noClick : ''}`} onClick={stage === 'discussion' ? () => handleCardClick(item) : undefined}>
@@ -303,7 +307,7 @@ const StageFeedView: React.FC = () => {
                       description=""
                       evidenceLinks={[]}
                       countries={[]}
-                      communityMemberCount={memberCount}
+                      communityMemberCount={activeMemberCount}
                       parentContractId={item.id}
                       stageKey="problemVoteContractId"
                     />

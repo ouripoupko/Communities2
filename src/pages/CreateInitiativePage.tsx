@@ -20,7 +20,7 @@ const STAGES = [
     name: 'Problem Recognition',
     color: '#ef4444',
     icon: AlertTriangle,
-    description: 'Your community votes on whether this is a real problem. At least 67% of voters must agree it\'s worth addressing before it moves forward.',
+    description: 'Your community votes on whether this is a real problem. At least 50% of voters must agree it\'s worth addressing before it moves forward.',
   },
   {
     name: 'Discussion',

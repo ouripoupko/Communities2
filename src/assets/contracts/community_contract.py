@@ -11,6 +11,7 @@ class Community:
         self.issues = Storage('issues')
         self.accounts = Storage('accounts')
         self.stage_contracts = Storage('stage_contracts')
+        self.last_seen = Storage('last_seen')
         if 'centralAccount' not in self.accounts:
             self.accounts['centralAccount'] = {'balanceOf':0, 'creationTime': timestamp(), 'elapsedDays': 0}
 
@@ -25,6 +26,19 @@ class Community:
         if stage_key not in self.stage_contracts:
             return None
         return self.stage_contracts[stage_key].get_dict()
+
+    def record_activity(self):
+        self.last_seen[master()] = timestamp()
+
+    def get_active_members(self, days):
+        threshold = days * 86400
+        now = timestamp()
+        active = []
+        for key in self.members:
+            if key in self.last_seen:
+                if elapsed_time(self.last_seen[key], now) < threshold:
+                    active.append(key)
+        return active
 
     def add_issue(self, issue):
         self.issues.append(issue)

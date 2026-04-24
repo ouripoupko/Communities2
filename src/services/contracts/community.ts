@@ -358,6 +358,39 @@ export async function requestJoin(
   return response;
 }
 
+export async function recordActivity(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  return contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'record_activity', values: {} } as IMethod,
+  });
+}
+
+export async function getActiveMembers(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  days: number,
+): Promise<string[]> {
+  const result = await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'get_active_members', values: { days } } as IMethod,
+  });
+  // Old communities without this method return null; throw so callers
+  // can distinguish "no method" from a legitimate empty list.
+  if (!Array.isArray(result)) {
+    throw new Error('get_active_members unavailable');
+  }
+  return result as string[];
+}
+
 /**
  * Approve an agent for community membership
  */

@@ -5,6 +5,7 @@ import {
   getAllPeople,
   getProperties,
   getCollaborations,
+  getActiveMembers,
   type Collaboration,
 } from '../../services/contracts/community';
 import type { IProfile, IPartner } from '../../services/interfaces';
@@ -25,6 +26,7 @@ interface CommunitiesState {
   error: string | null;
   communityProperties: Record<string, any>;
   communityMembers: Record<string, string[]>; // contractId -> array of member public keys
+  communityActiveMembers: Record<string, number>; // contractId -> active member count (last N days)
   communityTasks: Record<string, Record<string, boolean>>; // contractId -> agentId -> approval status
   communityNominates: Record<string, string[]>; // contractId -> array of candidate public keys
   communityCollaborations: Record<string, Collaboration[]>; // contractId -> collaborations list
@@ -39,6 +41,7 @@ const initialState: CommunitiesState = {
   error: null,
   communityProperties: {},
   communityMembers: {},
+  communityActiveMembers: {},
   communityTasks: {},
   communityNominates: {},
   communityCollaborations: {},
@@ -86,6 +89,18 @@ export const fetchCollaborations = createAsyncThunk(
     );
     const collaborations = Array.isArray(result) ? result : [];
     return { contractId: args.contractId, collaborations };
+  },
+);
+
+export const fetchCommunityActiveMembers = createAsyncThunk(
+  'communities/fetchCommunityActiveMembers',
+  async (args: { serverUrl: string; publicKey: string; contractId: string; days?: number }) => {
+    const days = args.days ?? 30;
+    // On old communities without get_active_members this throws; the rejection is
+    // intentionally unhandled in the slice so state keeps the seed from
+    // fetchCommunityMembers.fulfilled (raw member count).
+    const active = await getActiveMembers(args.serverUrl, args.publicKey, args.contractId, days);
+    return { contractId: args.contractId, count: active.length };
   },
 );
 
@@ -169,6 +184,7 @@ const communitiesSlice = createSlice({
       const contractId = action.payload;
       delete state.communityProperties[contractId];
       delete state.communityMembers[contractId];
+      delete state.communityActiveMembers[contractId];
       delete state.communityTasks[contractId];
       delete state.communityNominates[contractId];
       delete state.communityCollaborations[contractId];
@@ -205,6 +221,11 @@ const communitiesSlice = createSlice({
         state.membersLoading[action.payload.contractId] = false;
         // Store the array of member public keys for this community
         state.communityMembers[action.payload.contractId] = action.payload.members;
+        // Seed activeMemberCount to raw count if not yet set — gives UI a sensible
+        // default before fetchCommunityActiveMembers resolves.
+        if (state.communityActiveMembers[action.payload.contractId] === undefined) {
+          state.communityActiveMembers[action.payload.contractId] = action.payload.members.length;
+        }
         // Store the tasks dictionary for this community
         state.communityTasks[action.payload.contractId] = action.payload.tasks;
         // Store the array of candidate public keys for this community
@@ -235,6 +256,12 @@ const communitiesSlice = createSlice({
         if (action.meta.arg) {
           state.collaborationsLoading[action.meta.arg.contractId] = false;
         }
+      });
+
+    // Fetch active member count
+    builder
+      .addCase(fetchCommunityActiveMembers.fulfilled, (state, action) => {
+        state.communityActiveMembers[action.payload.contractId] = action.payload.count;
       });
 
     // Fetch individual member profile
