@@ -8,6 +8,8 @@ import {
   getActiveMembers,
   type Collaboration,
 } from '../../services/contracts/community';
+import { contractRead } from '../../services/api';
+import type { IMethod } from '../../services/interfaces';
 import type { IProfile, IPartner } from '../../services/interfaces';
 import { getProfile } from '../../services/contracts/gloki';
 import { stripSensitiveProfileFields } from '../../utils/localSecrets';
@@ -27,6 +29,7 @@ interface CommunitiesState {
   communityProperties: Record<string, any>;
   communityMembers: Record<string, string[]>; // contractId -> array of member public keys
   communityActiveMembers: Record<string, number>; // contractId -> active member count (last N days)
+  initiativeStages: Record<string, string>; // initiativeContractId -> stage ('problem' | 'discussion' | 'proposals' | 'vote' | 'mandate' | '_unknown')
   communityTasks: Record<string, Record<string, boolean>>; // contractId -> agentId -> approval status
   communityNominates: Record<string, string[]>; // contractId -> array of candidate public keys
   communityCollaborations: Record<string, Collaboration[]>; // contractId -> collaborations list
@@ -42,6 +45,7 @@ const initialState: CommunitiesState = {
   communityProperties: {},
   communityMembers: {},
   communityActiveMembers: {},
+  initiativeStages: {},
   communityTasks: {},
   communityNominates: {},
   communityCollaborations: {},
@@ -89,6 +93,23 @@ export const fetchCollaborations = createAsyncThunk(
     );
     const collaborations = Array.isArray(result) ? result : [];
     return { contractId: args.contractId, collaborations };
+  },
+);
+
+export const fetchInitiativeStage = createAsyncThunk(
+  'communities/fetchInitiativeStage',
+  async (args: { serverUrl: string; publicKey: string; initiativeId: string }) => {
+    try {
+      const result = await contractRead({
+        serverUrl: args.serverUrl,
+        publicKey: args.publicKey,
+        contractId: args.initiativeId,
+        method: { name: 'get_stage', values: {} } as IMethod,
+      });
+      return { initiativeId: args.initiativeId, stage: typeof result === 'string' ? result : '_unknown' };
+    } catch {
+      return { initiativeId: args.initiativeId, stage: '_unknown' };
+    }
   },
 );
 
@@ -262,6 +283,12 @@ const communitiesSlice = createSlice({
     builder
       .addCase(fetchCommunityActiveMembers.fulfilled, (state, action) => {
         state.communityActiveMembers[action.payload.contractId] = action.payload.count;
+      });
+
+    // Fetch initiative stage
+    builder
+      .addCase(fetchInitiativeStage.fulfilled, (state, action) => {
+        state.initiativeStages[action.payload.initiativeId] = action.payload.stage;
       });
 
     // Fetch individual member profile

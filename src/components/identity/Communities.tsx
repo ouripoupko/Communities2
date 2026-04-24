@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Star, EyeOff, Eye, ArrowLeft, Users, ScrollText, PlusCircle, Calendar } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
-import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../../store/slices/communitiesSlice';
+import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations, fetchInitiativeStage } from '../../store/slices/communitiesSlice';
 import { toggleStar, toggleHide, unhide } from '../../store/slices/preferencesSlice';
 import { useEventStream } from '../../hooks/useEventStream';
 import styles from './Communities.module.scss';
@@ -25,7 +25,7 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
   const user = useAppSelector((state) => state.user);
   const { contracts, loading } = useAppSelector((state) => state.user);
   const { starred, hidden } = useAppSelector((state) => state.preferences);
-  const { communityProperties, communityMembers, communityCollaborations } = useAppSelector(
+  const { communityProperties, communityMembers, communityCollaborations, initiativeStages } = useAppSelector(
     (state) => state.communities,
   );
 
@@ -77,6 +77,21 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
     communityCollaborations,
     dispatch,
   ]);
+
+  // Fetch stage for each initiative so mandate count can be stage-accurate.
+  // Guarded by `initiativeStages[id] === undefined` so each initiative is fetched once.
+  useEffect(() => {
+    if (!user.serverUrl || !user.publicKey) return;
+    communityContracts.forEach((c) => {
+      const collabs = communityCollaborations[c.id];
+      if (!Array.isArray(collabs)) return;
+      collabs.forEach((item) => {
+        if (item.type !== 'initiative') return;
+        if (initiativeStages[item.id] !== undefined) return;
+        dispatch(fetchInitiativeStage({ serverUrl: user.serverUrl!, publicKey: user.publicKey!, initiativeId: item.id }));
+      });
+    });
+  }, [user.serverUrl, user.publicKey, communityContracts, communityCollaborations, initiativeStages, dispatch]);
 
   const handleCommunityClick = (contractId: string) => {
     navigate(`/community/${contractId}`);
@@ -159,7 +174,12 @@ const Communities: React.FC<CommunitiesProps> = ({ showHidden = false }) => {
           const description = props.description || '';
           const memberCount = Array.isArray(communityMembers[contract.id]) ? communityMembers[contract.id].length : 0;
           const collaborations = communityCollaborations[contract.id] || [];
-          const mandateCount = collaborations.filter((c) => c.type === 'initiative').length;
+          // Count only initiatives currently in the 'mandate' stage. Initiatives
+          // whose stage hasn't resolved yet are excluded — they'll appear once
+          // fetchInitiativeStage returns.
+          const mandateCount = collaborations.filter(
+            (c) => c.type === 'initiative' && initiativeStages[c.id] === 'mandate',
+          ).length;
           const createdDate = props.createdAt ? formatCreatedDate(props.createdAt) : null;
           return (
             <div
