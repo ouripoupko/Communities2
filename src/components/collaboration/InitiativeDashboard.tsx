@@ -162,25 +162,6 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
     return () => { cancelled = true; };
   }, [serverUrl, publicKey, collaborationId, stage]);
 
-  // Resolve the approval (proposals stage) contract once so QV can carry over
-  // the top 3 approved proposals into the vote stage.
-  const [approvalContractId, setApprovalContractId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!serverUrl || !publicKey || !collaborationId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const stage = await resolveAndJoinInitiativeStageContract(
-          serverUrl, publicKey, collaborationId, 'proposalsContractId',
-        );
-        if (!cancelled) setApprovalContractId(stage?.contractId ?? null);
-      } catch {
-        if (!cancelled) setApprovalContractId(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [serverUrl, publicKey, collaborationId]);
-
   const memberCount = Array.isArray(communityMembers[communityId])
     ? communityMembers[communityId].length : 0;
   const activeMemberCount = communityActiveMembers[communityId] ?? memberCount;
@@ -404,7 +385,6 @@ const InitiativeDashboard: React.FC<InitiativeDashboardProps> = ({ title, collab
                         collaborationType="initiative"
                         parentContractId={collaborationId}
                         stageKey="voteContractId"
-                        approvalContractId={approvalContractId}
                       />
                     </ErrorBoundary>
                   )}
