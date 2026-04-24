@@ -81,3 +81,21 @@ class ApprovalVoting:
         if voter in self.approvals:
             return self.approvals[voter].get_dict()
         return {}
+
+    def get_summary(self):
+        counts = self.get_approval_counts()
+        top_id = None
+        top_count = 0
+        for pid in counts:
+            if counts[pid] > top_count:
+                top_count = counts[pid]
+                top_id = pid
+        top_text = ''
+        if top_id is not None and top_id in self.proposals:
+            top_text = self.proposals[top_id].get_dict()['text']
+        return {
+            'proposals': len(self.proposals),
+            'top_id': top_id,
+            'top_text': top_text,
+            'top_count': top_count,
+        }

@@ -28,3 +28,15 @@ class Discussion:
         for cid in self.comments:
             result[cid] = self.comments[cid].get_dict()
         return result
+
+    def get_summary(self):
+        authors = []
+        total = 0
+        for cid in self.comments:
+            c = self.comments[cid].get_dict()
+            if c['deleted']:
+                continue
+            total = total + 1
+            if c['author'] not in authors:
+                authors.append(c['author'])
+        return {'participants': len(authors), 'comments': total}

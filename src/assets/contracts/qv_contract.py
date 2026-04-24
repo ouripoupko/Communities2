@@ -138,3 +138,21 @@ class QuadraticVote:
                 else:
                     proposal_votes[pid] = votes
         return proposal_votes
+
+    def get_summary(self):
+        results = self.get_results()
+        winner_id = None
+        winner_credits = 0
+        for pid in results:
+            if results[pid] > winner_credits:
+                winner_credits = results[pid]
+                winner_id = pid
+        winner_text = ''
+        if winner_id is not None and winner_id in self.proposals:
+            winner_text = self.proposals[winner_id].get_dict()['text']
+        return {
+            'voters': len(self.allocations),
+            'winner_id': winner_id,
+            'winner_text': winner_text,
+            'winner_credits': winner_credits,
+        }
