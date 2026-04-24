@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
 import { setContract, setDeploying, clearDeploying, buildFlowContractsScope } from './flowContractsSlice';
-import { deployContract, joinContract, contractWrite } from '../../../../services/api';
-import { resolveInitiativeStageContract } from '../../../../services/contracts/initiative';
+import { deployContract, joinContract, contractWrite, contractRead } from '../../../../services/api';
+import { normalizeStageContract } from '../../../../services/contracts/initiative';
 import type { IMethod } from '../../../../services/interfaces';
 
 interface UseFlowContractResult {
@@ -137,14 +137,32 @@ export function useFlowContract(
 
     (async () => {
       try {
-        // Read the parent contract to check for an existing sub-contract.
-        // Fall back to get_details for older immutable initiative contracts.
-        const stored = await resolveInitiativeStageContract(
-          serverUrl,
-          publicKey,
-          parentContractId,
-          stageKey!,
-        );
+        // Probe the parent directly for `get_stage_contract`. On communities
+        // created before the stage-contract registry was added, this method
+        // does not exist and the server throws — treat that as unsupported
+        // and fail fast WITHOUT deploying. The previous code deployed a
+        // fresh sub-contract first and only discovered the missing registry
+        // afterwards, leaving an orphan immutable contract on every visit.
+        let stored: ReturnType<typeof normalizeStageContract>;
+        try {
+          const raw = await contractRead({
+            serverUrl,
+            publicKey,
+            contractId: parentContractId,
+            method: { name: 'get_stage_contract', values: { stage_key: stageKey } } as IMethod,
+          });
+          stored = normalizeStageContract(raw);
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if (failed.current) return;
+          console.warn(`[FlowContract] Parent ${parentContractId} does not expose get_stage_contract for ${stageKey} — unsupported:`, err);
+          failed.current = true;
+          setHasError(true);
+          setErrorMessage("This feature isn't available on this community — it was created before this feature was added. New communities support it.");
+          setStatusMessage('');
+          dispatch(clearDeploying({ instanceId }));
+          return;
+        }
         if (failed.current) return; // Timeout already fired
 
         const existing = stored ?? undefined;

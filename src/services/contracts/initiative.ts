@@ -27,7 +27,7 @@ export interface InitiativeStageContract {
   agent?: string;
 }
 
-function normalizeStageContract(
+export function normalizeStageContract(
   value: unknown,
 ): InitiativeStageContract | null {
   if (typeof value === 'string' && value) {
