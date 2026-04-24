@@ -3,7 +3,7 @@ import { Lock, TrendingUp } from 'lucide-react';
 import { useFlowContract } from '../shared/useFlowContract';
 import * as api from './convictionApi';
 import { useAppSelector } from '../../../../store/hooks';
-import { getCountryColor, getCountryName } from '../../../../utils/countries';
+import { getCountryColor, getCountryName, getCountryFlag } from '../../../../utils/countries';
 import convictionCode from '../../../../assets/contracts/conviction_contract.py?raw';
 import styles from './ConvictionStaking.module.scss';
 
@@ -146,16 +146,24 @@ const ConvictionStaking: React.FC<ConvictionStakingProps> = ({
       </div>
 
       {/* Active stake */}
-      {myStake && (
-        <div className={styles.myStake}>
-          <h4 className={styles.sectionTitle}>Your Active Stake</h4>
-          <div className={styles.stakeDetails}>
-            <span>Amount: <strong>{myStake.amount}</strong></span>
-            <span>Duration: <strong>{DURATIONS.find((d) => d.value === myStake.duration)?.label || myStake.duration}</strong></span>
-            <span>Weight: <strong>{myStake.amount * (DURATIONS.find((d) => d.value === myStake.duration)?.multiplier || 1)}</strong></span>
+      {myStake && (() => {
+        const myMultiplier = DURATIONS.find((d) => d.value === myStake.duration)?.multiplier || 1;
+        const myWeight = myStake.amount * myMultiplier;
+        const share = totalConviction.total > 0 ? (myWeight / totalConviction.total) * 100 : 0;
+        return (
+          <div className={styles.myStake}>
+            <h4 className={styles.sectionTitle}>Your Active Stake</h4>
+            <div className={styles.stakeDetails}>
+              <span>Amount: <strong>{myStake.amount}</strong></span>
+              <span>Duration: <strong>{DURATIONS.find((d) => d.value === myStake.duration)?.label || myStake.duration}</strong></span>
+              <span>Weight: <strong>{myWeight}</strong></span>
+              {totalConviction.total > 0 && (
+                <span>Share: <strong>{share.toFixed(1)}%</strong></span>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Community aggregate */}
       <div className={styles.aggregate}>
@@ -180,7 +188,10 @@ const ConvictionStaking: React.FC<ConvictionStakingProps> = ({
               .sort(([, a], [, b]) => b - a)
               .map(([country, weight]) => (
                 <div key={country} className={styles.countryRow}>
-                  <span className={styles.countryName}>{getCountryName(country)}</span>
+                  <span className={styles.countryName}>
+                    <span className={styles.countryFlag} aria-hidden="true">{getCountryFlag(country)}</span>
+                    {getCountryName(country)}
+                  </span>
                   <div className={styles.countryBar}>
                     <div
                       className={styles.countryFill}
