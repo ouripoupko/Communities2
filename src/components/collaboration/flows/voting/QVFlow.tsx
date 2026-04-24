@@ -3,6 +3,7 @@ import type { FlowProps } from '../types';
 import { useFlowContract } from '../shared/useFlowContract';
 import CountryBadge from '../shared/CountryBadge';
 import * as api from './qvApi';
+import { getTopApprovedProposals } from './approvalApi';
 import { useAppSelector } from '../../../../store/hooks';
 import { getCountryColor, getCountryName } from '../../../../utils/countries';
 import qvContractCode from '../../../../assets/contracts/qv_contract.py?raw';
@@ -11,7 +12,13 @@ import styles from './QVFlow.module.scss';
 interface Proposal { id: string; text: string; author: string; timestamp: string; }
 interface Config { credits_per_voter: number; status: string; }
 
-const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey }) => {
+interface QVFlowExtraProps {
+  approvalContractId?: string | null;
+}
+
+const CARRY_OVER_LIMIT = 3;
+
+const QVFlow: React.FC<FlowProps & QVFlowExtraProps> = ({ instanceId, parentContractId, stageKey, approvalContractId }) => {
   const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(instanceId, 'quadratic_vote', 'qv_contract.py', qvContractCode, parentContractId, stageKey);
   const serverUrl = useAppSelector((s) => s.user.serverUrl);
   const publicKey = useAppSelector((s) => s.user.publicKey);
@@ -59,6 +66,36 @@ const QVFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey })
   }, [activeTab, serverUrl, publicKey, contractId]);
 
   useEffect(() => { if (isReady) fetchData(); }, [isReady, fetchData]);
+
+  // One-time carry-over: if this QV is empty and an approval contract exists,
+  // seed the top-N approved proposals so voters don't have to re-enter them.
+  // Race-safe enough for our scale — if two users hit this simultaneously we
+  // may see transient duplicates that settle on next fetch.
+  const carriedOverRef = useRef(false);
+  useEffect(() => {
+    if (!isReady || !serverUrl || !publicKey || !contractId || !approvalContractId) return;
+    if (carriedOverRef.current) return;
+    if (Object.keys(proposals).length > 0) { carriedOverRef.current = true; return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const top = await getTopApprovedProposals(serverUrl, publicKey, approvalContractId, CARRY_OVER_LIMIT);
+        if (cancelled || top.length === 0) return;
+        for (const p of top) {
+          try {
+            await api.addProposal(serverUrl, publicKey, contractId, p.text);
+          } catch (err) {
+            console.warn('[QVFlow] Carry-over addProposal failed for', p.id, err);
+          }
+        }
+        carriedOverRef.current = true;
+        if (!cancelled) await fetchData();
+      } catch (err) {
+        console.warn('[QVFlow] Carry-over from approval contract failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isReady, serverUrl, publicKey, contractId, approvalContractId, proposals, fetchData]);
 
   const handleAddProposal = async () => {
     const trimmed = newText.trim();
