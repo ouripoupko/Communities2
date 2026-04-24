@@ -106,6 +106,10 @@ const ChatTopicList: React.FC<ChatTopicListProps> = ({ communityId }) => {
         <div className={styles.empty}>
           <AlertTriangle size={36} />
           <p>{errorMessage}</p>
+          <p className={styles.caveat}>
+            Chat is hosted on-chain and only available on communities created
+            after 2026-04-22. Older communities can't host sub-contracts yet.
+          </p>
           <button className={styles.newTopicBtn} onClick={retry}>Try again</button>
         </div>
       </div>

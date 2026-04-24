@@ -23,10 +23,12 @@
   }
 }
 
-.ephemeralNotice {
+.caveat {
   margin-top: $spacing-xs !important;
   font-size: $text-xs !important;
   color: $gray-400 !important;
+  max-width: 380px;
+  line-height: 1.5;
 }
 
 // ─── Input bar ────────────────────────────────────────────────────────────────
