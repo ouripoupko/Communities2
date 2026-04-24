@@ -2,6 +2,21 @@
 // Hierarchical SCSS structure for Currency component
 @use '../../styles/variables' as *;
 
+// Shared card surface used by both the balance card and action cards —
+// keep visual weight identical so the page reads as one stack.
+@mixin card-surface {
+  background: white;
+  border: 1px solid $gray-100;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-base;
+}
+
+@mixin card-surface-dark {
+  background-color: $dark-bg;
+  border-color: $dark-border;
+}
+
 .container {
   max-width: 800px;
   margin: 0 auto;
@@ -61,11 +76,7 @@
     .balanceSection {
 
       .balanceCard {
-        background: white;
-        border: 1px solid $gray-100;
-        border-radius: $radius-lg;
-        padding: $spacing-lg;
-        box-shadow: $shadow-base;
+        @include card-surface;
         text-align: center;
 
         .balanceHeader {
@@ -139,11 +150,7 @@
       gap: $spacing-xl;
 
       .actionCard {
-        background: white;
-        border: 1px solid $gray-100;
-        border-radius: $radius-lg;
-        padding: $spacing-lg;
-        box-shadow: $shadow-base;
+        @include card-surface;
 
         h3 {
           font-size: $text-lg;
@@ -357,8 +364,7 @@
     .content {
       .balanceSection .balanceCard,
       .actionsSection .actionCard {
-        background-color: $dark-bg;
-        border-color: $dark-border;
+        @include card-surface-dark;
 
         h3 {
           color: $dark-text;
