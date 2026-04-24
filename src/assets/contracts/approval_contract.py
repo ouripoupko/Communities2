@@ -1,10 +1,7 @@
 class ApprovalVoting:
     def __init__(self):
         self.proposals = Storage('proposals')
-        self.proposal_count = Storage('proposal_count')
         self.approvals = Storage('approvals')
-        if not self.proposal_count.exists():
-            self.proposal_count['count'] = 0
 
     def _clean_proposal_text(self, text):
         if type(text) != str:
@@ -22,15 +19,14 @@ class ApprovalVoting:
         if cleaned_text is None:
             return {'error': 'Proposal text must be between 1 and 500 characters'}
 
-        count = self.proposal_count['count']
-        proposal_id = 'p' + str(count)
+        ts = timestamp()
+        proposal_id = 'p' + str(ts)
         self.proposals[proposal_id] = {
             'id': proposal_id,
             'text': cleaned_text,
             'author': master(),
-            'timestamp': timestamp(),
+            'timestamp': ts,
         }
-        self.proposal_count['count'] = count + 1
         return proposal_id
 
     def approve(self, proposal_id):
