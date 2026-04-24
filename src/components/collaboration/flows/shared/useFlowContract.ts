@@ -216,8 +216,25 @@ export function useFlowContract(
             return;
           }
 
+          // Old communities lack `register_stage_contract` entirely — the server
+          // returns null. Without a registered sub-contract, every member would
+          // silently deploy their own orphan, so fail fast with a clear message
+          // rather than letting the orphan become the active contract.
+          const registeredContractId = typeof registrationObj?.contractId === 'string' ? registrationObj.contractId : '';
+          if (!registeredContractId) {
+            clearTimeout(timeoutId);
+            if (failed.current) return;
+            console.warn(`[FlowContract] Registration missing contractId for ${stageKey} on ${parentContractId}. Old community?`, registrationObj);
+            failed.current = true;
+            setHasError(true);
+            setErrorMessage("This feature isn't available on this community — it was created before this feature was added. New communities support it.");
+            setStatusMessage('');
+            dispatch(clearDeploying({ instanceId }));
+            return;
+          }
+
           const registered = registrationObj;
-          const finalContractId = registered?.contractId || newId;
+          const finalContractId = registeredContractId;
 
           if (registered?.contractId && registered.contractId !== newId && registered.address && registered.agent) {
             setStatusMessage('Joining shared contract...');
