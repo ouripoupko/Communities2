@@ -100,6 +100,10 @@ const ChatTopic: React.FC = () => {
       <div className={styles.notFound}>
         <AlertTriangle size={36} />
         <p>{errorMessage}</p>
+        <p className={styles.notFoundHint}>
+          Chat is hosted on-chain and only available on communities created
+          after 2026-04-22. Older communities can't host sub-contracts yet.
+        </p>
         <button className={styles.backBtn} onClick={retry}>Try again</button>
       </div>
     );
