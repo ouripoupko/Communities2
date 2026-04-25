@@ -1,11 +1,25 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { MessageSquare, Reply, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { MessageSquare, Reply, Trash2, ChevronDown, ChevronRight, Search, Globe, Lightbulb, AlertTriangle } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import * as api from './discussionApi';
-import type { Comment } from './discussionApi';
-import { FlowLoading, FlowError } from '../FlowShell';
-import styles from './DiscussionFlow.module.scss';
+import type { Comment, CommentCategory } from './discussionApi';
+import CountryBadge from '../shared/CountryBadge';
+import { useAppSelector } from '../../../../store/hooks';
+import { useFlowContract } from '../shared/useFlowContract';
+const discussionContractCode = '';import styles from './DiscussionFlow.module.scss';
+
+// ---------------------------------------------------------------------------
+// Category config
+// ---------------------------------------------------------------------------
+const CATEGORIES: { key: CommentCategory; label: string; icon: React.ElementType; color: string }[] = [
+  { key: 'evidence',  label: 'Evidence',  icon: Search,        color: '#3b82f6' },
+  { key: 'impact',    label: 'Impact',    icon: Globe,         color: '#f59e0b' },
+  { key: 'solutions', label: 'Solutions', icon: Lightbulb,     color: '#10b981' },
+  { key: 'concerns',  label: 'Concerns',  icon: AlertTriangle, color: '#dc2626' },
+];
+
+const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map(c => [c.key, c])) as Record<CommentCategory, typeof CATEGORIES[number]>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,10 +35,7 @@ function buildTree(flat: Comment[]): CommentNode[] {
     if (c.parentId && map.has(c.parentId)) map.get(c.parentId)!.children.push(node);
     else roots.push(node);
   });
-  const sort = (nodes: CommentNode[]) => {
-    nodes.sort((a, b) => a.timestamp - b.timestamp);
-    nodes.forEach(n => sort(n.children));
-  };
+  const sort = (nodes: CommentNode[]) => { nodes.sort((a, b) => a.timestamp - b.timestamp); nodes.forEach(n => sort(n.children)); };
   sort(roots);
   return roots;
 }
@@ -32,29 +43,63 @@ function buildTree(flat: Comment[]): CommentNode[] {
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-const authorLabel = (id: string, currentUser: string) =>
-  id === currentUser ? 'You' : id;
+const authorLabel = (id: string, currentUserKey: string) => id === currentUserKey ? 'You' : id;
 
 // ---------------------------------------------------------------------------
-// Compose box (used both for top-level and replies)
+// Category badge (small inline label on comments)
+// ---------------------------------------------------------------------------
+const CategoryBadge: React.FC<{ category?: CommentCategory }> = ({ category }) => {
+  if (!category) return null;
+  const cfg = CATEGORY_MAP[category];
+  if (!cfg) return null;
+  const Icon = cfg.icon;
+  return (
+    <span className={styles.categoryBadge} style={{ color: cfg.color, borderColor: cfg.color }}>
+      <Icon size={11} /> {cfg.label}
+    </span>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Compose box with category selector
 // ---------------------------------------------------------------------------
 const ComposeBox: React.FC<{
   placeholder: string;
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string, category?: CommentCategory) => void;
   onCancel?: () => void;
   autoFocus?: boolean;
-}> = ({ placeholder, onSubmit, onCancel, autoFocus }) => {
+  showCategories?: boolean;
+}> = ({ placeholder, onSubmit, onCancel, autoFocus, showCategories }) => {
   const [text, setText] = useState('');
+  const [category, setCategory] = useState<CommentCategory>('evidence');
 
   const submit = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    onSubmit(trimmed);
+    onSubmit(trimmed, showCategories ? category : undefined);
     setText('');
   };
 
   return (
     <div className={styles.composeBox}>
+      {showCategories && (
+        <div className={styles.categorySelector}>
+          {CATEGORIES.map(cat => {
+            const Icon = cat.icon;
+            return (
+              <button
+                key={cat.key}
+                className={`${styles.categoryChip} ${category === cat.key ? styles.categoryChipActive : ''}`}
+                style={category === cat.key ? { borderColor: cat.color, color: cat.color } : undefined}
+                onClick={() => setCategory(cat.key)}
+                type="button"
+              >
+                <Icon size={13} /> {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <textarea
         className={styles.composeTextarea}
         rows={3}
@@ -83,32 +128,29 @@ const ComposeBox: React.FC<{
 // ---------------------------------------------------------------------------
 // Single comment node — recursive
 // ---------------------------------------------------------------------------
+
 const CommentItem: React.FC<{
   node: CommentNode;
   depth: number;
-  currentUser: string;
-  server: string;
-  agent: string;
-  contractId: string;
-  flat: Comment[];
-  load: () => Promise<void>;
-}> = ({ node, depth, currentUser, server, agent, contractId, flat, load }) => {
-  const [replying,  setReplying]  = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  profiles: Record<string, { firstName?: string; lastName?: string; country?: string }>;
+  currentUserKey: string;
+  onReply: (parentId: string, text: string, category?: CommentCategory) => void | Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
+}> = ({ node, depth, profiles, currentUserKey, onReply, onDelete }) => {
+  const [replying,   setReplying]   = useState(false);
+  const [collapsed,  setCollapsed]  = useState(false);
 
-  const isOwn      = node.author === currentUser;
+  const isOwn      = node.author === currentUserKey && !node.deleted;
   const hasChildren = node.children.length > 0;
 
-  const handleReply = useCallback(async (text: string) => {
-    await api.addComment(server, agent, contractId, currentUser, text, node.id);
+  const handleReplySubmit = useCallback(async (text: string) => {
+    await onReply(node.id, text, node.category);
     setReplying(false);
-    await load();
-  }, [server, agent, contractId, currentUser, node.id, load]);
+  }, [node.id, node.category, onReply]);
 
-  const handleDelete = useCallback(async () => {
-    await api.deleteComment(server, agent, contractId, flat, node.id);
-    await load();
-  }, [server, agent, contractId, flat, node.id, load]);
+  const handleDeleteClick = useCallback(() => {
+    onDelete(node.id);
+  }, [node.id, onDelete]);
 
   return (
     <div className={`${styles.commentItem} ${depth > 0 ? styles.nested : ''}`}>
@@ -119,9 +161,13 @@ const CommentItem: React.FC<{
         {/* Header */}
         <div className={styles.commentHeader}>
           <span className={`${styles.avatar} ${isOwn ? styles.avatarMe : ''}`}>
-            {authorLabel(node.author, currentUser)[0].toUpperCase()}
+            {authorLabel(node.author, currentUserKey)[0]?.toUpperCase() ?? '?'}
           </span>
-          <span className={styles.authorName}>{authorLabel(node.author, currentUser)}</span>
+          <span className={styles.authorName}>
+            {authorLabel(node.author, currentUserKey)}
+            <CountryBadge countryCode={profiles[node.author]?.country} />
+          </span>
+          <CategoryBadge category={node.category} />
           <span className={styles.timestamp}>{formatTime(node.timestamp)}</span>
           {hasChildren && (
             <button
@@ -141,16 +187,18 @@ const CommentItem: React.FC<{
 
         {/* Actions */}
         <div className={styles.commentActions}>
-          <button
-            className={styles.actionBtn}
-            onClick={() => setReplying(v => !v)}
-          >
-            <Reply size={13} /> Reply
-          </button>
+          {!node.deleted && (
+            <button
+              className={styles.actionBtn}
+              onClick={() => setReplying(v => !v)}
+            >
+              <Reply size={13} /> Reply
+            </button>
+          )}
           {isOwn && (
             <button
               className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-              onClick={() => { void handleDelete(); }}
+              onClick={handleDeleteClick}
             >
               <Trash2 size={13} /> Delete
             </button>
@@ -160,8 +208,8 @@ const CommentItem: React.FC<{
         {/* Reply compose */}
         {replying && (
           <ComposeBox
-            placeholder={`Replying to ${authorLabel(node.author, currentUser)}…`}
-            onSubmit={text => { void handleReply(text); }}
+            placeholder={`Replying to ${authorLabel(node.author, currentUserKey)}…`}
+            onSubmit={(text) => handleReplySubmit(text)}
             onCancel={() => setReplying(false)}
             autoFocus
           />
@@ -176,12 +224,10 @@ const CommentItem: React.FC<{
               key={child.id}
               node={child}
               depth={depth + 1}
-              currentUser={currentUser}
-              server={server}
-              agent={agent}
-              contractId={contractId}
-              flat={flat}
-              load={load}
+              profiles={profiles}
+              currentUserKey={currentUserKey}
+              onReply={onReply}
+              onDelete={onDelete}
             />
           ))}
         </div>
@@ -193,37 +239,124 @@ const CommentItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Root flow component
 // ---------------------------------------------------------------------------
-const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [flat,    setFlat]    = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, parentContractId, stageKey }) => {
+  const profiles = useAppSelector((s) => s.communities.profiles) || {};
+  const serverUrl = useAppSelector((s) => s.user.serverUrl);
+  const publicKey = useAppSelector((s) => s.user.publicKey);
+  const currentUserKey = publicKey || '';
 
-  const load = useCallback(async () => {
+  const { contractId, isReady, isDeploying, hasError, errorMessage, statusMessage, retry } = useFlowContract(
+    instanceId,
+    'discussion',
+    'discussion_contract.py',
+    discussionContractCode,
+    parentContractId,
+    stageKey,
+  );
+
+  const [flat, setFlat] = useState<Comment[]>([]);
+  const [activeFilter, setActiveFilter] = useState<CommentCategory | 'all'>('all');
+
+  const refresh = useCallback(async () => {
+    if (!serverUrl || !publicKey || !contractId) return;
     try {
-      setError(null);
-      const data = await api.loadComments(flowServer, flowAgent, instanceId);
-      setFlat(data);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
+      const list = await api.getComments(serverUrl, publicKey, contractId);
+      setFlat(list);
+    } catch (err) {
+      console.error('[DiscussionFlow] Failed to fetch comments:', err);
     }
-  }, [instanceId, flowServer, flowAgent]);
+  }, [serverUrl, publicKey, contractId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (isReady) refresh();
+  }, [isReady, refresh]);
 
-  if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
+  const handleTopLevel = useCallback(async (text: string, category?: CommentCategory) => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    await api.addComment(serverUrl, publicKey, contractId, text, null, category);
+    await refresh();
+  }, [serverUrl, publicKey, contractId, refresh]);
 
-  const tree = buildTree(flat);
+  const handleReply = useCallback(async (parentId: string, text: string, category?: CommentCategory) => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    await api.addComment(serverUrl, publicKey, contractId, text, parentId, category);
+    await refresh();
+  }, [serverUrl, publicKey, contractId, refresh]);
 
-  const handleTopLevel = async (text: string) => {
-    await api.addComment(flowServer, flowAgent, instanceId, currentUser, text, null);
-    await load();
-  };
+  const handleDelete = useCallback(async (id: string) => {
+    if (!serverUrl || !publicKey || !contractId) return;
+    await api.deleteComment(serverUrl, publicKey, contractId, id);
+    await refresh();
+  }, [serverUrl, publicKey, contractId, refresh]);
+
+  // Count comments per category (top-level only for progress)
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of flat) {
+      if (c.category) counts[c.category] = (counts[c.category] || 0) + 1;
+    }
+    return counts;
+  }, [flat]);
+
+  // Filter flat list then build tree
+  const filteredFlat = useMemo(() => {
+    if (activeFilter === 'all') return flat;
+    // When filtering, include matching top-level comments and all their descendants
+    const matchingRoots = new Set(flat.filter(c => c.category === activeFilter && !c.parentId).map(c => c.id));
+    return flat.filter(c => {
+      if (matchingRoots.has(c.id)) return true;
+      // Walk up to check if any ancestor is a matching root
+      let current = c;
+      while (current.parentId) {
+        if (matchingRoots.has(current.parentId)) return true;
+        const parent = flat.find(p => p.id === current.parentId);
+        if (!parent) break;
+        current = parent;
+      }
+      return false;
+    });
+  }, [flat, activeFilter]);
+
+  const tree = useMemo(() => buildTree(filteredFlat), [filteredFlat]);
+
+  if (hasError) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.empty}>
+          <AlertTriangle size={36} />
+          <p>{errorMessage}</p>
+          <button className={styles.btnSubmit} onClick={retry}>Try again</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.empty}>
+          <MessageSquare size={36} />
+          <p>{statusMessage || (isDeploying ? 'Setting up discussion…' : 'Loading…')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
+      {/* Deliberation progress */}
+      <div className={styles.progressBar}>
+        {CATEGORIES.map(cat => {
+          const count = categoryCounts[cat.key] || 0;
+          const Icon = cat.icon;
+          return (
+            <span key={cat.key} className={styles.progressItem} style={{ color: cat.color }}>
+              <Icon size={13} /> {count}
+            </span>
+          );
+        })}
+      </div>
+
       <div className={styles.header}>
         <MessageSquare size={18} />
         <span>{flat.length} comment{flat.length !== 1 ? 's' : ''}</span>
@@ -231,13 +364,38 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
 
       <ComposeBox
         placeholder="Share your thoughts on this topic…"
-        onSubmit={text => { void handleTopLevel(text); }}
+        onSubmit={handleTopLevel}
+        showCategories
       />
+
+      {/* Filter bar */}
+      <div className={styles.filterBar}>
+        <button
+          className={`${styles.filterChip} ${activeFilter === 'all' ? styles.filterChipActive : ''}`}
+          onClick={() => setActiveFilter('all')}
+        >
+          All
+        </button>
+        {CATEGORIES.map(cat => {
+          const Icon = cat.icon;
+          const count = categoryCounts[cat.key] || 0;
+          return (
+            <button
+              key={cat.key}
+              className={`${styles.filterChip} ${activeFilter === cat.key ? styles.filterChipActive : ''}`}
+              style={activeFilter === cat.key ? { borderColor: cat.color, color: cat.color } : undefined}
+              onClick={() => setActiveFilter(cat.key)}
+            >
+              <Icon size={13} /> {cat.label} {count > 0 && <span className={styles.filterCount}>{count}</span>}
+            </button>
+          );
+        })}
+      </div>
 
       {tree.length === 0 ? (
         <div className={styles.empty}>
           <MessageSquare size={36} />
-          <p>No comments yet. Start the discussion!</p>
+          <p>{activeFilter === 'all' ? 'No comments yet. Start the discussion!' : `No ${activeFilter} comments yet.`}</p>
         </div>
       ) : (
         <div className={styles.commentList}>
@@ -246,12 +404,10 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
               key={node.id}
               node={node}
               depth={0}
-              currentUser={currentUser}
-              server={flowServer}
-              agent={flowAgent}
-              contractId={instanceId}
-              flat={flat}
-              load={load}
+              profiles={profiles}
+              currentUserKey={currentUserKey}
+              onReply={handleReply}
+              onDelete={handleDelete}
             />
           ))}
         </div>

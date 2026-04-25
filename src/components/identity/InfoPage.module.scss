@@ -1,0 +1,84 @@
+@use '../../styles/variables' as *;
+
+.container {
+  padding: $spacing-xl;
+  max-width: 600px;
+  margin: 0 auto;
+
+  .backButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: $radius-full;
+    color: $gray-500;
+    cursor: pointer;
+    transition: all $transition-base;
+    margin-bottom: $spacing-xl;
+
+    &:hover {
+      background-color: $gray-100;
+      color: $gray-800;
+    }
+  }
+
+  .content {
+    .title {
+      font-size: $text-2xl;
+      font-weight: $font-bold;
+      color: $gray-800;
+      margin-bottom: $spacing-xl;
+    }
+
+    .text {
+      color: $gray-600;
+      font-size: $text-base;
+      line-height: 1.7;
+      margin-bottom: $spacing-lg;
+    }
+
+    .contactInfo {
+      margin-top: $spacing-2xl;
+      padding: $spacing-xl;
+      background-color: $gray-50;
+      border-radius: $radius-lg;
+
+      p {
+        color: $primary;
+        font-size: $text-lg;
+        font-weight: $font-medium;
+        margin: 0;
+      }
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    .backButton {
+      color: $dark-text-secondary;
+
+      &:hover {
+        background-color: $dark-border;
+        color: $dark-text;
+      }
+    }
+
+    .content {
+      .title {
+        color: $dark-text;
+      }
+
+      .text {
+        color: $dark-text-secondary;
+      }
+
+      .contactInfo {
+        background-color: $dark-surface;
+      }
+    }
+  }
+}

@@ -19,6 +19,12 @@
     p {
       color: $gray-600;
     }
+
+    .memberCount {
+      font-size: $text-xs;
+      color: $gray-400;
+      margin-top: $spacing-xs;
+    }
   }
 
   .joinSection {
@@ -234,6 +240,10 @@
       }
 
       p {
+        color: $dark-text-secondary;
+      }
+
+      .memberCount {
         color: $dark-text-secondary;
       }
     }

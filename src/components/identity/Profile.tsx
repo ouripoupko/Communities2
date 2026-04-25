@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { readProfile } from '../../store/slices/userSlice';
 import { useEventStream, useEventStreamConnection } from '../../hooks/useEventStream';
-import { User, Camera, Save, Key, Server } from 'lucide-react';
+import { User, Camera, Save, Key, Server, ChevronDown, ChevronUp } from 'lucide-react';
 import styles from './Profile.module.scss';
 import { setValues } from '../../services/contracts/gloki';
+import SearchableSelect from '../shared/SearchableSelect';
+import { COUNTRIES, OTHER_COUNTRY } from '../../utils/countries';
+import { setLocalOpenAIApiKey } from '../../utils/localSecrets';
 
 const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
@@ -13,11 +16,13 @@ const Profile: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [country, setCountry] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showIdentity, setShowIdentity] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Use the profile contract ID from the slice
@@ -30,6 +35,7 @@ const Profile: React.FC = () => {
       setLastName(user.profile.lastName || '');
       setImageData(user.profile.userPhoto || null);
       setOpenaiApiKey(user.profile.openaiApiKey || '');
+      setCountry(user.profile.country || '');
       setImageUploadError(null); // Clear any previous image upload errors
     }
   }, [user.profile]);
@@ -87,6 +93,8 @@ const Profile: React.FC = () => {
       try {
         setIsSaving(true);
         setSaveError(null);
+
+        setLocalOpenAIApiKey(user.serverUrl, user.publicKey, openaiApiKey);
         
         await setValues(
           user.serverUrl,
@@ -96,6 +104,7 @@ const Profile: React.FC = () => {
           lastName,
           imageData,
           openaiApiKey,
+          country,
         );
         
         // Profile data will be refreshed automatically via SSE event
@@ -173,186 +182,132 @@ const Profile: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Profile</h1>
-        <p>Manage your personal information and identity</p>
-        {user.profile && (
-          <div className={styles.profileName}>
-            {user.profile.firstName} {user.profile.lastName}
-          </div>
-        )}
-        <div className={styles.eventStreamStatus}>
-          <span className={`${styles.statusIndicator} ${isConnected ? styles.connected : styles.disconnected}`}>
-            {isConnected ? '🟢 SSE Connected' : '🔴 SSE Disconnected'}
-          </span>
-        </div>
-      </div>
-
-      <div className={styles.content}>
-        <div className={styles.profileSection}>
-          <div className={styles.profilePictureSection}>
-            <div className={styles.profilePicture}>
-              {imageData ? (
-                <img src={imageData} alt="Profile" />
-              ) : (
-                <div className={styles.profilePicturePlaceholder}>
-                  <User size={48} />
-                </div>
-              )}
-              {imageUploadError && (
-                <div className={styles.imageUploadError}>
-                  <div className={styles.errorIcon}>⚠️</div>
-                  <div className={styles.errorContent}>
-                    <div className={styles.errorTitle}>Upload Error</div>
-                    <div className={styles.errorDescription}>{imageUploadError}</div>
-                  </div>
-                </div>
-              )}
-              {isEditing && (
-                <button
-                  onClick={triggerFileInput}
-                  className={styles.uploadButton}
-                  title="Upload profile picture"
-                >
-                  <Camera size={20} />
-                </button>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              style={{ display: 'none' }}
-            />
-          </div>
-
-          <div className={styles.profileForm}>
-            <div className="form-group">
-              <label htmlFor="firstName">First Name</label>
-              <input
-                id="firstName"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                disabled={!isEditing}
-                className="input-field"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="lastName">Last Name</label>
-              <input
-                id="lastName"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                disabled={!isEditing}
-                className="input-field"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="openaiApiKey">OpenAI API Key</label>
-              <input
-                id="openaiApiKey"
-                type="password"
-                value={openaiApiKey}
-                onChange={(e) => setOpenaiApiKey(e.target.value)}
-                disabled={!isEditing}
-                className="input-field"
-                placeholder="Enter your OpenAI API key"
-              />
-            </div>
-
-            {saveError && (
-              <div className={styles.errorMessage}>
-                <div className={styles.errorIcon}>⚠️</div>
-                <div className={styles.errorContent}>
-                  <div className={styles.errorTitle}>Save Error</div>
-                  <div className={styles.errorDescription}>{saveError}</div>
-                </div>
+      <div className={styles.profileCard}>
+        {/* Photo + name row */}
+        <div className={styles.profileTop}>
+          <div className={styles.profilePicture}>
+            {imageData ? (
+              <img src={imageData} alt="Profile" />
+            ) : (
+              <div className={styles.profilePicturePlaceholder}>
+                <User size={32} />
               </div>
             )}
-            
-            <div className="form-actions">
-              {isEditing ? (
-                <>
-                  <button 
-                    onClick={handleSave} 
-                    className="save-button"
-                    disabled={isSaving}
-                  >
-                    <Save size={16} />
-                    {isSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditing(false);
-                      setFirstName(user.profile?.firstName || '');
-                      setLastName(user.profile?.lastName || '');
-                      setImageData(user.profile?.userPhoto || null);
-                      setOpenaiApiKey(user.profile?.openaiApiKey || '');
-                      setSaveError(null);
-                    }}
-                    className="cancel-button"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => {
-                  setIsEditing(true);
-                  setImageUploadError(null);
-                }} className="edit-button">
-                  Edit Profile
-                </button>
-              )}
-            </div>
+            {isEditing && (
+              <button onClick={triggerFileInput} className={styles.uploadButton} title="Upload photo">
+                <Camera size={14} />
+              </button>
+            )}
+          </div>
+          <div className={styles.profileSummary}>
+            {user.profile && (
+              <div className={styles.profileName}>
+                {user.profile.firstName} {user.profile.lastName}
+              </div>
+            )}
+            <span className={`${styles.statusDot} ${isConnected ? styles.connected : styles.disconnected}`} />
+          </div>
+          {!isEditing && (
+            <button onClick={() => { setIsEditing(true); setImageUploadError(null); }} className={styles.editBtn}>
+              Edit
+            </button>
+          )}
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+
+        {imageUploadError && (
+          <div className={styles.inlineError}>{imageUploadError}</div>
+        )}
+
+        {/* Form fields */}
+        <div className={styles.formGrid}>
+          <div className={styles.formField}>
+            <label htmlFor="firstName">First Name</label>
+            <input id="firstName" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled={!isEditing} />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="lastName">Last Name</label>
+            <input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={!isEditing} />
           </div>
         </div>
 
-        <div className={styles.identitySection}>
-          <h3>Identity Information</h3>
-          <div className={styles.identityInfo}>
-            <div className={styles.infoItem}>
-              <div className={styles.infoLabel}>
-                <Key size={16} />
-                Public Key
-              </div>
-              <div className={styles.infoValue}>
-                <code>{user?.publicKey}</code>
-                <button
-                  onClick={() => navigator.clipboard.writeText(user?.publicKey || '')}
-                  className={styles.copyButton}
-                  title="Copy to clipboard"
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.infoItem}>
-              <div className={styles.infoLabel}>
-                <Server size={16} />
-                Server URL
-              </div>
-              <div className={styles.infoValue}>
-                <code>{user?.serverUrl}</code>
-                <button
-                  onClick={() => navigator.clipboard.writeText(user?.serverUrl || '')}
-                  className={styles.copyButton}
-                  title="Copy to clipboard"
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className={styles.formField}>
+          <label htmlFor="country">Country</label>
+          <SearchableSelect
+            options={[
+              ...COUNTRIES.map((c) => ({ value: c.code, label: c.name, icon: c.flag })),
+              { value: OTHER_COUNTRY.code, label: OTHER_COUNTRY.name, icon: OTHER_COUNTRY.flag },
+            ]}
+            value={country}
+            onChange={(val) => setCountry(val)}
+            placeholder="Select your country"
+            disabled={!isEditing}
+          />
         </div>
+
+        <div className={styles.formField}>
+          <label htmlFor="openaiApiKey">AI API Key (stored locally)</label>
+          <input id="openaiApiKey" type="password" value={openaiApiKey} onChange={(e) => setOpenaiApiKey(e.target.value)} disabled={!isEditing} placeholder="Optional" />
+        </div>
+
+        {saveError && <div className={styles.inlineError}>{saveError}</div>}
+
+        {isEditing && (
+          <div className={styles.actionRow}>
+            <button onClick={handleSave} className={styles.saveBtn} disabled={isSaving}>
+              <Save size={14} /> {isSaving ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => {
+                setIsEditing(false);
+                setFirstName(user.profile?.firstName || '');
+                setLastName(user.profile?.lastName || '');
+                setImageData(user.profile?.userPhoto || null);
+                setOpenaiApiKey(user.profile?.openaiApiKey || '');
+                setCountry(user.profile?.country || '');
+                setSaveError(null);
+              }}
+              className={styles.cancelBtn}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Collapsible identity section */}
+      <button className={styles.identityToggle} onClick={() => setShowIdentity(!showIdentity)}>
+        <span>Network Identity</span>
+        {showIdentity ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {showIdentity && (
+        <div className={styles.identitySection}>
+          <div className={styles.infoItem}>
+            <div className={styles.infoLabel}>
+              <Key size={14} />
+              <span>Public Key</span>
+              <span className={styles.infoHint}>— your unique identity on the network</span>
+            </div>
+            <div className={styles.infoValue}>
+              <code>{user?.publicKey}</code>
+              <button onClick={() => navigator.clipboard.writeText(user?.publicKey || '')} className={styles.copyButton}>Copy</button>
+            </div>
+          </div>
+          <div className={styles.infoItem}>
+            <div className={styles.infoLabel}>
+              <Server size={14} />
+              <span>Server URL</span>
+              <span className={styles.infoHint}>— the server hosting your data</span>
+            </div>
+            <div className={styles.infoValue}>
+              <code>{user?.serverUrl}</code>
+              <button onClick={() => navigator.clipboard.writeText(user?.serverUrl || '')} className={styles.copyButton}>Copy</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Profile; 
+export default Profile;

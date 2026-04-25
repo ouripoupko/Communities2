@@ -156,6 +156,31 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
         <p>Manage your community currency and transactions</p>
       </div>
 
+      <div className={styles.explainer}>
+        <div className={styles.explainerIcon}>
+          <Coins size={24} />
+        </div>
+        <div className={styles.explainerText}>
+          <h3>How Community Currency Works</h3>
+          <p>
+            <strong>Every community runs its own currency.</strong> It&apos;s a shared
+            unit of value members use to signal what matters — supporting initiatives,
+            backing proposals, sending payments to each other.
+          </p>
+          <p>
+            <strong>The community controls the supply.</strong> Each member votes on how
+            many credits are minted per day and how many are removed (burned) per day.
+            The contract uses the median of all votes, so no single voter can tilt the
+            rates — they reflect the group&apos;s consensus.
+          </p>
+          <p>
+            <strong>You can use it right now.</strong> Check your balance below, send
+            credits to any other member, or set your preferred mint and burn rates so
+            your voice counts in the next median.
+          </p>
+        </div>
+      </div>
+
       <div className={styles.content}>
         <div className={styles.balanceSection}>
           <div className={styles.balanceCard}>
@@ -170,11 +195,11 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
             <div className={styles.balanceStats}>
               <div className={styles.statRow}>
                 <div className={styles.stat}>
-                  <span className={styles.label}>Median Mint Rate:</span>
+                  <span className={styles.label}>Daily Credit Creation Rate:</span>
                   <span className={styles.value}>{medianMintRate} credits/day</span>
                 </div>
                 <div className={styles.stat}>
-                  <span className={styles.label}>Median Burn Rate:</span>
+                  <span className={styles.label}>Daily Credit Removal Rate:</span>
                   <span className={styles.value}>{medianBurnRate} credits/day</span>
                 </div>
               </div>
@@ -230,10 +255,10 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
           </div>
 
           <div className={styles.actionCard}>
-            <h3>Your Stored Parameters</h3>
+            <h3>Your Currency Preferences</h3>
             <div className={styles.preferences}>
               <div className={styles.preferenceItem}>
-                <label htmlFor="mintPreference">Mint Rate (credits/day)</label>
+                <label htmlFor="mintPreference">Credit Creation Rate (credits/day)</label>
                 <input
                   id="mintPreference"
                   type="number"
@@ -260,7 +285,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 <TrendingUp size={16} className={styles.mintIcon} />
               </div>
               <div className={styles.preferenceItem}>
-                <label htmlFor="burnPreference">Burn Rate (credits/day)</label>
+                <label htmlFor="burnPreference">Credit Removal Rate (credits/day)</label>
                 <input
                   id="burnPreference"
                   type="number"
@@ -293,7 +318,7 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 disabled={!hasChanges}
                 className={`${styles.updateButton} ${!hasChanges ? styles.disabled : ''}`}
               >
-                Update Parameters
+                Save Preferences
               </button>
               <button
                 onClick={handleRevertPreferences}

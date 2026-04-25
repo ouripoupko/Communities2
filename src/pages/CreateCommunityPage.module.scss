@@ -1,0 +1,284 @@
+@use '../styles/variables' as *;
+
+.page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: $spacing-xl;
+  padding-bottom: 100px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+
+  .backButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: $radius-full;
+    color: $gray-500;
+    cursor: pointer;
+    transition: all $transition-base;
+    flex-shrink: 0;
+
+    &:hover {
+      background: $gray-100;
+      color: $gray-800;
+    }
+  }
+
+  h1 {
+    font-size: $text-xl;
+    font-weight: $font-bold;
+    color: $gray-800;
+    margin: 0;
+  }
+}
+
+.card {
+  background: white;
+  border: 1px solid $gray-200;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  margin-bottom: $spacing-lg;
+
+  h2 {
+    font-size: $text-lg;
+    font-weight: $font-semibold;
+    color: $gray-800;
+    margin: 0 0 $spacing-md 0;
+  }
+
+  p {
+    font-size: $text-sm;
+    color: $gray-700;
+    line-height: 1.6;
+    margin: 0 0 $spacing-md 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    strong {
+      color: $gray-800;
+    }
+  }
+}
+
+.featureList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  margin-top: $spacing-md;
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-md;
+}
+
+.featureIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba($primary, 0.1);
+  color: $primary;
+  flex-shrink: 0;
+}
+
+.featureContent {
+  h3 {
+    font-size: $text-sm;
+    font-weight: $font-semibold;
+    color: $gray-800;
+    margin: 0 0 2px 0;
+  }
+
+  p {
+    font-size: $text-xs;
+    color: $gray-600;
+    margin: 0;
+  }
+}
+
+.formGroup {
+  margin-bottom: $spacing-lg;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.label {
+  display: block;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: $gray-800;
+  margin-bottom: $spacing-xs;
+}
+
+.hint {
+  font-size: $text-xs;
+  color: $gray-500;
+  margin: $spacing-xs 0 0 0;
+}
+
+.inputField {
+  width: 100%;
+  padding: $spacing-md;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-800;
+  background: white;
+  transition: border-color $transition-base;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba($primary, 0.1);
+  }
+
+  &::placeholder {
+    color: $gray-400;
+  }
+
+  &:disabled {
+    background: $gray-50;
+    color: $gray-400;
+  }
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.submitButton {
+  width: 100%;
+  padding: $spacing-md $spacing-xl;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  transition: background $transition-base;
+  margin-top: $spacing-lg;
+
+  &:hover:not(:disabled) {
+    background: $primary-dark;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.errorMessage {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  color: $error;
+  font-size: $text-sm;
+  line-height: 1.4;
+  margin-top: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  background: rgba($error, 0.08);
+  border: 1px solid rgba($error, 0.3);
+  border-radius: $radius-md;
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  span {
+    word-break: break-word;
+  }
+}
+
+.submitHint {
+  font-size: $text-xs;
+  color: $gray-500;
+  text-align: center;
+  margin: $spacing-xs 0 0 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .errorMessage {
+    background: rgba($error, 0.15);
+    border-color: rgba($error, 0.4);
+  }
+
+  .submitHint {
+    color: $dark-text-secondary;
+  }
+
+  .header h1 {
+    color: $dark-text;
+  }
+
+  .header .backButton {
+    color: $dark-text-secondary;
+
+    &:hover {
+      background: $dark-border;
+      color: $dark-text;
+    }
+  }
+
+  .card {
+    background: $dark-bg;
+    border-color: $dark-border;
+
+    h2 { color: $dark-text; }
+    p { color: $dark-text-secondary; }
+    p strong { color: $dark-text; }
+  }
+
+  .featureIcon {
+    background: rgba($primary, 0.2);
+  }
+
+  .featureContent {
+    h3 { color: $dark-text; }
+    p { color: $dark-text-secondary; }
+  }
+
+  .label {
+    color: $dark-text;
+  }
+
+  .inputField {
+    background: $dark-surface;
+    border-color: $dark-border;
+    color: $dark-text;
+
+    &:focus {
+      border-color: $primary;
+    }
+
+    &::placeholder {
+      color: $dark-text-secondary;
+    }
+
+    &:disabled {
+      background: $dark-bg;
+      color: $dark-text-secondary;
+    }
+  }
+}

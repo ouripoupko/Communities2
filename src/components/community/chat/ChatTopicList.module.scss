@@ -1,0 +1,211 @@
+@use '../../../styles/variables' as *;
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+.container {
+  max-width: 720px;
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+.header {
+  margin-bottom: $spacing-xl;
+
+  h2 {
+    font-size: $text-2xl;
+    font-weight: $font-bold;
+    color: $gray-800;
+    margin-bottom: $spacing-xs;
+  }
+
+  p {
+    font-size: $text-sm;
+    color: $gray-500;
+    margin: 0;
+  }
+}
+
+.caveat {
+  margin-top: $spacing-xs !important;
+  font-size: $text-xs !important;
+  color: $gray-400 !important;
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+// ─── Input bar ────────────────────────────────────────────────────────────────
+.inputBar {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-xl;
+}
+
+.titleInput {
+  flex: 1;
+  padding: $spacing-md $spacing-lg;
+  border: 1.5px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-family: inherit;
+  color: $gray-800;
+  outline: none;
+  transition: border-color $transition-base;
+  background: white;
+
+  &:focus {
+    border-color: $primary;
+  }
+
+  &::placeholder {
+    color: $gray-400;
+  }
+}
+
+.newTopicBtn {
+  padding: $spacing-md $spacing-xl;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background $transition-base;
+
+  &:hover:not(:disabled) {
+    background: $primary-dark;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-3xl 0;
+  color: $gray-400;
+
+  p {
+    margin: 0;
+    font-size: $text-sm;
+  }
+}
+
+// ─── Topic list ───────────────────────────────────────────────────────────────
+.topicList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.topicCard {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  width: 100%;
+  text-align: left;
+  background: white;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  cursor: pointer;
+  transition: box-shadow $transition-base, border-color $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-md;
+    border-color: $primary;
+  }
+}
+
+.topicTitle {
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  color: $gray-800;
+  line-height: 1.4;
+}
+
+.topicMeta {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  font-size: $text-xs;
+  color: $gray-500;
+  flex-wrap: wrap;
+}
+
+.author {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.metaDivider {
+  color: $gray-300;
+}
+
+.msgCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.timeAgo {
+  color: $gray-400;
+}
+
+// ─── Dark mode ────────────────────────────────────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .header {
+    h2 {
+      color: $dark-text;
+    }
+
+    p {
+      color: $dark-text-secondary;
+    }
+  }
+
+  .titleInput {
+    background: $dark-bg;
+    border-color: $dark-border;
+    color: $dark-text;
+
+    &::placeholder {
+      color: $dark-text-secondary;
+    }
+
+    &:focus {
+      border-color: $primary;
+    }
+  }
+
+  .topicCard {
+    background: $dark-bg;
+    border-color: $dark-border;
+
+    &:hover {
+      border-color: $primary;
+    }
+  }
+
+  .topicTitle {
+    color: $dark-text;
+  }
+
+  .topicMeta {
+    color: $dark-text-secondary;
+  }
+
+  .metaDivider {
+    color: $dark-border;
+  }
+
+  .timeAgo {
+    color: $dark-text-secondary;
+  }
+}

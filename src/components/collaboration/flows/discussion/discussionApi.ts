@@ -1,80 +1,118 @@
 import { contractRead, contractWrite } from '../../../../services/api';
 import type { IMethod } from '../../../../services/interfaces';
 
+export type CommentCategory = 'evidence' | 'impact' | 'solutions' | 'concerns';
+
 export interface Comment {
   id: string;
   author: string;
   text: string;
   parentId: string | null;
   timestamp: number;
+  category?: CommentCategory;
+  deleted?: boolean;
 }
 
-function normalizeComment(c: Record<string, unknown>): Comment {
+interface RawComment {
+  id?: string;
+  author?: string;
+  text?: string;
+  parentId?: string | null;
+  timestamp?: number | string;
+  category?: CommentCategory | '' | null;
+  deleted?: boolean;
+}
+
+function normalizeTimestamp(raw: number | string | undefined): number {
+  if (typeof raw === 'number') return raw;
+  if (typeof raw !== 'string' || !raw) return 0;
+
+  // Gloki's `timestamp()` returns a packed digit string: YYYYMMDDHHMMSS + fractional digits.
+  // Parse to a JS epoch ms if we can, else fall through.
+  if (/^\d{14,}$/.test(raw)) {
+    const year = parseInt(raw.slice(0, 4), 10);
+    const month = parseInt(raw.slice(4, 6), 10) - 1;
+    const day = parseInt(raw.slice(6, 8), 10);
+    const hour = parseInt(raw.slice(8, 10), 10);
+    const minute = parseInt(raw.slice(10, 12), 10);
+    const second = parseInt(raw.slice(12, 14), 10);
+    const fractional = raw.slice(14);
+    const millis = fractional ? Math.floor(parseInt(fractional.padEnd(6, '0').slice(0, 6), 10) / 1000) : 0;
+    const ms = Date.UTC(year, month, day, hour, minute, second, millis);
+    if (!Number.isNaN(ms)) return ms;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isNaN(parsed)) return parsed;
+  const asDate = Date.parse(raw);
+  if (!Number.isNaN(asDate)) return asDate;
+  return 0;
+}
+
+function normalizeComment(raw: RawComment): Comment {
+  const deleted = !!raw.deleted;
   return {
-    id:        String(c.id        ?? ''),
-    author:    String(c.author    ?? ''),
-    text:      String(c.text      ?? ''),
-    parentId:  c.parentId != null && c.parentId !== '' ? String(c.parentId) : null,
-    timestamp: Number(c.timestamp ?? 0),
+    id: String(raw.id ?? ''),
+    author: String(raw.author ?? ''),
+    text: deleted ? '[deleted]' : String(raw.text ?? ''),
+    parentId: raw.parentId ? String(raw.parentId) : null,
+    timestamp: normalizeTimestamp(raw.timestamp),
+    category: raw.category ? (raw.category as CommentCategory) : undefined,
+    deleted,
   };
-}
-
-export async function loadComments(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<Comment[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_comments', values: {} } as IMethod,
-  });
-  const raw = Array.isArray(result) ? result : [];
-  return (raw as Record<string, unknown>[]).map(normalizeComment);
 }
 
 export async function addComment(
-  server: string,
-  agent: string,
+  serverUrl: string,
+  publicKey: string,
   contractId: string,
-  currentUser: string,
   text: string,
   parentId: string | null,
-): Promise<void> {
-  const comment: Comment = {
-    id:        crypto.randomUUID(),
-    author:    currentUser,
-    text:      text.trim(),
-    parentId,
-    timestamp: Date.now(),
-  };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
+  category?: CommentCategory,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
     contractId,
-    method: { name: 'add_comment', values: { comment } } as IMethod,
+    method: {
+      name: 'add_comment',
+      values: {
+        text,
+        parent_id: parentId ?? '',
+        category: category ?? '',
+      },
+    } as IMethod,
   });
 }
 
 export async function deleteComment(
-  server: string,
-  agent: string,
+  serverUrl: string,
+  publicKey: string,
   contractId: string,
-  comments: Comment[],
-  id: string,
-): Promise<void> {
-  const toRemove = new Set<string>();
-  const collect = (tid: string) => {
-    toRemove.add(tid);
-    comments.filter(c => c.parentId === tid).forEach(c => collect(c.id));
-  };
-  collect(id);
-  const updated = comments.filter(c => !toRemove.has(c.id));
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
+  commentId: string,
+) {
+  return await contractWrite({
+    serverUrl,
+    publicKey,
     contractId,
-    method: { name: 'set_comments', values: { comments: updated } } as IMethod,
+    method: {
+      name: 'delete_comment',
+      values: { comment_id: commentId },
+    } as IMethod,
   });
+}
+
+export async function getComments(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+): Promise<Comment[]> {
+  const raw = await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'get_comments', values: {} } as IMethod,
+  });
+  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, RawComment>;
+  return Object.values(obj).map(normalizeComment);
 }

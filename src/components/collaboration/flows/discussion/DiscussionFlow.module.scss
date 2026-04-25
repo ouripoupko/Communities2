@@ -33,6 +33,7 @@
   font-size: $text-sm;
   font-family: inherit;
   color: $gray-800;
+  background-color: white;
   resize: vertical;
   outline: none;
   line-height: 1.5;
@@ -231,4 +232,189 @@
   flex-direction: column;
   gap: $spacing-sm;
   margin-top: $spacing-sm;
+}
+
+// ─── Category selector (compose box) ──────────────────────────────────────────
+.categorySelector {
+  display: flex;
+  gap: $spacing-xs;
+  flex-wrap: wrap;
+}
+
+.categoryChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px $spacing-md;
+  background: none;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-full;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover { border-color: $gray-400; color: $gray-700; }
+}
+
+.categoryChipActive {
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: $font-semibold;
+}
+
+// ─── Category badge (on comments) ─────────────────────────────────────────────
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px $spacing-sm;
+  border: 1px solid;
+  border-radius: $radius-full;
+  font-size: 0.65rem;
+  font-weight: $font-medium;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+// ─── Filter bar ───────────────────────────────────────────────────────────────
+.filterBar {
+  display: flex;
+  gap: $spacing-xs;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px $spacing-md;
+  background: none;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-full;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover { border-color: $gray-400; color: $gray-700; }
+}
+
+.filterChipActive {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: $gray-400;
+  color: $gray-700;
+  font-weight: $font-semibold;
+}
+
+.filterCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: $radius-full;
+  background: $gray-100;
+  font-size: 0.65rem;
+  font-weight: $font-bold;
+  color: $gray-600;
+}
+
+// ─── Deliberation progress ────────────────────────────────────────────────────
+.progressBar {
+  display: flex;
+  gap: $spacing-lg;
+  padding: $spacing-sm $spacing-md;
+  background: $gray-50;
+  border-radius: $radius-md;
+  border: 1px solid $gray-100;
+}
+
+.progressItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+}
+
+// ─── Dark mode ────────────────────────────────────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .composeTextarea {
+    background: $dark-bg;
+    color: $dark-text;
+    border-color: $dark-border;
+    &::placeholder { color: $dark-text-secondary; }
+  }
+
+  .header { color: $dark-text-secondary; }
+
+  .commentBody {
+    background: $dark-bg;
+    border-color: $dark-border;
+    box-shadow: none;
+  }
+
+  .authorName { color: $dark-text; }
+  .commentText { color: $dark-text-secondary; }
+  .timestamp { color: $dark-text-secondary; }
+
+  .avatar {
+    background: $dark-border;
+    color: $dark-text-secondary;
+  }
+  .avatarMe {
+    background: rgba(59, 130, 246, 0.25);
+    color: $primary;
+  }
+
+  .threadLine { background: $dark-border; }
+
+  .empty { color: $dark-text-secondary; }
+
+  .btnCancel {
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+    &:hover { border-color: $dark-text-secondary; color: $dark-text; }
+  }
+
+  .actionBtn {
+    color: $dark-text-secondary;
+    &:hover { color: $primary; background: rgba(59, 130, 246, 0.1); }
+  }
+
+  .collapseBtn {
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+    &:hover { border-color: $primary; color: $primary; }
+  }
+
+  .categoryChip,
+  .filterChip {
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+    &:hover { border-color: $dark-text-secondary; color: $dark-text; }
+  }
+
+  .filterChipActive {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: $dark-text-secondary;
+    color: $dark-text;
+  }
+
+  .categoryChipActive {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .filterCount {
+    background: $dark-border;
+    color: $dark-text-secondary;
+  }
+
+  .progressBar {
+    background: $dark-surface;
+    border-color: $dark-border;
+  }
 }

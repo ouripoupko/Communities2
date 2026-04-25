@@ -1,0 +1,100 @@
+@use '../../styles/variables' as *;
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.pageHeader {
+  margin-bottom: $spacing-2xl;
+
+  h2 {
+    font-size: $text-2xl;
+    font-weight: $font-bold;
+    color: $gray-800;
+    margin: 0 0 $spacing-sm 0;
+  }
+
+  p {
+    font-size: $text-sm;
+    color: $gray-600;
+    line-height: 1.6;
+    margin: 0;
+  }
+}
+
+.trustSection {
+  padding: $spacing-xl;
+  background: $gray-50;
+  border-radius: $radius-lg;
+  border: 1px solid $gray-200;
+}
+
+.trustActions {
+  display: flex;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.trustBtn {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-lg;
+  background: white;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  color: $gray-700;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: all $transition-base;
+  min-height: 40px;
+
+  &:hover {
+    background: $gray-100;
+    border-color: $gray-400;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  svg {
+    flex-shrink: 0;
+    color: $primary;
+  }
+}
+
+.shareEmbed {
+  margin-top: $spacing-lg;
+  padding-top: $spacing-lg;
+  border-top: 1px solid $gray-200;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pageHeader {
+    h2 { color: $dark-text; }
+    p { color: $dark-text-secondary; }
+  }
+
+  .trustSection {
+    background: $dark-surface;
+    border-color: $dark-border;
+  }
+
+  .trustBtn {
+    background: $dark-bg;
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+
+    &:hover {
+      background: $dark-border;
+      color: $dark-text;
+    }
+  }
+
+  .shareEmbed {
+    border-color: $dark-border;
+  }
+}

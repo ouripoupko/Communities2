@@ -1,7 +1,10 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/shared/ErrorBoundary';
+import StageFooter from './components/shared/StageFooter';
+import { tryHydrateFromHash } from './services/demo/demoUrlShare';
 
 // Get the base path from Vite's import.meta.env.BASE_URL
 const getBasename = () => {
@@ -11,17 +14,26 @@ const getBasename = () => {
 };
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const StageFeedView = lazy(() => import('./pages/StageFeedView'));
 const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
 const IssueView = lazy(() => import('./pages/IssueView'));
 const InitiativeView = lazy(() => import('./pages/collaboration/InitiativeView'));
 const WishView = lazy(() => import('./pages/collaboration/WishView'));
 const AgreementView = lazy(() => import('./pages/collaboration/AgreementView'));
+const CreateCommunityPage = lazy(() => import('./pages/CreateCommunityPage'));
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [hydratingDemo, setHydratingDemo] = useState(true);
 
-  if (isLoading) {
+  // Hydrate demo state from URL hash before rendering routes so a shared demo
+  // link lands straight on populated content.
+  useEffect(() => {
+    tryHydrateFromHash().finally(() => setHydratingDemo(false));
+  }, []);
+
+  if (isLoading || hydratingDemo) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
@@ -39,19 +51,24 @@ function AppContent() {
   }
 
   return (
-    <Router basename={getBasename()}>
-      <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/identity" replace />} />
-          <Route path="/identity/*" element={<IdentityView />} />
-          <Route path="/community/:communityId/*" element={<CommunityView />} />
-          <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
-          <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />
-          <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
-          <Route path="/agreement/:communityId/:agreementId" element={<AgreementView />} />
-        </Routes>
-      </Suspense>
-    </Router>
+    <ErrorBoundary fallbackMessage="Gloki encountered an unexpected error. Please refresh the page.">
+      <Router basename={getBasename()}>
+        <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/stage/problem" replace />} />
+            <Route path="/stage/:stageId" element={<StageFeedView />} />
+            <Route path="/identity/*" element={<IdentityView />} />
+            <Route path="/create-community" element={<CreateCommunityPage />} />
+            <Route path="/community/:communityId/*" element={<CommunityView />} />
+            <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
+            <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />
+            <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
+            <Route path="/agreement/:communityId/:agreementId" element={<AgreementView />} />
+          </Routes>
+          <StageFooter />
+        </Suspense>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { FileText, MessageSquare, Download } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import * as api from './docApi';
 import type { DocElement, DocumentState, ElementType } from './docApi';
 import { downloadDocumentPDF } from './docPdf';
-import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './DocFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -13,9 +12,9 @@ import styles from './DocFlow.module.scss';
 // ---------------------------------------------------------------------------
 type UIMode =
   | { tag: 'idle' }
-  | { tag: 'editing';       id: string;              text: string }
-  | { tag: 'adding';        parentId: string | null; childType: ElementType; text: string }
-  | { tag: 'proposingEdit'; targetId: string;        text: string };
+  | { tag: 'editing';      id: string;       text: string }
+  | { tag: 'adding';       parentId: string | null; childType: ElementType; text: string }
+  | { tag: 'proposingEdit'; targetId: string; text: string };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,8 +34,8 @@ const TypeBadge: React.FC<{ type: ElementType }> = ({ type }) => (
   <span className={`${styles.typeBadge} ${styles[`type_${type}`]}`}>{TYPE_LABEL[type]}</span>
 );
 
-const OwnerBadge: React.FC<{ owner: string; currentUser: string }> = ({ owner, currentUser }) => {
-  if (owner === currentUser || owner === 'system') return null;
+const OwnerBadge: React.FC<{ owner: string }> = ({ owner }) => {
+  if (owner === api.CURRENT_USER || owner === 'system') return null;
   return <span className={styles.ownerBadge}>{owner}</span>;
 };
 
@@ -76,54 +75,46 @@ const InlineForm: React.FC<{
 // ---------------------------------------------------------------------------
 interface NodeProps {
   el: DocElement;
+  instanceId: string;
   docState: DocumentState;
   ui: UIMode;
   setUI: (m: UIMode) => void;
-  reload: () => Promise<void>;
-  currentUser: string;
-  flowServer: string;
-  flowAgent: string;
-  instanceId: string;
+  refresh: () => void;
 }
 
-const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, currentUser, flowServer, flowAgent, instanceId }) => {
-  const { elements, proposals } = docState;
-
+const ElementNode: React.FC<NodeProps> = ({ el, instanceId, docState, ui, setUI, refresh }) => {
   const isEditing       = ui.tag === 'editing'       && ui.id       === el.id;
   const isProposingEdit = ui.tag === 'proposingEdit' && ui.targetId === el.id;
   const isAddingHere    = ui.tag === 'adding'        && ui.parentId === el.id;
 
-  const directEdit   = api.canDirectEdit(elements, el.id, currentUser);
-  const directDelete = api.canDirectDelete(elements, el.id, currentUser);
-  const propEdit     = api.canProposeEdit(elements, el.id, currentUser);
-  const propDelete   = api.canProposeDelete(elements, el.id, currentUser);
+  const directEdit   = api.canDirectEdit(instanceId, el.id);
+  const directDelete = api.canDirectDelete(instanceId, el.id);
+  const propEdit     = api.canProposeEdit(instanceId, el.id);
+  const propDelete   = api.canProposeDelete(instanceId, el.id);
   const childTypes   = api.ALLOWED_CHILDREN[el.type] ?? [];
 
-  const children = sortedChildren(elements, el.id);
+  const children = sortedChildren(docState.elements, el.id);
 
   // --- handlers ---
-  const confirmEdit = async () => {
+  const confirmEdit = () => {
     if (ui.tag !== 'editing') return;
     if (!ui.text.trim()) return;
-    await api.updateElement(flowServer, flowAgent, instanceId, elements, el.id, currentUser, ui.text);
-    setUI({ tag: 'idle' });
-    await reload();
+    api.updateElement(instanceId, el.id, ui.text);
+    refresh(); setUI({ tag: 'idle' });
   };
 
-  const confirmProposeEdit = async () => {
+  const confirmProposeEdit = () => {
     if (ui.tag !== 'proposingEdit') return;
     if (!ui.text.trim()) return;
-    await api.proposeEdit(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser, ui.text);
-    setUI({ tag: 'idle' });
-    await reload();
+    api.proposeEdit(instanceId, el.id, ui.text);
+    refresh(); setUI({ tag: 'idle' });
   };
 
-  const confirmAdd = async () => {
+  const confirmAdd = () => {
     if (ui.tag !== 'adding') return;
     if (!ui.text.trim()) return;
-    await api.addElement(flowServer, flowAgent, instanceId, elements, currentUser, ui.childType, ui.parentId, ui.text);
-    setUI({ tag: 'idle' });
-    await reload();
+    api.addElement(instanceId, ui.childType, ui.parentId, ui.text);
+    refresh(); setUI({ tag: 'idle' });
   };
 
   return (
@@ -131,7 +122,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
       {/* ── Row ── */}
       <div className={styles.elementRow}>
         <TypeBadge type={el.type} />
-        <OwnerBadge owner={el.owner} currentUser={currentUser} />
+        <OwnerBadge owner={el.owner} />
 
         {isEditing ? (
           <InlineForm
@@ -154,10 +145,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
             )}
             {directDelete && (
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
-                onClick={async () => {
-                  await api.deleteElement(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser);
-                  await reload();
-                }}>
+                onClick={() => { api.deleteElement(instanceId, el.id); refresh(); }}>
                 Delete
               </button>
             )}
@@ -169,10 +157,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
             )}
             {propDelete && (
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
-                onClick={async () => {
-                  await api.proposeDelete(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser);
-                  await reload();
-                }}>
+                onClick={() => { api.proposeDelete(instanceId, el.id); refresh(); }}>
                 Propose Delete
               </button>
             )}
@@ -202,9 +187,8 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
       {children.length > 0 && (
         <div className={styles.children}>
           {children.map(child => (
-            <ElementNode key={child.id} el={child} docState={docState}
-              ui={ui} setUI={setUI} reload={reload}
-              currentUser={currentUser} flowServer={flowServer} flowAgent={flowAgent} instanceId={instanceId} />
+            <ElementNode key={child.id} el={child} instanceId={instanceId} docState={docState}
+              ui={ui} setUI={setUI} refresh={refresh} />
           ))}
         </div>
       )}
@@ -233,34 +217,27 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
 // ---------------------------------------------------------------------------
 const DocumentTab: React.FC<{
   docState: DocumentState;
+  instanceId: string;
   ui: UIMode;
   setUI: (m: UIMode) => void;
-  reload: () => Promise<void>;
-  currentUser: string;
-  flowServer: string;
-  flowAgent: string;
-  instanceId: string;
-}> = ({ docState, ui, setUI, reload, currentUser, flowServer, flowAgent, instanceId }) => {
-  const { elements } = docState;
+  refresh: () => void;
+}> = ({ docState, instanceId, ui, setUI, refresh }) => {
+  const title    = docState.elements.find(e => e.type === 'title');
+  const sections = sortedChildren(docState.elements, null);
 
-  const title    = elements.find(e => e.type === 'title');
-  const sections = sortedChildren(elements, null);
+  const isTitleEditing    = ui.tag === 'editing' && ui.id === 'title';
+  const isAddingSection   = ui.tag === 'adding'  && ui.parentId === null;
 
-  const isTitleEditing  = ui.tag === 'editing' && ui.id === 'title';
-  const isAddingSection = ui.tag === 'adding'  && ui.parentId === null;
-
-  const confirmTitleEdit = async () => {
+  const confirmTitleEdit = () => {
     if (ui.tag !== 'editing') return;
-    await api.updateElement(flowServer, flowAgent, instanceId, elements, 'title', currentUser, ui.text);
-    setUI({ tag: 'idle' });
-    await reload();
+    api.updateElement(instanceId, 'title', ui.text);
+    refresh(); setUI({ tag: 'idle' });
   };
 
-  const confirmAddSection = async () => {
+  const confirmAddSection = () => {
     if (ui.tag !== 'adding' || !ui.text.trim()) return;
-    await api.addElement(flowServer, flowAgent, instanceId, elements, currentUser, 'section', null, ui.text);
-    setUI({ tag: 'idle' });
-    await reload();
+    api.addElement(instanceId, 'section', null, ui.text);
+    refresh(); setUI({ tag: 'idle' });
   };
 
   return (
@@ -289,9 +266,8 @@ const DocumentTab: React.FC<{
 
       {/* Sections */}
       {sections.map(s => (
-        <ElementNode key={s.id} el={s} docState={docState}
-          ui={ui} setUI={setUI} reload={reload}
-          currentUser={currentUser} flowServer={flowServer} flowAgent={flowAgent} instanceId={instanceId} />
+        <ElementNode key={s.id} el={s} instanceId={instanceId} docState={docState}
+          ui={ui} setUI={setUI} refresh={refresh} />
       ))}
 
       {/* Add section */}
@@ -321,28 +297,23 @@ const DocumentTab: React.FC<{
 // ---------------------------------------------------------------------------
 const ProposalsTab: React.FC<{
   docState: DocumentState;
-  reload: () => Promise<void>;
-  currentUser: string;
-  flowServer: string;
-  flowAgent: string;
   instanceId: string;
-}> = ({ docState, reload, currentUser, flowServer, flowAgent, instanceId }) => {
-  const { elements, proposals } = docState;
-
-  if (proposals.length === 0) {
+  refresh: () => void;
+}> = ({ docState, instanceId, refresh }) => {
+  if (docState.proposals.length === 0) {
     return <p className={styles.noData}>No active proposals.</p>;
   }
 
   const labelFor = (id: string) => {
-    const el = elements.find(e => e.id === id);
+    const el = docState.elements.find(e => e.id === id);
     return el ? `${TYPE_LABEL[el.type]}: "${el.text}"` : '[deleted]';
   };
 
   return (
     <div className={styles.proposalsTab}>
-      {proposals.map(p => {
-        const myVote = p.supporters.includes(currentUser) ? 'support'
-          : p.rejecters.includes(currentUser) ? 'reject' : null;
+      {docState.proposals.map(p => {
+        const myVote = p.supporters.includes(api.CURRENT_USER) ? 'support'
+          : p.rejecters.includes(api.CURRENT_USER) ? 'reject' : null;
 
         return (
           <div key={p.id} className={styles.proposalCard}>
@@ -377,18 +348,12 @@ const ProposalsTab: React.FC<{
             <div className={styles.proposalActions}>
               <button
                 className={`${styles.btnVote} ${myVote === 'support' ? styles.btnVoteActive : ''}`}
-                onClick={async () => {
-                  await api.voteProposal(flowServer, flowAgent, instanceId, elements, proposals, p.id, currentUser, 'support');
-                  await reload();
-                }}>
+                onClick={() => { api.voteProposal(instanceId, p.id, 'support'); refresh(); }}>
                 Support ({p.supporters.length})
               </button>
               <button
                 className={`${styles.btnVote} ${styles.btnVoteReject} ${myVote === 'reject' ? styles.btnVoteActive : ''}`}
-                onClick={async () => {
-                  await api.voteProposal(flowServer, flowAgent, instanceId, elements, proposals, p.id, currentUser, 'reject');
-                  await reload();
-                }}>
+                onClick={() => { api.voteProposal(instanceId, p.id, 'reject'); refresh(); }}>
                 Reject ({p.rejecters.length})
               </button>
             </div>
@@ -402,31 +367,12 @@ const ProposalsTab: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+const DocFlow: React.FC<FlowProps> = ({ instanceId }) => {
   const [activeTab, setActiveTab] = useState<'document' | 'proposals'>('document');
-  const [docState,  setDocState]  = useState<DocumentState | null>(null);
-  const [error,     setError]     = useState<string | null>(null);
+  const [docState,  setDocState]  = useState<DocumentState>(() => api.getDocument(instanceId));
   const [ui,        setUI]        = useState<UIMode>({ tag: 'idle' });
 
-  const reload = useCallback(async () => {
-    try {
-      const state = await api.loadDocument(flowServer, flowAgent, instanceId);
-      setDocState(state);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load document');
-    }
-  }, [flowServer, flowAgent, instanceId]);
-
-  useEffect(() => { reload(); }, [reload]);
-
-  if (error) {
-    return <FlowError message={error} onRetry={reload} />;
-  }
-
-  if (!docState) {
-    return <FlowLoading />;
-  }
+  const refresh = useCallback(() => setDocState(api.getDocument(instanceId)), [instanceId]);
 
   return (
     <div className={styles.container}>
@@ -452,26 +398,10 @@ const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curre
       </div>
 
       {activeTab === 'document' && (
-        <DocumentTab
-          docState={docState}
-          ui={ui}
-          setUI={setUI}
-          reload={reload}
-          currentUser={currentUser}
-          flowServer={flowServer}
-          flowAgent={flowAgent}
-          instanceId={instanceId}
-        />
+        <DocumentTab docState={docState} instanceId={instanceId} ui={ui} setUI={setUI} refresh={refresh} />
       )}
       {activeTab === 'proposals' && (
-        <ProposalsTab
-          docState={docState}
-          reload={reload}
-          currentUser={currentUser}
-          flowServer={flowServer}
-          flowAgent={flowAgent}
-          instanceId={instanceId}
-        />
+        <ProposalsTab docState={docState} instanceId={instanceId} refresh={refresh} />
       )}
     </div>
   );

@@ -1,0 +1,45 @@
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.tab {
+  padding: 8px 14px;
+  background: #22304c;
+  color: #c8d2e0;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &.active {
+    background: #2a5bd7;
+    color: #fff;
+  }
+}
+
+.mergedBanner {
+  background: rgba(217, 167, 59, 0.12);
+  border: 1px solid rgba(217, 167, 59, 0.4);
+  border-radius: 12px;
+  padding: 18px;
+  color: #f0c65b;
+  text-align: center;
+
+  strong { font-size: 15px; display: block; margin-bottom: 6px; }
+  p { font-size: 13px; color: #c8d2e0; margin: 0 0 12px 0; }
+
+  button {
+    background: #2a5bd7;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}

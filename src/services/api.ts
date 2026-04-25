@@ -1,83 +1,62 @@
-// Real API utility for contract and server calls
+// UI-only mock backend. All network calls are intercepted and answered locally.
+// The real Gloki backend is owned by Ouri on a separate branch; this branch
+// ships hardcoded UI for review and demos only.
+//
+// All public function signatures are unchanged so callers (slices, flow APIs,
+// contract wrappers) keep working without edits.
 
-import type { IMethod } from "./interfaces";
+import type { IMethod, IContract } from "./interfaces";
+import {
+  ensureDefaultDemoCommunity,
+  mockContractRead,
+  mockContractWrite,
+  mockDeployAny,
+  mockJoinContract,
+  mergeDemoContracts,
+} from "./demo/mockApi";
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 10000) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    if (!response.ok) {
-      const text = await response.text();
-      let message = `HTTP ${response.status} ${response.statusText}`;
-      try {
-        const json = JSON.parse(text) as { message?: string; error?: string };
-        if (json.message || json.error) message = json.message ?? json.error ?? message;
-      } catch {
-        if (text.trim() && !text.trim().startsWith('<')) message = text.trim();
-      }
-      throw new Error(message);
-    }
-    return await response.json();
-  } finally {
-    clearTimeout(timeoutId);
-  }
+const FAKE_AGENT_DELAY = 50;
+const FAKE_DEPLOY_DELAY = 200;
+
+function delay<T>(ms: number, value: T): Promise<T> {
+  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
-// IS_EXIST_AGENT
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export async function isExistAgent({
-  serverUrl,
   publicKey,
 }: {
   serverUrl: string;
   publicKey: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=is_exist_agent`,
-    { method: 'GET' }
-  );
+}): Promise<any> {
+  void publicKey;
+  return delay(FAKE_AGENT_DELAY, true);
 }
 
-// REGISTER_AGENT
 export async function registerAgent({
-  serverUrl,
   publicKey,
 }: {
   serverUrl: string;
   publicKey: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=register_agent`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: serverUrl }),
-    }
-  );
+}): Promise<any> {
+  void publicKey;
+  return delay(FAKE_AGENT_DELAY, true);
 }
 
-// GET_CONTRACTS
 export async function getContracts({
-  serverUrl,
   publicKey,
 }: {
   serverUrl: string;
   publicKey: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=get_contracts`,
-    { method: 'GET' }
-  );
+}): Promise<IContract[]> {
+  ensureDefaultDemoCommunity(publicKey);
+  return mergeDemoContracts([]);
 }
 
-// DEPLOY_CONTRACT
 export async function deployContract({
-  serverUrl,
   publicKey,
   name,
   contract,
-  code,
-  profile,
 }: {
   serverUrl: string;
   publicKey: string;
@@ -85,40 +64,13 @@ export async function deployContract({
   contract: string;
   code: string;
   profile?: string;
-}) {
-  // Construct contractData object with defaults
-  const contractData = {
-    id: '',
-    name,
-    contract,
-    code,
-    protocol: 'BFT',
-    default_app: '',
-    pid: publicKey,
-    address: serverUrl,
-    group: [],
-    threshold: 0,
-    profile: profile || null,
-    constructor: {},
-  };
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=deploy_contract`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(contractData),
-    }
-  );
+}): Promise<any> {
+  const result = mockDeployAny({ publicKey, name, contract });
+  return delay(FAKE_DEPLOY_DELAY, result);
 }
 
-// JOIN_CONTRACT
 export async function joinContract({
-  serverUrl,
   publicKey,
-  address,
-  agent,
-  contract,
-  profile = '',
 }: {
   serverUrl: string;
   publicKey: string;
@@ -126,18 +78,11 @@ export async function joinContract({
   agent: string;
   contract: string;
   profile?: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=join_contract`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, agent, contract, profile }),
-    }
-  );
+}): Promise<any> {
+  void publicKey;
+  return mockJoinContract();
 }
 
-// CONTRACT WRITE
 export async function contractWrite({
   serverUrl,
   publicKey,
@@ -148,19 +93,10 @@ export async function contractWrite({
   publicKey: string;
   contractId: string;
   method: IMethod;
-}) {
-  // Construct IMethod object
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method.name}?action=contract_write`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(method),
-    }
-  );
+}): Promise<any> {
+  return mockContractWrite({ serverUrl, publicKey, contractId, method });
 }
 
-// CONTRACT READ
 export async function contractRead({
   serverUrl,
   publicKey,
@@ -171,13 +107,6 @@ export async function contractRead({
   publicKey: string;
   contractId: string;
   method: IMethod;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}/${contractId}/${method.name}?action=contract_read`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(method),
-    }
-  );
+}): Promise<any> {
+  return mockContractRead({ serverUrl, publicKey, contractId, method });
 }

@@ -25,9 +25,10 @@ export interface IContract {
     lastName: string;
     userPhoto: string;
     userBio: string;
-    // Optional field for storing per-user AI configuration (e.g. OpenAI API key)
-    // This is read from the gloki/profile contract as a simple key-value.
+    // Optional field for per-user AI configuration stored locally in the browser.
     openaiApiKey?: string;
+    // ISO 3166-1 alpha-2 country code (e.g. 'KE', 'NG', 'MW', 'CD') or 'OTHER'
+    country?: string;
   }
 
   export interface IPartner {

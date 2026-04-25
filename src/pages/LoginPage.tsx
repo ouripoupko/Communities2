@@ -9,6 +9,7 @@ const LoginPage: React.FC = () => {
   const [serverUrl, setServerUrl] = useState('');
   const [serverUrlHistory, setServerUrlHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [isValid, setIsValid] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [publicKeyError, setPublicKeyError] = useState<string | null>(null);
@@ -48,12 +49,15 @@ const LoginPage: React.FC = () => {
     }
     
     setServerUrlHistory(historyArray);
+    if (!serverUrl) {
+      setServerUrl(defaultServer);
+    }
   }, []);
 
   const validatePublicKey = (value: string): string | null => {
     if (value.length === 0) return null;
     if (!/^[A-Za-z0-9]{64}$/.test(value))
-      return 'Public key must be exactly 64 alphanumeric characters (letters and digits only).';
+      return 'Your identity key must be exactly 64 alphanumeric characters (letters and digits only).';
     return null;
   };
 
@@ -113,15 +117,25 @@ const LoginPage: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.header}>
-          <h1>Decentralized Self-Sovereignty Tool</h1>
-          <p>Connect to your decentralized identity</p>
+          <h1>Welcome to Gloki</h1>
+          <p>Global direct democracy — connect to participate</p>
+          <button className={styles.helpToggle} onClick={() => setShowHelp(v => !v)}>
+            {showHelp ? 'Hide details' : 'How does this work?'}
+          </button>
+          {showHelp && (
+            <div className={styles.helpBox}>
+              <p>Gloki uses public keys instead of passwords. Your public key is your identity across all communities. You can generate a new one with the button below, or enter an existing one to reconnect.</p>
+              <p>The server URL connects you to a Gloki network. The default server is already set for you.</p>
+            </div>
+          )}
         </div>
 
         <div className={styles.form}>
           <div className={styles.inputGroup}>
             <label htmlFor="publicKey">
               <Key size={20} />
-              Gloki Public Key
+              Your Identity Key
+              <span className={styles.fieldHint}>A 64-character code that identifies you. New here? Click the generate button.</span>
             </label>
             <div className={styles.inputWithButton}>
               <input
@@ -137,7 +151,7 @@ const LoginPage: React.FC = () => {
                 type="button"
                 onClick={generateRandomKey}
                 className={styles.generateButton}
-                title="Generate random public key"
+                title="Generate a new identity key"
               >
                 <RefreshCw size={16} />
               </button>
@@ -149,6 +163,7 @@ const LoginPage: React.FC = () => {
             <label htmlFor="serverUrl">
               <Server size={20} />
               Server URL
+              <span className={styles.fieldHint}>The default server is pre-selected. Most users won't need to change this.</span>
             </label>
             <div className={styles.inputWithDropdown}>
               <input
@@ -211,7 +226,7 @@ const LoginPage: React.FC = () => {
             disabled={!isValid || isLoading}
             className={`login-button ${styles.loginButton}`}
           >
-            <span>{isLoading ? 'Connecting...' : 'Connect'}</span>
+            <span>{isLoading ? 'Connecting...' : 'Get Started'}</span>
             {!isLoading && <ArrowRight size={20} />}
           </button>
         </div>

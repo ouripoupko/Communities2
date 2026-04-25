@@ -1,153 +1,154 @@
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
-
 // ---------------------------------------------------------------------------
-// Data model
+// Event scheduling flow — local in-memory store, no persistence yet
 // ---------------------------------------------------------------------------
 
-export interface RangeConfig {
-  title: string;
+export type Availability = 'yes' | 'maybe' | 'no';
+
+export interface TimeSlot {
+  id: string;
+  date: string;       // ISO date, e.g. "2025-09-15"
+  startTime: string;  // "HH:MM"
+  endTime: string;    // "HH:MM"
+}
+
+/** participantId -> slotId -> availability */
+export type ResponseMap = Record<string, Record<string, Availability>>;
+
+export interface EventState {
+  title: string | null;
   description: string;
+  slots: TimeSlot[];
+  responses: ResponseMap;
+  confirmedSlotId: string | null;
   organizerId: string;
-  startDate: string;    // "YYYY-MM-DD"
-  endDate: string;      // "YYYY-MM-DD"
-  dailyStart: string;   // "HH:MM"
-  dailyEnd: string;     // "HH:MM"
-  slotMinutes: number;  // 30 or 60
 }
 
-export interface ParticipantSelection {
-  participantId: string;
-  slots: number[];      // sorted global slot indices
+export const CURRENT_USER = 'me';
+const ALL_PARTICIPANTS = ['me', 'alice', 'bob', 'carol'];
+
+// ---------------------------------------------------------------------------
+// Per-instance store (keyed by instanceId)
+// ---------------------------------------------------------------------------
+const stateByInstance = new Map<string, EventState>();
+
+function getStore(instanceId: string): EventState {
+  if (!stateByInstance.has(instanceId)) {
+    stateByInstance.set(instanceId, {
+      title: null,
+      description: '',
+      slots: [],
+      responses: {},
+      confirmedSlotId: null,
+      organizerId: CURRENT_USER,
+    });
+  }
+  return stateByInstance.get(instanceId)!;
 }
 
-export interface SchedulingState {
-  config: RangeConfig | null;
-  selections: ParticipantSelection[];
+function setStore(instanceId: string, s: EventState): void {
+  stateByInstance.set(instanceId, s);
 }
 
 // ---------------------------------------------------------------------------
-// Normalizers
+// API
 // ---------------------------------------------------------------------------
 
-function normalizeConfig(r: Record<string, unknown>): RangeConfig {
+export function getState(instanceId: string): EventState {
+  const state = getStore(instanceId);
   return {
-    title:        String(r['title']        ?? ''),
-    description:  String(r['description']  ?? ''),
-    organizerId:  String(r['organizerId']  ?? ''),
-    startDate:    String(r['startDate']    ?? ''),
-    endDate:      String(r['endDate']      ?? ''),
-    dailyStart:   String(r['dailyStart']   ?? '09:00'),
-    dailyEnd:     String(r['dailyEnd']     ?? '18:00'),
-    slotMinutes:  Number(r['slotMinutes']  ?? 30),
+    ...state,
+    slots: state.slots.map(s => ({ ...s })),
+    responses: JSON.parse(JSON.stringify(state.responses)),
   };
 }
 
-function normalizeSelection(r: Record<string, unknown>): ParticipantSelection {
-  const rawSlots = r['slots'];
-  return {
-    participantId: String(r['participantId'] ?? ''),
-    slots: Array.isArray(rawSlots) ? rawSlots.map(Number) : [],
+export function isOrganizer(instanceId: string): boolean {
+  return getStore(instanceId).organizerId === CURRENT_USER;
+}
+
+export function getParticipants(): string[] {
+  return [...ALL_PARTICIPANTS];
+}
+
+export function setupEvent(instanceId: string, title: string, description: string): void {
+  const state = getStore(instanceId);
+  setStore(instanceId, { ...state, title: title.trim(), description: description.trim() });
+}
+
+export function addSlot(instanceId: string, date: string, startTime: string, endTime: string): TimeSlot {
+  const state = getStore(instanceId);
+  const slot: TimeSlot = {
+    id: `slot_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+    date,
+    startTime,
+    endTime,
   };
+  const newState = { ...state, slots: [...state.slots, slot] };
+
+  // Auto-fill simulated responses for non-me participants
+  const PATTERNS: Availability[][] = [
+    ['yes',   'no',    'maybe', 'yes'  ],
+    ['maybe', 'yes',   'yes',   'no'   ],
+    ['no',    'maybe', 'yes',   'maybe'],
+  ];
+  const simParticipants = ALL_PARTICIPANTS.filter(p => p !== CURRENT_USER);
+  const slotIndex = newState.slots.length - 1;
+
+  const newResponses: ResponseMap = JSON.parse(JSON.stringify(newState.responses));
+  simParticipants.forEach((p, pi) => {
+    if (!newResponses[p]) newResponses[p] = {};
+    const av = PATTERNS[pi % PATTERNS.length][slotIndex % 4];
+    newResponses[p][slot.id] = av;
+  });
+  setStore(instanceId, { ...newState, responses: newResponses });
+
+  return { ...slot };
 }
 
-// ---------------------------------------------------------------------------
-// Async API
-// ---------------------------------------------------------------------------
-
-export async function loadSchedulingState(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<SchedulingState> {
-  const [rawConfig, rawSelections] = await Promise.all([
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_config',         values: {} } as IMethod }),
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_all_selections', values: {} } as IMethod }),
-  ]);
-
-  let config: RangeConfig | null = null;
-  if (rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig)) {
-    const c = rawConfig as Record<string, unknown>;
-    if (c['title']) config = normalizeConfig(c);
-  }
-
-  const selections: ParticipantSelection[] = Array.isArray(rawSelections)
-    ? (rawSelections as Record<string, unknown>[])
-        .map(normalizeSelection)
-        .filter(s => s.participantId !== '')
-    : [];
-
-  return { config, selections };
-}
-
-export async function setupRange(
-  server: string,
-  agent: string,
-  contractId: string,
-  fields: Omit<RangeConfig, 'organizerId'>,
-  currentUser: string,
-): Promise<void> {
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_config', values: { config: { ...fields, organizerId: currentUser } } } as IMethod,
+export function removeSlot(instanceId: string, slotId: string): void {
+  const state = getStore(instanceId);
+  setStore(instanceId, {
+    ...state,
+    slots: state.slots.filter(s => s.id !== slotId),
+    responses: Object.fromEntries(
+      Object.entries(state.responses).map(([p, rs]) => {
+        const { [slotId]: _removed, ...rest } = rs;
+        return [p, rest];
+      })
+    ),
   });
 }
 
-export async function setMySelection(
-  server: string,
-  agent: string,
-  contractId: string,
-  slots: number[],
-): Promise<void> {
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_my_selection', values: { slots } } as IMethod,
-  });
+export function setAvailability(instanceId: string, slotId: string, availability: Availability): void {
+  const state = getStore(instanceId);
+  const newResponses: ResponseMap = JSON.parse(JSON.stringify(state.responses));
+  if (!newResponses[CURRENT_USER]) newResponses[CURRENT_USER] = {};
+  newResponses[CURRENT_USER][slotId] = availability;
+  setStore(instanceId, { ...state, responses: newResponses });
 }
 
-// ---------------------------------------------------------------------------
-// Pure helpers
-// ---------------------------------------------------------------------------
-
-export function isOrganizer(config: RangeConfig | null, currentUser: string): boolean {
-  return config?.organizerId === currentUser;
+export function confirmSlot(instanceId: string, slotId: string): void {
+  if (!isOrganizer(instanceId)) return;
+  const state = getStore(instanceId);
+  setStore(instanceId, { ...state, confirmedSlotId: slotId });
 }
 
-export function computeSlotsPerDay(config: RangeConfig): number {
-  const [sh, sm] = config.dailyStart.split(':').map(Number);
-  const [eh, em] = config.dailyEnd.split(':').map(Number);
-  return Math.max(0, Math.floor(((eh * 60 + em) - (sh * 60 + sm)) / config.slotMinutes));
+export function unconfirm(instanceId: string): void {
+  if (!isOrganizer(instanceId)) return;
+  const state = getStore(instanceId);
+  setStore(instanceId, { ...state, confirmedSlotId: null });
 }
 
-export function computeDays(config: RangeConfig): Date[] {
-  const days: Date[] = [];
-  const cur = new Date(config.startDate + 'T00:00:00');
-  const end = new Date(config.endDate   + 'T00:00:00');
-  while (cur <= end) {
-    days.push(new Date(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return days;
-}
-
-/** "HH:MM" label for the i-th slot within a day */
-export function slotTimeLabel(slotWithinDay: number, config: RangeConfig): string {
-  const [sh, sm] = config.dailyStart.split(':').map(Number);
-  const mins = sh * 60 + sm + slotWithinDay * config.slotMinutes;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-}
-
-export function globalIndex(dayIdx: number, slotWithinDay: number, slotsPerDay: number): number {
-  return dayIdx * slotsPerDay + slotWithinDay;
-}
-
-/** slot-index → count of participants who selected it */
-export function buildCountMap(selections: ParticipantSelection[]): Map<number, number> {
-  const map = new Map<number, number>();
-  for (const sel of selections)
-    for (const idx of sel.slots)
-      map.set(idx, (map.get(idx) ?? 0) + 1);
-  return map;
+/** Returns yes+maybe count per slot, sorted best-first */
+export function slotScores(instanceId: string): { slotId: string; yes: number; maybe: number; total: number }[] {
+  const state = getStore(instanceId);
+  return state.slots.map(s => {
+    let yes = 0, maybe = 0;
+    for (const p of ALL_PARTICIPANTS) {
+      const av = state.responses[p]?.[s.id];
+      if (av === 'yes')   yes++;
+      if (av === 'maybe') maybe++;
+    }
+    return { slotId: s.id, yes, maybe, total: yes * 2 + maybe };
+  }).sort((a, b) => b.total - a.total);
 }

@@ -1,0 +1,247 @@
+@use '../../../../styles/variables' as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.tabs {
+  display: flex;
+  gap: $spacing-xs;
+  border-bottom: 1.5px solid $gray-200;
+  padding-bottom: $spacing-xs;
+}
+
+.tab {
+  padding: $spacing-sm $spacing-lg;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover { color: $gray-700; }
+}
+
+.tabActive {
+  color: $primary;
+  border-bottom-color: $primary;
+}
+
+// ─── Add proposal ──────────────────────────────────────────────────────
+.addForm {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.addInput {
+  flex: 1;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-800;
+  outline: none;
+  box-sizing: border-box;
+
+  &:focus { border-color: $primary; }
+  &::placeholder { color: $gray-400; }
+}
+
+.addBtn {
+  padding: $spacing-sm $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background $transition-base;
+
+  &:hover:not(:disabled) { opacity: 0.9; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// ─── Proposal list ─────────────────────────────────────────────────────
+.proposalList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.proposalCard {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  background: white;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-md;
+  box-shadow: $shadow-sm;
+}
+
+.proposalBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.proposalText {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-800;
+  word-break: break-word;
+}
+
+.proposalMeta {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: $text-xs;
+  color: $gray-400;
+  margin-top: 2px;
+}
+
+.approveBtn {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
+  background: none;
+  border: 1.5px solid $gray-200;
+  border-radius: $radius-full;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-500;
+  cursor: pointer;
+  transition: all $transition-base;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    border-color: $primary;
+    color: $primary;
+    background: rgba($primary, 0.05);
+  }
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.approveBtnActive {
+  background: rgba($primary, 0.1);
+  border-color: $primary;
+  color: $primary;
+}
+
+.approvalCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 $spacing-xs;
+  background: $gray-100;
+  border-radius: $radius-full;
+  font-size: $text-xs;
+  font-weight: $font-bold;
+
+  .approveBtnActive & {
+    background: rgba($primary, 0.15);
+  }
+}
+
+// ─── Results ───────────────────────────────────────────────────────────
+.resultsList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.resultRow {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.resultLabel {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-700;
+}
+
+.resultBar {
+  height: 24px;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  display: flex;
+  background: $gray-100;
+}
+
+.resultSegment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.resultCount {
+  font-size: $text-xs;
+  color: $gray-500;
+  margin-top: 2px;
+}
+
+// ─── States ────────────────────────────────────────────────────────────
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl;
+  color: $gray-400;
+  font-size: $text-sm;
+}
+
+.noData {
+  font-size: $text-sm;
+  color: $gray-400;
+  font-style: italic;
+  padding: $spacing-lg 0;
+}
+
+.error {
+  font-size: $text-sm;
+  color: $error;
+  padding: $spacing-md;
+}
+
+// ─── Help section ──────────────────────────────────────────────────────
+.helpSection {
+  margin-bottom: $spacing-lg;
+}
+
+.helpToggle {
+  background: none;
+  border: none;
+  color: $primary;
+  font-size: $text-sm;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: $spacing-xs 0;
+  &:hover { color: $primary-dark; }
+}
+
+.helpBox {
+  margin-top: $spacing-sm;
+  padding: $spacing-md $spacing-lg;
+  background: rgba($primary, 0.05);
+  border-left: 3px solid $primary;
+  border-radius: 0 $radius-md $radius-md 0;
+  p {
+    font-size: $text-sm;
+    color: $gray-600;
+    line-height: 1.5;
+    margin-bottom: $spacing-sm;
+    &:last-child { margin-bottom: 0; }
+  }
+}

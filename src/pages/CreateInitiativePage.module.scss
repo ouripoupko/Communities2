@@ -1,0 +1,380 @@
+@use '../styles/variables' as *;
+
+.page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: $spacing-xl;
+  padding-bottom: 100px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+
+  .backButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: $radius-full;
+    color: $gray-500;
+    cursor: pointer;
+    transition: all $transition-base;
+    flex-shrink: 0;
+
+    &:hover {
+      background: $gray-100;
+      color: $gray-800;
+    }
+  }
+
+  h1 {
+    font-size: $text-xl;
+    font-weight: $font-bold;
+    color: $gray-800;
+    margin: 0;
+  }
+}
+
+.card {
+  background: white;
+  border: 1px solid $gray-200;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  margin-bottom: $spacing-lg;
+
+  h2 {
+    font-size: $text-lg;
+    font-weight: $font-semibold;
+    color: $gray-800;
+    margin: 0 0 $spacing-md 0;
+  }
+
+  p {
+    font-size: $text-sm;
+    color: $gray-700;
+    line-height: 1.6;
+    margin: 0;
+  }
+}
+
+.stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: $spacing-md;
+}
+
+.step {
+  display: flex;
+  gap: $spacing-md;
+  position: relative;
+
+  &:not(:last-child) {
+    padding-bottom: $spacing-lg;
+  }
+}
+
+.stepIndicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.stepCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-full;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.stepLine {
+  width: 2px;
+  flex: 1;
+  background: $gray-200;
+  min-height: 12px;
+}
+
+.stepContent {
+  padding-top: 4px;
+
+  h3 {
+    font-size: $text-sm;
+    font-weight: $font-semibold;
+    color: $gray-800;
+    margin: 0 0 $spacing-xs 0;
+  }
+
+  p {
+    font-size: $text-xs;
+    color: $gray-600;
+    line-height: 1.5;
+    margin: 0;
+  }
+}
+
+.tips {
+  p {
+    margin-bottom: $spacing-md;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    strong {
+      color: $gray-800;
+    }
+  }
+}
+
+.formGroup {
+  margin-bottom: $spacing-lg;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.label {
+  display: block;
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: $gray-800;
+  margin-bottom: $spacing-xs;
+}
+
+.hint {
+  font-size: $text-xs;
+  color: $gray-500;
+  margin: $spacing-xs 0 0 0;
+}
+
+.inputField {
+  width: 100%;
+  padding: $spacing-md;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-800;
+  background: white;
+  transition: border-color $transition-base;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba($primary, 0.1);
+  }
+
+  &::placeholder {
+    color: $gray-400;
+  }
+
+  &:disabled {
+    background: $gray-50;
+    color: $gray-400;
+  }
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.evidenceRow {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-sm;
+}
+
+.removeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  color: $gray-400;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    color: $error;
+    border-color: $error;
+  }
+}
+
+.addEvidenceButton {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
+  background: transparent;
+  border: 1px dashed $gray-300;
+  border-radius: $radius-md;
+  color: $gray-500;
+  font-size: $text-sm;
+  cursor: pointer;
+
+  &:hover {
+    border-color: $primary;
+    color: $primary;
+  }
+}
+
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+}
+
+.chip {
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $gray-300;
+  border-radius: $radius-full;
+  background: white;
+  color: $gray-700;
+  font-size: $text-sm;
+  cursor: pointer;
+  transition: all $transition-base;
+
+  &:hover {
+    border-color: $primary;
+    color: $primary;
+  }
+}
+
+.chipSelected {
+  background: $primary;
+  border-color: $primary;
+  color: white;
+
+  &:hover {
+    background: $primary-dark;
+    border-color: $primary-dark;
+    color: white;
+  }
+}
+
+.submitButton {
+  width: 100%;
+  padding: $spacing-md $spacing-xl;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  transition: background $transition-base;
+  margin-top: $spacing-lg;
+
+  &:hover:not(:disabled) {
+    background: $primary-dark;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.errorMessage {
+  color: $error;
+  font-size: $text-sm;
+  margin-top: $spacing-sm;
+}
+
+@media (prefers-color-scheme: dark) {
+  .header h1 {
+    color: $dark-text;
+  }
+
+  .header .backButton {
+    color: $dark-text-secondary;
+
+    &:hover {
+      background: $dark-border;
+      color: $dark-text;
+    }
+  }
+
+  .card {
+    background: $dark-bg;
+    border-color: $dark-border;
+
+    h2 { color: $dark-text; }
+    p { color: $dark-text-secondary; }
+  }
+
+  .stepContent {
+    h3 { color: $dark-text; }
+    p { color: $dark-text-secondary; }
+  }
+
+  .stepLine {
+    background: $dark-border;
+  }
+
+  .tips p strong {
+    color: $dark-text;
+  }
+
+  .label {
+    color: $dark-text;
+  }
+
+  .inputField {
+    background: $dark-surface;
+    border-color: $dark-border;
+    color: $dark-text;
+
+    &:focus {
+      border-color: $primary;
+    }
+
+    &::placeholder {
+      color: $dark-text-secondary;
+    }
+
+    &:disabled {
+      background: $dark-bg;
+      color: $dark-text-secondary;
+    }
+  }
+
+  .chip {
+    background: $dark-surface;
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+  }
+
+  .chipSelected {
+    background: $primary;
+    border-color: $primary;
+    color: white;
+  }
+
+  .removeButton {
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+  }
+
+  .addEvidenceButton {
+    border-color: $dark-border;
+    color: $dark-text-secondary;
+  }
+}

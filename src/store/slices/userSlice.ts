@@ -3,8 +3,13 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { isExistAgent, registerAgent, getContracts, deployContract } from '../../services/api';
 import type { IContract, IProfile } from '../../services/interfaces';
 import type { RootState } from '../index';
-import profileContractCode from '../../assets/contracts/gloki_contract.py?raw';
-import { getProfile } from '../../services/contracts/gloki';
+const profileContractCode = '';
+import { clearRemoteOpenAIApiKey, getProfile } from '../../services/contracts/gloki';
+import {
+  mergeLocalOpenAIApiKey,
+  setLocalOpenAIApiKey,
+  stripSensitiveProfileFields,
+} from '../../utils/localSecrets';
 
 // Interfaces from contractsSlice
 
@@ -130,7 +135,25 @@ export const readProfile = createAsyncThunk(
           publicKey,
           profileContract.id,
         );
-        profileData = profileResult;
+        const remoteProfile = (profileResult || {}) as IProfile;
+        const remoteApiKey = typeof remoteProfile.openaiApiKey === 'string'
+          ? remoteProfile.openaiApiKey.trim()
+          : '';
+
+        if (remoteApiKey) {
+          setLocalOpenAIApiKey(serverUrl, publicKey, remoteApiKey);
+          try {
+            await clearRemoteOpenAIApiKey(serverUrl, publicKey, profileContract.id);
+          } catch (error) {
+            console.warn('Failed to clear remote AI API key from profile contract:', error);
+          }
+        }
+
+        profileData = mergeLocalOpenAIApiKey(
+          stripSensitiveProfileFields(remoteProfile),
+          serverUrl,
+          publicKey,
+        );
         profileContractId = profileContract.id;
       } else {
         // Deploy profile contract - SSE listener will handle updating contracts list
@@ -147,8 +170,10 @@ export const readProfile = createAsyncThunk(
           firstName: '',
           lastName: '',
           userPhoto: '',
-          userBio: ''
+          userBio: '',
+          country: '',
         };
+        profileData = mergeLocalOpenAIApiKey(profileData, serverUrl, publicKey);
         // Note: profileContractId will be null here, but will be updated when contracts are refreshed
       }
       
@@ -235,4 +260,4 @@ const userSlice = createSlice({
 });
 
 export const { setCurrentUser, clearError, setContracts, clearUser } = userSlice.actions;
-export default userSlice.reducer; 
+export default userSlice.reducer;

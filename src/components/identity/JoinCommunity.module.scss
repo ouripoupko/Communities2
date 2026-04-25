@@ -135,7 +135,23 @@
     font-size: $text-xl;
     font-weight: $font-semibold;
     color: $gray-800;
-    margin-bottom: $spacing-xl;
+    margin-bottom: $spacing-sm;
+  }
+
+  .tutorialText {
+    font-size: $text-sm;
+    color: $gray-500;
+    line-height: 1.5;
+    margin: 0 0 $spacing-lg 0;
+
+    code {
+      font-family: monospace;
+      font-size: $text-xs;
+      background: $gray-100;
+      padding: 1px 4px;
+      border-radius: $radius-sm;
+      color: $gray-700;
+    }
   }
 
   .scrollXNoWrap {

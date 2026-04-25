@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   HelpCircle, ChevronDown, ChevronRight, Plus, Pencil, Trash2, ThumbsUp,
 } from 'lucide-react';
@@ -6,7 +6,6 @@ import {
 import type { FlowProps } from '../types';
 import * as api from './qaApi';
 import type { Question, Answer } from './qaApi';
-import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './QAFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -52,17 +51,14 @@ const InlineTextForm: React.FC<{
 // ---------------------------------------------------------------------------
 const AnswerItem: React.FC<{
   answer: Answer;
+  instanceId: string;
   myUpvotedId: string | null;
-  currentUser: string;
-  server: string;
-  agent: string;
-  contractId: string;
-  answers: Answer[];
-  load: () => Promise<void>;
-}> = ({ answer, myUpvotedId, currentUser, server, agent, contractId, answers, load }) => {
+  onRefresh: () => void;
+}> = ({ answer, instanceId, myUpvotedId, onRefresh }) => {
   const [editing, setEditing] = useState(false);
-  const isOwn     = answer.createdBy === currentUser;
-  const isUpvoted = myUpvotedId === answer.id;
+  const isOwn      = answer.createdBy === api.CURRENT_USER;
+  const isUpvoted  = myUpvotedId === answer.id;
+  const act = (fn: () => void) => { fn(); onRefresh(); };
 
   return (
     <div className={`${styles.answerItem} ${isOwn ? styles.answerOwn : ''}`}>
@@ -70,10 +66,7 @@ const AnswerItem: React.FC<{
       <div className={styles.upvoteColumn}>
         <button
           className={`${styles.upvoteBtn} ${isUpvoted ? styles.upvoteBtnActive : ''}`}
-          onClick={async () => {
-            await api.toggleUpvote(server, agent, contractId, answers, answer.id, currentUser);
-            await load();
-          }}
+          onClick={() => act(() => api.toggleUpvote(instanceId, answer.id))}
           title={isUpvoted ? 'Remove upvote' : 'Upvote this answer'}
         >
           <ThumbsUp size={14} />
@@ -90,11 +83,7 @@ const AnswerItem: React.FC<{
             placeholder="Edit your answer…"
             initialValue={answer.text}
             submitLabel="Save"
-            onSubmit={async text => {
-              await api.editAnswer(server, agent, contractId, answers, answer.id, currentUser, text);
-              setEditing(false);
-              await load();
-            }}
+            onSubmit={text => { act(() => api.editAnswer(instanceId, answer.id, text)); setEditing(false); }}
             onCancel={() => setEditing(false)}
           />
         ) : (
@@ -114,10 +103,7 @@ const AnswerItem: React.FC<{
                   </button>
                   <button
                     className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                    onClick={async () => {
-                      await api.deleteAnswer(server, agent, contractId, answers, answer.id, currentUser);
-                      await load();
-                    }}
+                    onClick={() => act(() => api.deleteAnswer(instanceId, answer.id))}
                   >
                     <Trash2 size={11} /> Delete
                   </button>
@@ -136,28 +122,24 @@ const AnswerItem: React.FC<{
 // ---------------------------------------------------------------------------
 const QuestionItem: React.FC<{
   question: Question;
-  answers: Answer[];
-  currentUser: string;
-  server: string;
-  agent: string;
-  contractId: string;
-  questions: Question[];
-  load: () => Promise<void>;
-}> = ({ question, answers, currentUser, server, agent, contractId, questions, load }) => {
-  const sortedAnswers = api.getSortedAnswers(answers, question.id);
+  instanceId: string;
+  tick: number;
+  onRefresh: () => void;
+}> = ({ question, instanceId, tick, onRefresh }) => {
+  const answers = api.getSortedAnswers(instanceId, question.id);
+  void tick; // consumed only to trigger re-render
   const [expanded,     setExpanded]     = useState(true);
   const [showAll,      setShowAll]      = useState(false);
   const [addingAnswer, setAddingAnswer] = useState(false);
 
-  const myUpvotedId = api.getMyUpvotedAnswerId(answers, question.id, currentUser);
-  const canAdd      = api.canAddAnswer(answers, question.id, currentUser);
+  const act = (fn: () => void) => { fn(); onRefresh(); };
+  const myUpvotedId = api.getMyUpvotedAnswerId(instanceId, question.id);
+  const canAdd      = api.canAddAnswer(instanceId, question.id);
 
   // Always show at least the top answer; rest are behind "show more"
-  const topAnswer   = sortedAnswers[0] ?? null;
-  const remaining   = sortedAnswers.slice(1);
-  const hiddenCount = showAll ? 0 : remaining.length;
-
-  const answerItemProps = { currentUser, server, agent, contractId, answers, load };
+  const topAnswer        = answers[0] ?? null;
+  const remaining        = answers.slice(1);
+  const hiddenCount      = showAll ? 0 : remaining.length;
 
   return (
     <div className={styles.questionCard}>
@@ -175,16 +157,12 @@ const QuestionItem: React.FC<{
         <span className={styles.questionText}>{question.text}</span>
         <div className={styles.questionHeaderRight}>
           <span className={styles.answerCount}>
-            {sortedAnswers.length} answer{sortedAnswers.length !== 1 ? 's' : ''}
+            {answers.length} answer{answers.length !== 1 ? 's' : ''}
           </span>
-          {api.canDeleteQuestion(question, currentUser) && (
+          {api.canDeleteQuestion(question) && (
             <button
               className={styles.questionDeleteBtn}
-              onClick={async e => {
-                e.stopPropagation();
-                await api.deleteQuestion(server, agent, contractId, questions, answers, question.id, currentUser);
-                await load();
-              }}
+              onClick={e => { e.stopPropagation(); act(() => api.deleteQuestion(instanceId, question.id)); }}
               title="Delete question"
             >
               <Trash2 size={12} />
@@ -194,12 +172,12 @@ const QuestionItem: React.FC<{
       </div>
 
       <div className={styles.questionMeta}>
-        by {question.createdBy === currentUser ? 'you' : question.createdBy}
+        by {question.createdBy === api.CURRENT_USER ? 'you' : question.createdBy}
       </div>
 
       {expanded && (
         <div className={styles.answersSection}>
-          {sortedAnswers.length === 0 && !addingAnswer && (
+          {answers.length === 0 && !addingAnswer && (
             <p className={styles.noAnswers}>No answers yet — be the first to answer.</p>
           )}
 
@@ -208,8 +186,9 @@ const QuestionItem: React.FC<{
             <AnswerItem
               key={topAnswer.id}
               answer={topAnswer}
+              instanceId={instanceId}
               myUpvotedId={myUpvotedId}
-              {...answerItemProps}
+              onRefresh={onRefresh}
             />
           )}
 
@@ -228,8 +207,9 @@ const QuestionItem: React.FC<{
             <AnswerItem
               key={a.id}
               answer={a}
+              instanceId={instanceId}
               myUpvotedId={myUpvotedId}
-              {...answerItemProps}
+              onRefresh={onRefresh}
             />
           ))}
 
@@ -249,10 +229,9 @@ const QuestionItem: React.FC<{
               <InlineTextForm
                 placeholder="Write your answer…"
                 submitLabel="Post Answer"
-                onSubmit={async text => {
-                  await api.addAnswer(server, agent, contractId, currentUser, answers, question.id, text);
+                onSubmit={text => {
+                  act(() => api.addAnswer(instanceId, question.id, text));
                   setAddingAnswer(false);
-                  await load();
                 }}
                 onCancel={() => setAddingAnswer(false)}
               />
@@ -274,43 +253,16 @@ const QuestionItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const QAFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers,   setAnswers]   = useState<Answer[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
+const QAFlow: React.FC<FlowProps> = ({ instanceId }) => {
+  const [questions, setQuestions] = useState(() => api.getQuestions(instanceId));
   const [addingQ,   setAddingQ]   = useState(false);
+  // tick forces QuestionItems to re-derive sorted answers from the API after mutations
+  const [tick, setTick] = useState(0);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const [qs, as] = await Promise.all([
-        api.loadQuestions(flowServer, flowAgent, instanceId),
-        api.loadAnswers(flowServer, flowAgent, instanceId),
-      ]);
-      setQuestions(qs.sort((a, b) => b.createdAt - a.createdAt));
-      setAnswers(as);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [instanceId, flowServer, flowAgent]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
-
-  const questionItemProps = {
-    answers,
-    currentUser,
-    server: flowServer,
-    agent: flowAgent,
-    contractId: instanceId,
-    questions,
-    load,
-  };
+  const refresh = useCallback(() => {
+    setQuestions(api.getQuestions(instanceId));
+    setTick(t => t + 1);
+  }, [instanceId]);
 
   return (
     <div className={styles.container}>
@@ -325,10 +277,10 @@ const QAFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curren
         <InlineTextForm
           placeholder="Ask a question…"
           submitLabel="Post Question"
-          onSubmit={async text => {
-            await api.addQuestion(flowServer, flowAgent, instanceId, currentUser, text);
+          onSubmit={text => {
+            api.addQuestion(instanceId, text);
+            refresh();
             setAddingQ(false);
-            await load();
           }}
           onCancel={() => setAddingQ(false)}
         />
@@ -347,7 +299,9 @@ const QAFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curren
             <QuestionItem
               key={q.id}
               question={q}
-              {...questionItemProps}
+              instanceId={instanceId}
+              tick={tick}
+              onRefresh={refresh}
             />
           ))}
         </div>

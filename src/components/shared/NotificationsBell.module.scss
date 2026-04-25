@@ -1,0 +1,105 @@
+.wrapper { position: relative; }
+
+.bellBtn {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: #e6edf7;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: #e64949;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 280px;
+  max-width: 360px;
+  max-height: 400px;
+  overflow: auto;
+  background: #162136;
+  border: 1px solid #22304c;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  z-index: 500;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #22304c;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e6edf7;
+}
+
+.markAll {
+  background: transparent;
+  border: none;
+  color: #8fa0bb;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.empty {
+  padding: 20px;
+  color: #8fa0bb;
+  font-size: 12px;
+  text-align: center;
+}
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: transparent;
+  color: #c8d2e0;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+
+  &:hover { background: rgba(255, 255, 255, 0.04); }
+
+  .title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e6edf7;
+    margin-bottom: 2px;
+  }
+
+  .body {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+}
+
+.unread .title::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2a5bd7;
+  margin-right: 6px;
+  vertical-align: middle;
+}

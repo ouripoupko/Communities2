@@ -1,9 +1,6 @@
 import { contractRead, contractWrite, deployContract } from '../api';
 import type { IMethod } from '../interfaces';
-import communityContractCode from '../../assets/contracts/community_contract.py?raw';
-import issueContractCode from '../../assets/contracts/issue_contract.py?raw';
-import initiativeContractCode from '../../assets/contracts/initiative_contract.py?raw';
-
+const communityContractCode = '';const issueContractCode = '';const initiativeContractCode = '';
 /**
  * Community contract interface
  * Handles all community-specific contract calls
@@ -26,10 +23,10 @@ export async function createCommunity(
   communityName: string,
   communityDescription: string,
   profile: string | null
-  
-) {
+
+): Promise<string | null> {
   // Deploy the community contract
-  const contractId = await deployContract({
+  const deployResponse = await deployContract({
     serverUrl,
     publicKey,
     name: communityName,
@@ -37,7 +34,9 @@ export async function createCommunity(
     code: communityContractCode,
     profile: profile || undefined,
   });
-  
+
+  const contractId = (deployResponse as { id?: string })?.id ?? (deployResponse as string | undefined);
+
   // Set properties: name, description, createdAt
   if (contractId) {
     await contractWrite({
@@ -90,6 +89,8 @@ export async function createCommunity(
       } as IMethod,
     });
   }
+
+  return contractId ?? null;
 }
 
 /**
@@ -226,7 +227,7 @@ export async function getIssues(
 
 export interface Collaboration {
   id: string;
-  type: 'initiative' | 'wish' | 'agreement';
+  type: 'initiative' | 'wish' | 'agreement' | 'collab';
   title: string;
   description?: string;
   dreamNeed?: string;
@@ -249,7 +250,7 @@ export async function createInitiative(
   serverUrl: string,
   publicKey: string,
   communityId: string,
-  initiative: { title: string; description?: string },
+  initiative: { title: string; description?: string; evidence?: string[]; countries?: string[] },
 ) {
   const response = await deployContract({
     serverUrl,
@@ -263,6 +264,9 @@ export async function createInitiative(
   const details = {
     title: initiative.title,
     description: initiative.description || '',
+    evidence: initiative.evidence || [],
+    countries: initiative.countries || [],
+    author: publicKey,
     createdAt: Date.now(),
     currencyGoal: 100,
     currencyGathered: 0,
@@ -349,6 +353,39 @@ export async function requestJoin(
     } as IMethod,
   });
   return response;
+}
+
+export async function recordActivity(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  return contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'record_activity', values: {} } as IMethod,
+  });
+}
+
+export async function getActiveMembers(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  days: number,
+): Promise<string[]> {
+  const result = await contractRead({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'get_active_members', values: { days } } as IMethod,
+  });
+  // Old communities without this method return null; throw so callers
+  // can distinguish "no method" from a legitimate empty list.
+  if (!Array.isArray(result)) {
+    throw new Error('get_active_members unavailable');
+  }
+  return result as string[];
 }
 
 /**

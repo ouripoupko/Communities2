@@ -1,16 +1,18 @@
 @use '../../../../styles/variables' as *;
+@use 'sass:color';
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-.emptyState {
+// ─── Setup screen ─────────────────────────────────────────────────────────────
+.setup {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: $spacing-lg;
-  padding: $spacing-3xl 0;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: $spacing-2xl 0;
 }
 
-.emptyIcon {
+.setupIcon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,132 +23,28 @@
   color: $primary;
 }
 
-.emptyText {
+.setupTitle {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: $gray-900;
+  margin: 0;
+  text-align: center;
+}
+
+.setupSubtitle {
   font-size: $text-sm;
   color: $gray-500;
   margin: 0;
-}
-
-// ─── Dialog ───────────────────────────────────────────────────────────────────
-
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: $spacing-lg;
-}
-
-.dialog {
-  background: white;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-lg;
-  width: 90%;
-  max-width: 520px;
-  max-height: 90vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: $spacing-xl;
-  border-bottom: 1px solid $gray-200;
-}
-
-.dialogTitle {
-  font-size: $text-lg;
-  font-weight: $font-semibold;
-  color: $gray-800;
-  margin: 0;
-}
-
-.closeButton {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  line-height: 1;
-  color: $gray-500;
-  cursor: pointer;
-  padding: 0 $spacing-xs;
-  border-radius: $radius-sm;
-  transition: all $transition-base;
-
-  &:hover { background: $gray-100; color: $gray-800; }
-}
-
-.dialogContent {
-  padding: $spacing-xl;
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
-}
-
-.dialogActions {
-  display: flex;
-  gap: $spacing-md;
-  justify-content: flex-end;
-  padding: $spacing-lg $spacing-xl;
-  border-top: 1px solid $gray-200;
-  background: $gray-50;
-  border-radius: 0 0 $radius-lg $radius-lg;
-}
-
-.btnCreate {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xs;
-  padding: $spacing-md $spacing-xl;
-  background: $primary;
-  color: white;
-  border: none;
-  border-radius: $radius-md;
-  font-size: $text-sm;
-  font-weight: $font-semibold;
-  cursor: pointer;
-  transition: background $transition-base;
-
-  &:hover { background: $primary-dark; }
-}
-
-.btnCancel {
-  padding: $spacing-md $spacing-xl;
-  background: white;
-  color: $gray-700;
-  border: 1px solid $gray-300;
-  border-radius: $radius-md;
-  font-size: $text-sm;
-  font-weight: $font-medium;
-  cursor: pointer;
-  transition: all $transition-base;
-
-  &:hover { background: $gray-50; }
+  text-align: center;
+  line-height: 1.6;
 }
 
 // ─── Shared form elements ──────────────────────────────────────────────────────
-
 .formGroup {
   display: flex;
   flex-direction: column;
   gap: $spacing-xs;
   width: 100%;
-}
-
-.formRow {
-  display: flex;
-  gap: $spacing-md;
-  width: 100%;
-
-  .formGroup { flex: 1; }
 }
 
 .label {
@@ -171,7 +69,6 @@
   box-sizing: border-box;
   transition: border-color $transition-base;
   background: white;
-  font-family: inherit;
 
   &:focus { border-color: $primary; }
   &::placeholder { color: $gray-400; }
@@ -180,6 +77,7 @@
 .textarea {
   @extend .input;
   resize: vertical;
+  font-family: inherit;
   line-height: 1.5;
 }
 
@@ -207,14 +105,31 @@
   &:hover { background: $primary-dark; }
 }
 
-// ─── Main container ────────────────────────────────────────────────────────────
+.btnSecondary {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-lg;
+  background: none;
+  border: 1.5px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-600;
+  cursor: pointer;
+  transition: all $transition-base;
 
+  &:hover { border-color: $primary; color: $primary; }
+}
+
+// ─── Root container ────────────────────────────────────────────────────────────
 .container {
   display: flex;
   flex-direction: column;
-  gap: $spacing-lg;
+  gap: $spacing-xl;
 }
 
+// ─── Event header ──────────────────────────────────────────────────────────────
 .eventHeader {
   display: flex;
   align-items: flex-start;
@@ -223,14 +138,10 @@
   border-bottom: 1.5px solid $gray-100;
 }
 
-.eventHeaderText {
-  flex: 1;
-}
-
 .eventIcon {
   color: $primary;
   flex-shrink: 0;
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .eventTitle {
@@ -247,90 +158,382 @@
   line-height: 1.5;
 }
 
+// ─── Add slot form ─────────────────────────────────────────────────────────────
+.addSlotForm {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-lg;
+  background: $gray-50;
+  border: 1.5px dashed $gray-300;
+  border-radius: $radius-lg;
+}
+
+.addSlotFields {
+  display: flex;
+  gap: $spacing-md;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  .formGroup {
+    flex: 1;
+    min-width: 120px;
+  }
+}
+
+.btnAdd {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-md $spacing-lg;
+  background: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background $transition-base;
+  align-self: flex-end;
+  height: 40px;
+
+  &:hover { background: $primary-dark; }
+}
+
+.noSlots {
+  color: $gray-500;
+  font-size: $text-sm;
+  text-align: center;
+  padding: $spacing-3xl 0;
+  margin: 0;
+}
+
 .hint {
   font-size: $text-sm;
   color: $gray-500;
   margin: 0;
-  line-height: 1.5;
 }
 
-// ─── Timeline grid ─────────────────────────────────────────────────────────────
-
+// ─── Availability grid ─────────────────────────────────────────────────────────
 .gridWrapper {
   overflow-x: auto;
   border-radius: $radius-lg;
   border: 1.5px solid $gray-200;
   box-shadow: $shadow-sm;
-  user-select: none;
 }
 
 .grid {
   border-collapse: collapse;
+  width: 100%;
+  min-width: 400px;
   background: white;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
+// Corner (top-left empty cell)
 .cornerCell {
-  min-width: 90px;
-  padding: $spacing-sm $spacing-md;
+  min-width: 120px;
+  padding: $spacing-md $spacing-lg;
   background: $gray-50;
   border-bottom: 1.5px solid $gray-200;
   border-right: 1.5px solid $gray-200;
 }
 
-.timeHeader {
-  width: 28px;
-  padding: $spacing-xs 0;
-  text-align: left;
-  font-size: 10px;
-  font-weight: $font-semibold;
-  color: $gray-400;
+// Slot column headers
+.slotHeader {
+  padding: $spacing-sm $spacing-md;
+  text-align: center;
   background: $gray-50;
   border-bottom: 1.5px solid $gray-200;
   border-right: 1px solid $gray-100;
-  white-space: nowrap;
-  overflow: visible;
+  min-width: 110px;
+  vertical-align: top;
 
   &:last-child { border-right: none; }
 }
 
-.dayLabel {
-  padding: $spacing-xs $spacing-md;
-  background: $gray-50;
-  border-bottom: 1px solid $gray-100;
-  border-right: 1.5px solid $gray-200;
+.bestSlot {
+  background: rgba(16, 185, 129, 0.07);
+  border-bottom-color: $success;
+}
+
+.confirmedSlot {
+  background: rgba(59, 130, 246, 0.08);
+  border-bottom: 2px solid $primary;
+}
+
+.slotDate {
   font-size: $text-xs;
   font-weight: $font-semibold;
-  color: $gray-600;
+  color: $gray-700;
   white-space: nowrap;
 }
 
-.slot {
-  width: 28px;
-  height: 32px;
-  border-bottom: 1px solid $gray-100;
-  border-right: 1px solid $gray-100;
-  cursor: crosshair;
-  position: relative;
-  text-align: center;
-  vertical-align: middle;
-  transition: filter $transition-fast;
-
-  &:last-child { border-right: none; }
-  &:hover { filter: brightness(0.88); }
+.slotTime {
+  font-size: $text-xs;
+  color: $gray-500;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 
-.slotMine {
-  background: rgba(59, 130, 246, 0.35) !important;
-  border-color: rgba(59, 130, 246, 0.4);
+.bestBadge {
+  display: inline-block;
+  margin-top: $spacing-xs;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: $success;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: $radius-full;
+  padding: 1px $spacing-sm;
+}
 
+.confirmedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: $spacing-xs;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: $primary;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: $radius-full;
+  padding: 1px $spacing-sm;
+}
+
+.slotActions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: $spacing-xs;
+}
+
+.btnConfirmSlot {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px $spacing-sm;
+  background: $success;
+  color: white;
+  border: none;
+  border-radius: $radius-sm;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background $transition-base;
+
+  &:hover { background: color.adjust($success, $lightness: -8%); }
+}
+
+.btnRemoveSlot {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px $spacing-xs;
+  background: none;
+  border: 1px solid $gray-300;
+  border-radius: $radius-sm;
+  color: $gray-400;
+  cursor: pointer;
+  font-size: $text-xs;
+  transition: all $transition-base;
+
+  &:hover { border-color: $error; color: $error; }
+}
+
+// Participant name column
+.participantCell {
+  padding: $spacing-sm $spacing-lg;
+  border-right: 1.5px solid $gray-200;
+  border-bottom: 1px solid $gray-100;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  background: $gray-50;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-full;
+  background: $gray-200;
+  color: $gray-600;
+  font-size: $text-xs;
+  font-weight: $font-bold;
+  flex-shrink: 0;
+}
+
+.avatarMe {
+  background: rgba(59, 130, 246, 0.15);
+  color: $primary-dark;
+}
+
+.participantName {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: $gray-700;
+}
+
+// Availability cells
+.cell {
+  text-align: center;
+  padding: $spacing-sm;
+  border-bottom: 1px solid $gray-100;
+  border-right: 1px solid $gray-100;
+  font-size: $text-base;
+  transition: background $transition-fast;
+
+  &:last-child { border-right: none; }
+}
+
+.myRow .cell {
+  cursor: pointer;
   &:hover { filter: brightness(0.92); }
 }
 
-.slotCount {
-  font-size: 9px;
+.av_yes   { background: rgba(16, 185, 129, 0.15); }
+.av_maybe { background: rgba(245, 158, 11, 0.15); }
+.av_no    { background: rgba(220, 38, 38, 0.08); }
+.av_none  { background: white; }
+
+.cellConfirmed { background: rgba(59, 130, 246, 0.06) !important; }
+
+.avIcon {
+  font-size: $text-base;
   font-weight: $font-bold;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 32px;
-  pointer-events: none;
+  line-height: 1;
+}
+
+// Summary row
+.summaryRow {
+  background: $gray-50;
+  font-weight: $font-semibold;
+
+  .participantCell {
+    font-size: $text-xs;
+    color: $gray-500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.summaryLabel {
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: $gray-500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summaryCell {
+  background: $gray-50 !important;
+  cursor: default !important;
+}
+
+.summaryYes {
+  display: block;
+  font-size: $text-xs;
+  font-weight: $font-bold;
+  color: $success;
+}
+
+.summaryMaybe {
+  display: block;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: $warning;
+}
+
+// ─── Confirmed banner ──────────────────────────────────────────────────────────
+.confirmedBanner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-lg;
+  padding: $spacing-3xl $spacing-2xl;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.2);
+  border-radius: $radius-xl;
+  text-align: center;
+}
+
+.confirmedIcon {
+  color: $success;
+}
+
+.confirmedTitle {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: $gray-900;
+  margin: 0;
+}
+
+.confirmedDetails {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.confirmedDate {
+  font-size: $text-xl;
+  font-weight: $font-semibold;
+  color: $primary;
+}
+
+.confirmedTime {
+  font-size: $text-lg;
+  color: $gray-600;
+}
+
+.attendeeSections {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  width: 100%;
+  max-width: 400px;
+}
+
+.attendeeGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.attendeeGroupLabel {
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: $gray-500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.attendeeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  justify-content: center;
+}
+
+.attendeeChip {
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-full;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+}
+
+.chipYes {
+  background: rgba(16, 185, 129, 0.12);
+  color: color.adjust($success, $lightness: -15%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.chipMaybe {
+  background: rgba(245, 158, 11, 0.12);
+  color: color.adjust(#f59e0b, $lightness: -15%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }

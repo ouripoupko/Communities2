@@ -1,0 +1,39 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sm {
+  padding: 2px 6px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.md {
+  padding: 3px 8px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.author {
+  background: rgba(42, 91, 215, 0.15);
+  color: #6aa3ff;
+  border: 1px solid rgba(42, 91, 215, 0.35);
+}
+
+.coAuthor {
+  background: rgba(58, 167, 109, 0.15);
+  color: #6ddfa3;
+  border: 1px solid rgba(58, 167, 109, 0.35);
+}
+
+.expert {
+  background: rgba(217, 167, 59, 0.15);
+  color: #f0c65b;
+  border: 1px solid rgba(217, 167, 59, 0.35);
+}
