@@ -1,20 +1,27 @@
 class QuadraticVote:
     def __init__(self):
         self.proposals = Storage('proposals')
-        self.proposal_count = Storage('proposal_count')
         self.config = Storage('config')
         self.allocations = Storage('allocations')
-        if not self.proposal_count.exists():
-            self.proposal_count['count'] = 0
-        if not self.config.exists():
-            self.config['credits_per_voter'] = 100
-            self.config['status'] = 'open'
+
+    def _ensure_owner(self):
+        if 'owner' not in self.config:
             self.config['owner'] = master()
 
     def _require_owner(self):
         if 'owner' in self.config and self.config['owner'] != master():
             return {'error': 'Only the contract owner can update voting settings'}
         return None
+
+    def _get_credits_per_voter(self):
+        if 'credits_per_voter' in self.config:
+            return self.config['credits_per_voter']
+        return 100
+
+    def _get_status(self):
+        if 'status' in self.config:
+            return self.config['status']
+        return 'open'
 
     def _clean_proposal_text(self, text):
         if type(text) != str:
@@ -54,15 +61,14 @@ class QuadraticVote:
         if cleaned_text is None:
             return {'error': 'Proposal text must be between 1 and 500 characters'}
 
-        count = self.proposal_count['count']
-        proposal_id = 'p' + str(count)
+        ts = timestamp()
+        proposal_id = 'p' + str(ts)
         self.proposals[proposal_id] = {
             'id': proposal_id,
             'text': cleaned_text,
             'author': master(),
-            'timestamp': timestamp(),
+            'timestamp': ts,
         }
-        self.proposal_count['count'] = count + 1
         return proposal_id
 
     def set_credits(self, credits):
@@ -73,6 +79,7 @@ class QuadraticVote:
         if type(credits) != int or credits <= 0:
             return {'error': 'Credits per voter must be a positive whole number'}
 
+        self._ensure_owner()
         self.config['credits_per_voter'] = credits
 
     def set_status(self, status):
@@ -83,12 +90,13 @@ class QuadraticVote:
         if status != 'open' and status != 'closed':
             return {'error': 'Invalid voting status'}
 
+        self._ensure_owner()
         self.config['status'] = status
 
     def get_config(self):
         return {
-            'credits_per_voter': self.config['credits_per_voter'],
-            'status': self.config['status'],
+            'credits_per_voter': self._get_credits_per_voter(),
+            'status': self._get_status(),
         }
 
     def get_proposals(self):
@@ -98,7 +106,7 @@ class QuadraticVote:
         return result
 
     def allocate(self, allocations):
-        status = self.config['status']
+        status = self._get_status()
         if status != 'open':
             return {'error': 'Voting is not open'}
 
@@ -106,7 +114,7 @@ class QuadraticVote:
         if 'error' in normalized:
             return normalized
 
-        credits_per_voter = self.config['credits_per_voter']
+        credits_per_voter = self._get_credits_per_voter()
         total = normalized['total']
         if total > credits_per_voter:
             return {'error': 'Exceeds credit budget'}

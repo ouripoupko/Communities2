@@ -57,6 +57,9 @@ function normalizeTimestamp(raw: number | string | undefined): number {
     if (!Number.isNaN(ms)) return ms;
   }
 
+  // Not a Gloki packed-digit timestamp — fall back to generic number/date parsing.
+  // Warn so the next unexpected shape is loggable without rotting silently.
+  console.warn('[chatApi] Unrecognized timestamp shape, falling back to generic parse:', raw);
   const parsed = Number(raw);
   if (!Number.isNaN(parsed)) return parsed;
   const asDate = Date.parse(raw);

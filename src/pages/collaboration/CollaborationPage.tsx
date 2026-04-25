@@ -41,6 +41,19 @@ function saveTabs(collaborationId: string, tabs: CollaborationTab[]) {
   }
 }
 
+// Drop any persisted tabs whose flowId is no longer registered. Persists the
+// cleaned list back to localStorage so the stale entry doesn't reappear.
+function loadValidTabs(collaborationId: string): CollaborationTab[] {
+  const raw = loadTabs(collaborationId);
+  const valid = raw.filter((t) => getFlow(t.flowId) !== undefined);
+  if (valid.length !== raw.length) {
+    const dropped = raw.length - valid.length;
+    console.warn(`[CollaborationPage] Dropped ${dropped} stale flow tab(s) from localStorage for ${collaborationId}`);
+    saveTabs(collaborationId, valid);
+  }
+  return valid;
+}
+
 interface CollaborationPageProps {
   type: CollaborationType;
   title: string;
@@ -69,9 +82,9 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
     }
   }, [publicKey, serverUrl, communityId, communityMembers, dispatch]);
 
-  const [tabs, setTabs] = useState<CollaborationTab[]>(() => loadTabs(collaborationId));
+  const [tabs, setTabs] = useState<CollaborationTab[]>(() => loadValidTabs(collaborationId));
   const [activeInstanceId, setActiveInstanceId] = useState<string | null>(
-    () => { const saved = loadTabs(collaborationId); return saved.length > 0 ? saved[0].instanceId : null; },
+    () => { const saved = loadValidTabs(collaborationId); return saved.length > 0 ? saved[0].instanceId : null; },
   );
   const [showAddMenu, setShowAddMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -120,8 +133,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const unknownFlowId = activeTab && !activeFlow ? activeTab.flowId : null;
   useEffect(() => {
     if (unknownFlowId) {
-      // Stale localStorage entry or a removed flow.
-      console.error('[CollaborationPage] Unknown flowId on active tab:', unknownFlowId);
+      console.warn('[CollaborationPage] Unknown flowId on active tab:', unknownFlowId);
     }
   }, [unknownFlowId]);
 
@@ -222,10 +234,10 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
           ) : activeTab && !activeFlow ? (
             <div className={styles.unknownFlowCard}>
               <AlertTriangle size={32} className={styles.unknownFlowIcon} />
-              <h3 className={styles.emptyStateTitle}>Unknown tool</h3>
+              <h3 className={styles.emptyStateTitle}>Unknown flow</h3>
               <p>
-                This tab references a flow that isn't available
-                (<code>{activeTab.flowId}</code>).
+                <code>{activeTab.flowId}</code> — your saved view may be stale.
+                Choose another tab, or add a new flow.
               </p>
               <button
                 type="button"
