@@ -1,6 +1,6 @@
 # Communities2
 
-**Branch:** `eston/dev` — deployed to GitHub Pages
+**Branch:** `ui` — deployed to GitHub Pages (UI-only mockup; no backend)
 
 ## Stack
 
@@ -89,7 +89,7 @@
 
 ## Deployment
 
-- GitHub Pages via `.github/workflows/deploy.yml` on push to `eston/dev`
+- GitHub Pages: configured via repo Settings → Pages, source branch `ui`
 - `public/404.html` handles SPA deep-link routing
 - **Production build runs `tsc -b`** — fix all TS errors before pushing
 - Contracts are immutable after deploy — new methods require new communities

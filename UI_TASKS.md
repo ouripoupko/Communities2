@@ -1,4 +1,4 @@
-I have a list of UI tasks for the Communities2 app. Work through them in order. Read the relevant files before making changes. Run `tsc -b --noEmit` and `vite build` after completing all tasks. Commit and push to `eston/dev` when done.
+I have a list of UI tasks for the Communities2 app. Work through them in order. Read the relevant files before making changes. Run `tsc -b --noEmit` and `vite build` after completing all tasks. Commit and push to `ui` when done.
 
 **1. Communities list — hide toggle visibility**
 In the communities grid (likely in `src/pages/IdentityView.tsx` or a component it renders), there's a toggle to hide/show communities but it's not visually obvious. Replace or supplement it with an `EyeOff` icon (from lucide-react) so users can clearly see and tap it. Make sure the icon changes to `Eye` when the community is hidden (to indicate "show again").
