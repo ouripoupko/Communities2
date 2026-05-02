@@ -78,6 +78,7 @@ export async function deployContract({
   contract,
   code,
   profile,
+  constructorArgs = {},
 }: {
   serverUrl: string;
   publicKey: string;
@@ -85,8 +86,8 @@ export async function deployContract({
   contract: string;
   code: string;
   profile?: string;
+  constructorArgs?: Record<string, unknown>;
 }) {
-  // Construct contractData object with defaults
   const contractData = {
     id: '',
     name,
@@ -99,7 +100,7 @@ export async function deployContract({
     group: [],
     threshold: 0,
     profile: profile || null,
-    constructor: {},
+    constructor: constructorArgs,
   };
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}?action=deploy_contract`,

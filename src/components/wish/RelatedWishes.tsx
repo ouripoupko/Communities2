@@ -156,8 +156,8 @@ const RelatedWishes: React.FC<RelatedWishesProps> = ({ wishId, communityId }) =>
   };
 
   const handleWishClick = (item: Collaboration) => {
-    navigate(`/wish/${communityId}/${item.id}/related`, {
-      state: { wish: item },
+    navigate(`/wish/${item.id}/related`, {
+      state: { wish: item, communityId },
     });
   };
 

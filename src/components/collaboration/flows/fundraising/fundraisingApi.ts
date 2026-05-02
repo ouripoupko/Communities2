@@ -82,13 +82,55 @@ export async function configureFund(
   });
 }
 
+export interface CommunityInfo {
+  communityServer: string;
+  communityAgent: string;
+  communityId: string;
+  fundAccountName: string;
+}
+
+export async function loadCommunityInfo(
+  server: string,
+  agent: string,
+  contractId: string,
+): Promise<CommunityInfo | null> {
+  try {
+    const [community, fundAccountName] = await Promise.all([
+      contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_community', values: {} } as IMethod }),
+      contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_fund_account_name', values: {} } as IMethod }),
+    ]);
+    const c = community as Record<string, unknown>;
+    if (!c?.id) return null;
+    return {
+      communityServer:  String(c.server ?? ''),
+      communityAgent:   String(c.agent  ?? ''),
+      communityId:      String(c.id     ?? ''),
+      fundAccountName:  String(fundAccountName ?? ''),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function contribute(
   server: string,
   agent: string,
   contractId: string,
   currentUser: string,
   amount: number,
+  communityInfo?: CommunityInfo,
 ): Promise<void> {
+  if (communityInfo) {
+    await contractWrite({
+      serverUrl: communityInfo.communityServer,
+      publicKey: currentUser,
+      contractId: communityInfo.communityId,
+      method: {
+        name: 'transfer',
+        values: { to: communityInfo.fundAccountName, value: amount },
+      } as IMethod,
+    });
+  }
   await contractWrite({
     serverUrl: server,
     publicKey: agent,

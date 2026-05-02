@@ -4,6 +4,7 @@ import { Plus, Loader } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { FLOW_REGISTRY, FLOW_GROUPS, getFlow } from '../../components/collaboration/flows/registry';
 import { deployFlowContract, addFlow, getFlows } from '../../services/contracts/flows';
+import { getCommunity } from '../../services/contracts/community';
 import { useAppSelector } from '../../store/hooks';
 import cs from '../Container.module.scss';
 import styles from './CollaborationPage.module.scss';
@@ -24,7 +25,8 @@ interface CollaborationPageProps {
   title: string;
   subtitle?: string;
   collaborationId: string;
-  communityId: string;
+  /** Community id for back-navigation. If omitted, derived from the first loaded flow contract. */
+  communityId?: string;
   collaborationServer?: string;
   collaborationAgent?: string;
 }
@@ -34,7 +36,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   title,
   subtitle,
   collaborationId,
-  communityId,
+  communityId: communityIdProp,
   collaborationServer,
   collaborationAgent,
 }) => {
@@ -47,6 +49,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const [isAddingTab,      setIsAddingTab]       = useState(false);
   const [isLoadingTabs,    setIsLoadingTabs]     = useState(false);
   const [pendingFlow,      setPendingFlow]       = useState<ReturnType<typeof getFlow> | null>(null);
+  const [communityId,      setCommunityId]       = useState<string | undefined>(communityIdProp);
 
   const collabServer = collaborationServer ?? serverUrl;
   const collabAgent  = collaborationAgent  ?? publicKey;
@@ -73,6 +76,14 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
       .finally(() => setIsLoadingTabs(false));
   }, [collabServer, collabAgent, collaborationId]);
 
+  // Derive community from the collaboration contract when not passed as a prop
+  useEffect(() => {
+    if (communityIdProp || !collabServer || !collabAgent || !collaborationId || !publicKey) return;
+    getCommunity(collabServer, publicKey, collaborationId)
+      .then((c) => { if (c?.id) setCommunityId(c.id); })
+      .catch(() => {});
+  }, [communityIdProp, collabServer, collabAgent, collaborationId, publicKey]);
+
   // Deploy flow contract on user's server and register reference in collaboration contract
   const addTab = useCallback(async (flowId: string, initConfig?: Record<string, unknown>) => {
     if (!serverUrl || !publicKey || !collabServer || !collabAgent) return;
@@ -83,7 +94,9 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
       const contractId = await deployFlowContract(serverUrl, publicKey, flowId);
       const flowDef = getFlow(flowId);
       if (initConfig && flowDef?.onInit) {
-        await flowDef.onInit(serverUrl, publicKey, contractId, initConfig, publicKey);
+        const community = await getCommunity(collabServer, publicKey, collaborationId).catch(() => null);
+        const enriched = { ...initConfig, _community: community };
+        await flowDef.onInit(serverUrl, publicKey, contractId, enriched, publicKey);
       }
       const flow = { id: contractId, server: serverUrl, agent: publicKey, type: flowId };
       await addFlow(collabServer, collabAgent, collaborationId, flow);
@@ -128,9 +141,9 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
     <>
     <div className={cs.container}>
       <PageHeader
-        showBackButton={true}
+        showBackButton={!!communityId}
         backButtonText="Back to Community"
-        onBackClick={() => navigate(`/community/${communityId}/collaborations`)}
+        onBackClick={() => communityId && navigate(`/community/${communityId}/collaborations`)}
         title={title}
         subtitle={subtitle}
         layout="two-row"

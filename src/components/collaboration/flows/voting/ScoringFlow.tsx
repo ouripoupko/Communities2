@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { BarChart2, List, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './scoringApi';
 import styles from './ScoringFlow.module.scss';
@@ -200,14 +201,17 @@ const ScoringFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
     void load();
   }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   const handleAddOption = useCallback(async (text: string) => {
     try {
       await api.addOption(flowServer, flowAgent, instanceId, text);
-      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to add option.');
     }
-  }, [flowServer, flowAgent, instanceId, load]);
+  }, [flowServer, flowAgent, instanceId]);
 
   const handleScore = useCallback(async (optionId: string, score: number) => {
     const updatedScores = { ...myScores, [optionId]: score };

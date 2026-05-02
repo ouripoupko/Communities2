@@ -147,6 +147,18 @@ class Community:
                         else:
                             del self.approvals[member]
 
+    def create_fund_account(self, name, owner):
+        if name in self.accounts:
+            return False
+        self.accounts[name] = {
+            'balanceOf': 0,
+            'creationTime': timestamp(),
+            'elapsedDays': 0,
+            'type': 'fund',
+            'owner': owner
+        }
+        return True
+
     def check_balance(self, account, update = False):
         if account not in self.accounts:
             return 0
@@ -158,7 +170,8 @@ class Community:
             return account_data['balanceOf']
 
         burnFactor = (100 - parameters('burn')) / 100
-        mint = parameters('mint')
+        is_fund = account_data.get('type') == 'fund'
+        mint = 0 if is_fund else parameters('mint')
         for i in range(days_passed):
             account_data['balanceOf'] *= burnFactor
             account_data['balanceOf'] += mint
@@ -170,6 +183,9 @@ class Community:
     def transfer(self, to, value):
         sender = master()
         if sender not in self.accounts or to not in self.accounts:
+            return False
+        sender_data = self.accounts[sender].get_dict()
+        if sender_data.get('type') == 'fund':
             return False
         self.check_balance(sender, True)
         self.check_balance(to, True)
@@ -184,9 +200,32 @@ class Community:
             return True
         return False
 
+    def fund_transfer(self, fund_name, to, value):
+        caller = master()
+        if fund_name not in self.accounts or to not in self.accounts:
+            return False
+        fund_data = self.accounts[fund_name].get_dict()
+        if fund_data.get('type') != 'fund' or fund_data.get('owner') != caller:
+            return False
+        self.check_balance(fund_name, True)
+        self.check_balance(to, True)
+
+        fund_account = self.accounts[fund_name].get_dict()
+        to_account = self.accounts[to].get_dict()
+        if fund_account['balanceOf'] >= value:
+            fund_account['balanceOf'] -= value
+            to_account['balanceOf'] += value
+            self.accounts[fund_name] = fund_account
+            self.accounts[to] = to_account
+            return True
+        return False
+
     def get_balance(self):
         account = master()
         return self.check_balance(account)
+
+    def get_fund_balance(self, fund_name):
+        return self.check_balance(fund_name)
 
     def before_parameters_update(self):
         for account in self.accounts:

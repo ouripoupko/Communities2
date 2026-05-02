@@ -109,8 +109,8 @@ const Seeds: React.FC<SeedsProps> = ({ wishId, communityId }) => {
       setShowConfirm(null);
       refetchSeeds();
       const { initiativeId, hostServer, hostAgent } = result;
-      const url = `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${communityId}/${initiativeId}/roadmap`;
-      navigate(url);
+      const url = `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${initiativeId}/roadmap`;
+      navigate(url, { state: { communityId } });
     } finally {
       setLaunchSubmitting(false);
     }
@@ -118,8 +118,8 @@ const Seeds: React.FC<SeedsProps> = ({ wishId, communityId }) => {
 
   const handleLaunchedCardClick = (seed: WishSeed) => {
     if (!seed.initiativeId || !seed.hostServer || !seed.hostAgent) return;
-    const url = `/initiative/${encodeURIComponent(seed.hostServer)}/${encodeURIComponent(seed.hostAgent)}/${communityId}/${seed.initiativeId}/roadmap`;
-    navigate(url);
+    const url = `/initiative/${encodeURIComponent(seed.hostServer)}/${encodeURIComponent(seed.hostAgent)}/${seed.initiativeId}/roadmap`;
+    navigate(url, { state: { communityId } });
   };
 
   return (

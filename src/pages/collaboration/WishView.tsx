@@ -4,12 +4,11 @@ import CollaborationPage from './CollaborationPage';
 import type { Collaboration } from '../../services/contracts/community';
 
 const WishView: React.FC = () => {
-  const { communityId, wishId } = useParams<{
-    communityId: string;
-    wishId: string;
-  }>();
+  const { wishId } = useParams<{ wishId: string }>();
   const location = useLocation();
-  const wish = (location.state as { wish?: Collaboration })?.wish;
+  const state = location.state as { wish?: Collaboration; communityId?: string } | null;
+  const wish = state?.wish;
+  const communityId = state?.communityId;
 
   const authorKey = wish?.author;
   const subtitle = authorKey
@@ -22,7 +21,7 @@ const WishView: React.FC = () => {
       title={wish?.title ?? 'Wish'}
       subtitle={subtitle}
       collaborationId={wishId!}
-      communityId={communityId!}
+      communityId={communityId}
       collaborationServer={wish?.hostServer}
       collaborationAgent={wish?.hostAgent}
     />

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { FileText, MessageSquare, Download } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import * as api from './docApi';
 import type { DocElement, DocumentState, ElementType } from './docApi';
 import { downloadDocumentPDF } from './docPdf';
@@ -79,14 +80,13 @@ interface NodeProps {
   docState: DocumentState;
   ui: UIMode;
   setUI: (m: UIMode) => void;
-  reload: () => Promise<void>;
   currentUser: string;
   flowServer: string;
   flowAgent: string;
   instanceId: string;
 }
 
-const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, currentUser, flowServer, flowAgent, instanceId }) => {
+const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, currentUser, flowServer, flowAgent, instanceId }) => {
   const { elements, proposals } = docState;
 
   const isEditing       = ui.tag === 'editing'       && ui.id       === el.id;
@@ -107,7 +107,6 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
     if (!ui.text.trim()) return;
     await api.updateElement(flowServer, flowAgent, instanceId, elements, el.id, currentUser, ui.text);
     setUI({ tag: 'idle' });
-    await reload();
   };
 
   const confirmProposeEdit = async () => {
@@ -115,7 +114,6 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
     if (!ui.text.trim()) return;
     await api.proposeEdit(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser, ui.text);
     setUI({ tag: 'idle' });
-    await reload();
   };
 
   const confirmAdd = async () => {
@@ -123,7 +121,6 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
     if (!ui.text.trim()) return;
     await api.addElement(flowServer, flowAgent, instanceId, elements, currentUser, ui.childType, ui.parentId, ui.text);
     setUI({ tag: 'idle' });
-    await reload();
   };
 
   return (
@@ -156,7 +153,6 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
                 onClick={async () => {
                   await api.deleteElement(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser);
-                  await reload();
                 }}>
                 Delete
               </button>
@@ -171,7 +167,6 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
                 onClick={async () => {
                   await api.proposeDelete(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser);
-                  await reload();
                 }}>
                 Propose Delete
               </button>
@@ -203,7 +198,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, reload, cur
         <div className={styles.children}>
           {children.map(child => (
             <ElementNode key={child.id} el={child} docState={docState}
-              ui={ui} setUI={setUI} reload={reload}
+              ui={ui} setUI={setUI}
               currentUser={currentUser} flowServer={flowServer} flowAgent={flowAgent} instanceId={instanceId} />
           ))}
         </div>
@@ -235,12 +230,11 @@ const DocumentTab: React.FC<{
   docState: DocumentState;
   ui: UIMode;
   setUI: (m: UIMode) => void;
-  reload: () => Promise<void>;
   currentUser: string;
   flowServer: string;
   flowAgent: string;
   instanceId: string;
-}> = ({ docState, ui, setUI, reload, currentUser, flowServer, flowAgent, instanceId }) => {
+}> = ({ docState, ui, setUI, currentUser, flowServer, flowAgent, instanceId }) => {
   const { elements } = docState;
 
   const title    = elements.find(e => e.type === 'title');
@@ -253,14 +247,12 @@ const DocumentTab: React.FC<{
     if (ui.tag !== 'editing') return;
     await api.updateElement(flowServer, flowAgent, instanceId, elements, 'title', currentUser, ui.text);
     setUI({ tag: 'idle' });
-    await reload();
   };
 
   const confirmAddSection = async () => {
     if (ui.tag !== 'adding' || !ui.text.trim()) return;
     await api.addElement(flowServer, flowAgent, instanceId, elements, currentUser, 'section', null, ui.text);
     setUI({ tag: 'idle' });
-    await reload();
   };
 
   return (
@@ -290,7 +282,7 @@ const DocumentTab: React.FC<{
       {/* Sections */}
       {sections.map(s => (
         <ElementNode key={s.id} el={s} docState={docState}
-          ui={ui} setUI={setUI} reload={reload}
+          ui={ui} setUI={setUI}
           currentUser={currentUser} flowServer={flowServer} flowAgent={flowAgent} instanceId={instanceId} />
       ))}
 
@@ -321,12 +313,11 @@ const DocumentTab: React.FC<{
 // ---------------------------------------------------------------------------
 const ProposalsTab: React.FC<{
   docState: DocumentState;
-  reload: () => Promise<void>;
   currentUser: string;
   flowServer: string;
   flowAgent: string;
   instanceId: string;
-}> = ({ docState, reload, currentUser, flowServer, flowAgent, instanceId }) => {
+}> = ({ docState, currentUser, flowServer, flowAgent, instanceId }) => {
   const { elements, proposals } = docState;
 
   if (proposals.length === 0) {
@@ -379,7 +370,6 @@ const ProposalsTab: React.FC<{
                 className={`${styles.btnVote} ${myVote === 'support' ? styles.btnVoteActive : ''}`}
                 onClick={async () => {
                   await api.voteProposal(flowServer, flowAgent, instanceId, elements, proposals, p.id, currentUser, 'support');
-                  await reload();
                 }}>
                 Support ({p.supporters.length})
               </button>
@@ -387,7 +377,6 @@ const ProposalsTab: React.FC<{
                 className={`${styles.btnVote} ${styles.btnVoteReject} ${myVote === 'reject' ? styles.btnVoteActive : ''}`}
                 onClick={async () => {
                   await api.voteProposal(flowServer, flowAgent, instanceId, elements, proposals, p.id, currentUser, 'reject');
-                  await reload();
                 }}>
                 Reject ({p.rejecters.length})
               </button>
@@ -419,6 +408,10 @@ const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curre
   }, [flowServer, flowAgent, instanceId]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void reload();
+  }, [instanceId, reload]));
 
   if (error) {
     return <FlowError message={error} onRetry={reload} />;
@@ -456,7 +449,6 @@ const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curre
           docState={docState}
           ui={ui}
           setUI={setUI}
-          reload={reload}
           currentUser={currentUser}
           flowServer={flowServer}
           flowAgent={flowAgent}
@@ -466,7 +458,6 @@ const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curre
       {activeTab === 'proposals' && (
         <ProposalsTab
           docState={docState}
-          reload={reload}
           currentUser={currentUser}
           flowServer={flowServer}
           flowAgent={flowAgent}

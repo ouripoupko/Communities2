@@ -45,7 +45,12 @@ const CommunityView: React.FC = () => {
 
   // Find the contract for this community
   const contract = useMemo(() => contracts.find((c) => c.id === communityId), [contracts, communityId]);
-  const props = contract ? communityProperties[contract.id] || {} : null;
+  // useMemo avoids creating a new {} on every render when properties haven't loaded yet,
+  // which would otherwise cause the fetch useEffect to re-run infinitely on server errors.
+  const props = useMemo(
+    () => (contract ? (communityProperties[contract.id] ?? null) : null),
+    [contract, communityProperties],
+  );
 
   // Check if current user is a member of the community
   const isCurrentUserMember = useMemo(() => {
@@ -70,46 +75,22 @@ const CommunityView: React.FC = () => {
     }
   }, [communityId, publicKey, serverUrl, dispatch]);
 
+  // Fetch community data once when community/user credentials change.
+  // props and communityMembers are intentionally excluded from deps — including them
+  // caused an infinite fetch loop when the server returned an error.
   useEffect(() => {
-    if (!communityId) return;
-    
-    // Only fetch properties if we don't have them yet
-    if (!props || Object.keys(props).length === 0) {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          if (user.serverUrl && user.publicKey) {
-            setFetching(true);
-            dispatch(fetchCommunityProperties({ 
-              contractId: communityId, 
-              serverUrl: user.serverUrl, 
-              publicKey: user.publicKey 
-            }))
-            .finally(() => setFetching(false));
-          }
-        } catch {
-          // JSON.parse failed - malformed user data, skip fetch
-        }
-      }
-    }
+    if (!communityId || !publicKey || !serverUrl) return;
+    setFetching(true);
+    dispatch(fetchCommunityProperties({ contractId: communityId, serverUrl, publicKey }))
+      .finally(() => setFetching(false));
+    dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
+  }, [communityId, publicKey, serverUrl, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Initialize members data and event listener
-    if (publicKey && serverUrl && communityId && !communityMembers[communityId]) {
-      dispatch(fetchCommunityMembers({
-        serverUrl: serverUrl,
-        publicKey: publicKey,
-        contractId: communityId,
-      }));
-    }
-
-    // Register event listener for contract_write events
+  // SSE listener for real-time updates — separate effect so it doesn't couple to data fetching.
+  useEffect(() => {
     eventStreamService.addEventListener('contract_write', handleContractWrite);
-
-    return () => {
-      eventStreamService.removeEventListener('contract_write', handleContractWrite);
-    };
-  }, [communityId, props, dispatch, publicKey, serverUrl, communityMembers, handleContractWrite]);
+    return () => eventStreamService.removeEventListener('contract_write', handleContractWrite);
+  }, [handleContractWrite]);
 
   const navItems = [
     { path: 'collaborations', label: 'Collaborations', icon: Handshake },

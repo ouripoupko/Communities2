@@ -46,9 +46,9 @@ function AppContent() {
           <Route path="/identity/*" element={<IdentityView />} />
           <Route path="/community/:communityId/*" element={<CommunityView />} />
           <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
-          <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:communityId/:initiativeId/*" element={<InitiativeView />} />
-          <Route path="/wish/:communityId/:wishId/*" element={<WishView />} />
-          <Route path="/agreement/:communityId/:agreementId" element={<AgreementView />} />
+          <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:initiativeId/*" element={<InitiativeView />} />
+          <Route path="/wish/:wishId/*" element={<WishView />} />
+          <Route path="/agreement/:agreementId" element={<AgreementView />} />
         </Routes>
       </Suspense>
     </Router>

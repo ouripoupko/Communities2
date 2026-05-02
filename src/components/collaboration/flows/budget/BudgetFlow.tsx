@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { PieChart, List, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import * as api from './budgetApi';
 import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './BudgetFlow.module.scss';
@@ -18,8 +19,7 @@ const AllocationTab: React.FC<{
   allocations: api.ParticipantAllocation[];
   myAllocation: Record<string, number>;
   onMyAllocationChange: (updated: Record<string, number>) => void;
-  onReload: () => void;
-}> = ({ flowServer, flowAgent, instanceId, currentUser, items, allocations, myAllocation, onMyAllocationChange, onReload }) => {
+}> = ({ flowServer, flowAgent, instanceId, currentUser, items, allocations, myAllocation, onMyAllocationChange }) => {
   const [inputText, setInputText] = useState('');
   const [error,     setError]     = useState('');
   const [adding,    setAdding]    = useState(false);
@@ -35,7 +35,6 @@ const AllocationTab: React.FC<{
     try {
       await api.addItem(flowServer, flowAgent, instanceId, currentUser, name);
       setInputText('');
-      onReload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to add item.');
     } finally {
@@ -191,6 +190,10 @@ const BudgetFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, cu
 
   useEffect(() => { load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
   if (!budgetState) return null;
@@ -239,7 +242,6 @@ const BudgetFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, cu
           allocations={allocationsWithMine}
           myAllocation={myAllocation}
           onMyAllocationChange={setMyAllocation}
-          onReload={load}
         />
       )}
       {activeTab === 'results' && (

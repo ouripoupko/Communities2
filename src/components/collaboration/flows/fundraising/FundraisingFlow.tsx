@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Heart, Target, Users, X } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import * as api from './fundraisingApi';
 import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './FundraisingFlow.module.scss';
@@ -131,8 +132,8 @@ const ContributeForm: React.FC<{
   flowAgent: string;
   instanceId: string;
   currentUser: string;
-  onContributed: () => void;
-}> = ({ flowServer, flowAgent, instanceId, currentUser, onContributed }) => {
+  communityInfo: api.CommunityInfo | null;
+}> = ({ flowServer, flowAgent, instanceId, currentUser, communityInfo }) => {
   const [amountInput, setAmountInput] = useState('');
   const [error,       setError]       = useState('');
   const [success,     setSuccess]     = useState(false);
@@ -143,11 +144,10 @@ const ContributeForm: React.FC<{
     if (!amount || amount <= 0) { setError('Amount must be positive.'); return; }
     setSubmitting(true);
     try {
-      await api.contribute(flowServer, flowAgent, instanceId, currentUser, amount);
+      await api.contribute(flowServer, flowAgent, instanceId, currentUser, amount, communityInfo ?? undefined);
       setAmountInput('');
       setError('');
       setSuccess(true);
-      onContributed();
       setTimeout(() => setSuccess(false), 2500);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to record contribution.');
@@ -229,8 +229,8 @@ const ActiveFund: React.FC<{
   instanceId: string;
   currentUser: string;
   fund: api.FundState;
-  onReload: () => void;
-}> = ({ flowServer, flowAgent, instanceId, currentUser, fund, onReload }) => {
+  communityInfo: api.CommunityInfo | null;
+}> = ({ flowServer, flowAgent, instanceId, currentUser, fund, communityInfo }) => {
   const raised       = api.totalRaised(fund.contributions);
   const myContrib    = api.contributionByUser(fund.contributions, currentUser);
   const contributors = new Set(fund.contributions.map(c => c.participantId)).size;
@@ -278,7 +278,7 @@ const ActiveFund: React.FC<{
         flowAgent={flowAgent}
         instanceId={instanceId}
         currentUser={currentUser}
-        onContributed={onReload}
+        communityInfo={communityInfo}
       />
 
       <div className={styles.historySection}>
@@ -293,16 +293,21 @@ const ActiveFund: React.FC<{
 // Root
 // ---------------------------------------------------------------------------
 const FundraisingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [fund,    setFund]    = useState<api.FundState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [fund,          setFund]          = useState<api.FundState | null>(null);
+  const [communityInfo, setCommunityInfo] = useState<api.CommunityInfo | null>(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const state = await api.loadFund(flowServer, flowAgent, instanceId);
+      const [state, info] = await Promise.all([
+        api.loadFund(flowServer, flowAgent, instanceId),
+        api.loadCommunityInfo(flowServer, flowAgent, instanceId),
+      ]);
       setFund(state);
+      setCommunityInfo(info);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load fund.');
     } finally {
@@ -311,6 +316,10 @@ const FundraisingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgen
   }, [flowServer, flowAgent, instanceId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
 
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
@@ -324,7 +333,7 @@ const FundraisingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgen
       instanceId={instanceId}
       currentUser={currentUser}
       fund={fund}
-      onReload={load}
+      communityInfo={communityInfo}
     />
   );
 };

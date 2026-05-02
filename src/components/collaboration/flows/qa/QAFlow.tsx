@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import * as api from './qaApi';
 import type { Question, Answer } from './qaApi';
 import { FlowLoading, FlowError } from '../FlowShell';
@@ -58,8 +59,7 @@ const AnswerItem: React.FC<{
   agent: string;
   contractId: string;
   answers: Answer[];
-  load: () => Promise<void>;
-}> = ({ answer, myUpvotedId, currentUser, server, agent, contractId, answers, load }) => {
+}> = ({ answer, myUpvotedId, currentUser, server, agent, contractId, answers }) => {
   const [editing, setEditing] = useState(false);
   const isOwn     = answer.createdBy === currentUser;
   const isUpvoted = myUpvotedId === answer.id;
@@ -72,7 +72,6 @@ const AnswerItem: React.FC<{
           className={`${styles.upvoteBtn} ${isUpvoted ? styles.upvoteBtnActive : ''}`}
           onClick={async () => {
             await api.toggleUpvote(server, agent, contractId, answers, answer.id, currentUser);
-            await load();
           }}
           title={isUpvoted ? 'Remove upvote' : 'Upvote this answer'}
         >
@@ -93,7 +92,6 @@ const AnswerItem: React.FC<{
             onSubmit={async text => {
               await api.editAnswer(server, agent, contractId, answers, answer.id, currentUser, text);
               setEditing(false);
-              await load();
             }}
             onCancel={() => setEditing(false)}
           />
@@ -116,7 +114,6 @@ const AnswerItem: React.FC<{
                     className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
                     onClick={async () => {
                       await api.deleteAnswer(server, agent, contractId, answers, answer.id, currentUser);
-                      await load();
                     }}
                   >
                     <Trash2 size={11} /> Delete
@@ -142,8 +139,7 @@ const QuestionItem: React.FC<{
   agent: string;
   contractId: string;
   questions: Question[];
-  load: () => Promise<void>;
-}> = ({ question, answers, currentUser, server, agent, contractId, questions, load }) => {
+}> = ({ question, answers, currentUser, server, agent, contractId, questions }) => {
   const sortedAnswers = api.getSortedAnswers(answers, question.id);
   const [expanded,     setExpanded]     = useState(true);
   const [showAll,      setShowAll]      = useState(false);
@@ -157,7 +153,7 @@ const QuestionItem: React.FC<{
   const remaining   = sortedAnswers.slice(1);
   const hiddenCount = showAll ? 0 : remaining.length;
 
-  const answerItemProps = { currentUser, server, agent, contractId, answers, load };
+  const answerItemProps = { currentUser, server, agent, contractId, answers };
 
   return (
     <div className={styles.questionCard}>
@@ -183,7 +179,6 @@ const QuestionItem: React.FC<{
               onClick={async e => {
                 e.stopPropagation();
                 await api.deleteQuestion(server, agent, contractId, questions, answers, question.id, currentUser);
-                await load();
               }}
               title="Delete question"
             >
@@ -252,7 +247,6 @@ const QuestionItem: React.FC<{
                 onSubmit={async text => {
                   await api.addAnswer(server, agent, contractId, currentUser, answers, question.id, text);
                   setAddingAnswer(false);
-                  await load();
                 }}
                 onCancel={() => setAddingAnswer(false)}
               />
@@ -299,6 +293,10 @@ const QAFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curren
 
   useEffect(() => { void load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
 
@@ -309,7 +307,6 @@ const QAFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curren
     agent: flowAgent,
     contractId: instanceId,
     questions,
-    load,
   };
 
   return (
@@ -328,7 +325,6 @@ const QAFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curren
           onSubmit={async text => {
             await api.addQuestion(flowServer, flowAgent, instanceId, currentUser, text);
             setAddingQ(false);
-            await load();
           }}
           onCancel={() => setAddingQ(false)}
         />

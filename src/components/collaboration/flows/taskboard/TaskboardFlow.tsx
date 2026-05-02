@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, UserCheck, LogOut, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import * as api from './taskboardApi';
 import type { Task, TaskStatus } from './taskboardApi';
 import { FlowLoading, FlowError } from '../FlowShell';
@@ -213,6 +214,10 @@ const TaskboardFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent,
 
   useEffect(() => { void load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
 
@@ -224,11 +229,9 @@ const TaskboardFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent,
 
   const handleAddTask = async (title: string, desc: string) => {
     await api.addTask(flowServer, flowAgent, instanceId, currentUser, title, desc);
-    await load();
   };
 
-  // After any mutation, reload from server
-  const handleAction = (_fn: () => Promise<void>) => { void load(); };
+  const handleAction = (_fn: () => Promise<void>) => {};
 
   return (
     <div className={styles.container}>

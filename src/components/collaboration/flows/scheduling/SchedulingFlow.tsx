@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Calendar } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './schedulingApi';
 import type { RangeConfig, SchedulingState } from './schedulingApi';
@@ -284,10 +285,14 @@ const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
 
   useEffect(() => { void load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   const handleSetup = useCallback(async (fields: Omit<RangeConfig, 'organizerId'>) => {
-    try   { await api.setupRange(flowServer, flowAgent, instanceId, fields, currentUser); await load(); }
+    try   { await api.setupRange(flowServer, flowAgent, instanceId, fields, currentUser); }
     catch (e) { setError(e instanceof Error ? e.message : 'Failed to save.'); }
-  }, [flowServer, flowAgent, instanceId, currentUser, load]);
+  }, [flowServer, flowAgent, instanceId, currentUser]);
 
   const handleSave = useCallback(async (slots: number[]) => {
     setState(prev => {

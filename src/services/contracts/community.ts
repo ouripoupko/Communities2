@@ -3,6 +3,8 @@ import type { IMethod } from '../interfaces';
 import communityContractCode from '../../assets/contracts/community_contract.py?raw';
 import issueContractCode from '../../assets/contracts/issue_contract.py?raw';
 import initiativeContractCode from '../../assets/contracts/initiative_contract.py?raw';
+import wishContractCode from '../../assets/contracts/wish_contract.py?raw';
+import agreementContractCode from '../../assets/contracts/agreement_contract.py?raw';
 
 /**
  * Community contract interface
@@ -243,6 +245,34 @@ export interface Collaboration {
 }
 
 /**
+ * Read the parent community credentials stored in a collaboration contract
+ * (initiative, wish, or agreement).
+ */
+export async function getCommunity(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+): Promise<{ server: string; agent: string; id: string } | null> {
+  try {
+    const result = await contractRead({
+      serverUrl,
+      publicKey,
+      contractId,
+      method: { name: 'get_community', values: {} } as IMethod,
+    });
+    if (!result || typeof result !== 'object') return null;
+    const r = result as Record<string, unknown>;
+    return {
+      server: String(r.server ?? ''),
+      agent:  String(r.agent  ?? ''),
+      id:     String(r.id     ?? ''),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Create an initiative (deploy contract + add to community)
  */
 export async function createInitiative(
@@ -257,6 +287,7 @@ export async function createInitiative(
     name: initiative.title,
     contract: 'initiative_contract.py',
     code: initiativeContractCode,
+    constructorArgs: { community_server: serverUrl, community_agent: publicKey, community_id: communityId },
   });
   const initiativeId = (response as { id?: string }).id || (response as string);
 
@@ -292,6 +323,75 @@ export async function createInitiative(
   };
   await addCollaboration(serverUrl, publicKey, communityId, collaboration);
   return initiativeId;
+}
+
+/**
+ * Create a wish (deploy contract + add to community)
+ */
+export async function createWish(
+  serverUrl: string,
+  publicKey: string,
+  communityId: string,
+  wish: { title: string; dreamNeed?: string },
+): Promise<string> {
+  const response = await deployContract({
+    serverUrl,
+    publicKey,
+    name: wish.title,
+    contract: 'wish_contract.py',
+    code: wishContractCode,
+    constructorArgs: { community_server: serverUrl, community_agent: publicKey, community_id: communityId },
+  });
+  const wishId = (response as { id?: string }).id || (response as string);
+
+  const collaboration: Collaboration = {
+    id: wishId,
+    type: 'wish',
+    title: wish.title,
+    dreamNeed: wish.dreamNeed,
+    author: publicKey,
+    createdAt: Date.now(),
+    activityCount: 0,
+    hostServer: serverUrl,
+    hostAgent: publicKey,
+  };
+  await addCollaboration(serverUrl, publicKey, communityId, collaboration);
+  return wishId;
+}
+
+/**
+ * Create an agreement (deploy contract + add to community)
+ */
+export async function createAgreement(
+  serverUrl: string,
+  publicKey: string,
+  communityId: string,
+  agreement: { title: string; rule?: string; protection?: string },
+): Promise<string> {
+  const response = await deployContract({
+    serverUrl,
+    publicKey,
+    name: agreement.rule || agreement.title,
+    contract: 'agreement_contract.py',
+    code: agreementContractCode,
+    constructorArgs: { community_server: serverUrl, community_agent: publicKey, community_id: communityId },
+  });
+  const agreementId = (response as { id?: string }).id || (response as string);
+
+  const collaboration: Collaboration = {
+    id: agreementId,
+    type: 'agreement',
+    title: agreement.rule || agreement.title,
+    rule: agreement.rule,
+    protection: agreement.protection,
+    consensusStatus: 'Pending',
+    createdAt: Date.now(),
+    activityCount: 0,
+    hostServer: serverUrl,
+    hostAgent: publicKey,
+  };
+  await addCollaboration(serverUrl, publicKey, communityId, collaboration);
+  return agreementId;
 }
 
 /**

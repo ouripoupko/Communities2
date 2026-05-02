@@ -12,6 +12,7 @@ import { usePreview } from 'react-dnd-preview';
 import { BarChart2, List, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import { FlowLoading, FlowError } from '../FlowShell';
 import { ACCEPTANCE_BAR_ID } from './types';
 import type { Proposal, ParticipantRanking } from './types';
@@ -309,6 +310,10 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
 
   useEffect(() => { void load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   const handleOrderChange = useCallback(async (newOrder: string[]) => {
     setOrder(newOrder);
     await api.saveMyRanking(flowServer, flowAgent, instanceId, newOrder);
@@ -316,8 +321,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
 
   const handleAddProposal = useCallback(async (text: string) => {
     await api.addProposal(flowServer, flowAgent, instanceId, text);
-    await load();
-  }, [flowServer, flowAgent, instanceId, load]);
+  }, [flowServer, flowAgent, instanceId]);
 
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={() => void load()} />;

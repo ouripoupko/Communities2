@@ -4,12 +4,11 @@ import CollaborationPage from './CollaborationPage';
 import type { Collaboration } from '../../services/contracts/community';
 
 const AgreementView: React.FC = () => {
-  const { communityId, agreementId } = useParams<{
-    communityId: string;
-    agreementId: string;
-  }>();
+  const { agreementId } = useParams<{ agreementId: string }>();
   const location = useLocation();
-  const agreement = (location.state as { agreement?: Collaboration })?.agreement;
+  const state = location.state as { agreement?: Collaboration; communityId?: string } | null;
+  const agreement = state?.agreement;
+  const communityId = state?.communityId;
 
   const title = agreement?.rule || agreement?.title || 'Agreement';
 
@@ -18,7 +17,7 @@ const AgreementView: React.FC = () => {
       type="agreement"
       title={title}
       collaborationId={agreementId!}
-      communityId={communityId!}
+      communityId={communityId}
       collaborationServer={agreement?.hostServer}
       collaborationAgent={agreement?.hostAgent}
     />

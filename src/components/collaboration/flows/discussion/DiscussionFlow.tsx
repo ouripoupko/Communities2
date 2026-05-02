@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { MessageSquare, Reply, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import * as api from './discussionApi';
 import type { Comment } from './discussionApi';
 import { FlowLoading, FlowError } from '../FlowShell';
@@ -91,8 +92,7 @@ const CommentItem: React.FC<{
   agent: string;
   contractId: string;
   flat: Comment[];
-  load: () => Promise<void>;
-}> = ({ node, depth, currentUser, server, agent, contractId, flat, load }) => {
+}> = ({ node, depth, currentUser, server, agent, contractId, flat }) => {
   const [replying,  setReplying]  = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -102,13 +102,11 @@ const CommentItem: React.FC<{
   const handleReply = useCallback(async (text: string) => {
     await api.addComment(server, agent, contractId, currentUser, text, node.id);
     setReplying(false);
-    await load();
-  }, [server, agent, contractId, currentUser, node.id, load]);
+  }, [server, agent, contractId, currentUser, node.id]);
 
   const handleDelete = useCallback(async () => {
     await api.deleteComment(server, agent, contractId, flat, node.id);
-    await load();
-  }, [server, agent, contractId, flat, node.id, load]);
+  }, [server, agent, contractId, flat, node.id]);
 
   return (
     <div className={`${styles.commentItem} ${depth > 0 ? styles.nested : ''}`}>
@@ -181,7 +179,6 @@ const CommentItem: React.FC<{
               agent={agent}
               contractId={contractId}
               flat={flat}
-              load={load}
             />
           ))}
         </div>
@@ -212,6 +209,10 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
 
   useEffect(() => { void load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
 
@@ -219,7 +220,6 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
 
   const handleTopLevel = async (text: string) => {
     await api.addComment(flowServer, flowAgent, instanceId, currentUser, text, null);
-    await load();
   };
 
   return (
@@ -251,7 +251,6 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
               agent={flowAgent}
               contractId={instanceId}
               flat={flat}
-              load={load}
             />
           ))}
         </div>

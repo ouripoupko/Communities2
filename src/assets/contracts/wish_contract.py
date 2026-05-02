@@ -1,7 +1,19 @@
 class Wish:
 
-    def __init__(self):
+    def __init__(self, community_server=None, community_agent=None, community_id=None):
+        self.parameters = Storage('parameters')
+        if 'community_id' not in self.parameters:
+            self.parameters['community_server'] = community_server
+            self.parameters['community_agent'] = community_agent
+            self.parameters['community_id'] = community_id
         self.flows = Storage('flows')
+
+    def get_community(self):
+        return {
+            'server': self.parameters['community_server'],
+            'agent': self.parameters['community_agent'],
+            'id': self.parameters['community_id'],
+        }
 
     # Flows
     def add_flow(self, flow):

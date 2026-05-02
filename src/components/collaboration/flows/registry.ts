@@ -5,6 +5,8 @@ import DocFlow from './document/DocFlow';
 import FundraisingFlow, { FundraisingSetupDialog } from './fundraising/FundraisingFlow';
 import { configureFund } from './fundraising/fundraisingApi';
 import type { FundConfig } from './fundraising/fundraisingApi';
+import { contractWrite } from '../../../services/api';
+import type { IMethod } from '../../../services/interfaces';
 import DiscussionFlow from './discussion/DiscussionFlow';
 import SchedulingFlow, { SchedulingSetupDialog } from './scheduling/SchedulingFlow';
 import { setupRange } from './scheduling/schedulingApi';
@@ -84,8 +86,24 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     group: 'Governance & Finance',
     setupComponent: FundraisingSetupDialog,
     onInit: async (server, agent, contractId, config, _currentUser) => {
-      const { name, description, goal } = config as FundConfig;
+      const { name, description, goal } = config as unknown as FundConfig;
+      const community = config._community as { server: string; agent: string; id: string } | null;
       await configureFund(server, agent, contractId, name, description ?? '', goal ?? null);
+      if (community?.id) {
+        await contractWrite({
+          serverUrl: server, publicKey: agent, contractId,
+          method: { name: 'set_community_and_fund', values: {
+            community_server: community.server,
+            community_agent:  community.agent,
+            community_id:     community.id,
+            fund_account_name: name,
+          } } as IMethod,
+        });
+        await contractWrite({
+          serverUrl: community.server, publicKey: agent, contractId: community.id,
+          method: { name: 'create_fund_account', values: { name, owner: agent } } as IMethod,
+        });
+      }
     },
   },
   {

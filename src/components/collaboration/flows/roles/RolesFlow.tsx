@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Award, Plus, Trash2, UserPlus, UserMinus, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, Pencil, Check, X } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import * as api from './rolesApi';
 import type { Role, RoleItem, RoleSection, VoteValue } from './rolesApi';
 import { FlowLoading, FlowError } from '../FlowShell';
@@ -417,6 +418,10 @@ const RolesFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, cur
 
   useEffect(() => { void load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;
 
@@ -432,7 +437,6 @@ const RolesFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, cur
           onSubmit={async (name, desc) => {
             await api.addRole(flowServer, flowAgent, instanceId, currentUser, name, desc);
             setAdding(false);
-            await load();
           }}
           onCancel={() => setAdding(false)}
         />
@@ -451,14 +455,14 @@ const RolesFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, cur
               key={r.id}
               role={r}
               currentUser={currentUser}
-              onJoin={async ()   => { await api.joinRole(flowServer, flowAgent, instanceId, r, currentUser); await load(); }}
-              onLeave={async ()  => { await api.leaveRole(flowServer, flowAgent, instanceId, r.id, currentUser); await load(); }}
-              onDelete={async () => { await api.deleteRole(flowServer, flowAgent, instanceId, r.id); await load(); }}
-              onVote={async (key, v)  => { await api.voteRole(flowServer, flowAgent, instanceId, r, key, currentUser, v); await load(); }}
-              onClear={async key      => { await api.clearVoteRole(flowServer, flowAgent, instanceId, r, key, currentUser); await load(); }}
-              onSetPurpose={async text        => { await api.setPurpose(flowServer, flowAgent, instanceId, r.id, text); await load(); }}
-              onAddItem={async (section, item) => { await api.setSection(flowServer, flowAgent, instanceId, r.id, section, [...r[section], item]); await load(); }}
-              onSetSection={async (section, items) => { await api.setSection(flowServer, flowAgent, instanceId, r.id, section, items); await load(); }}
+              onJoin={async ()   => { await api.joinRole(flowServer, flowAgent, instanceId, r, currentUser); }}
+              onLeave={async ()  => { await api.leaveRole(flowServer, flowAgent, instanceId, r.id, currentUser); }}
+              onDelete={async () => { await api.deleteRole(flowServer, flowAgent, instanceId, r.id); }}
+              onVote={async (key, v)  => { await api.voteRole(flowServer, flowAgent, instanceId, r, key, currentUser, v); }}
+              onClear={async key      => { await api.clearVoteRole(flowServer, flowAgent, instanceId, r, key, currentUser); }}
+              onSetPurpose={async text        => { await api.setPurpose(flowServer, flowAgent, instanceId, r.id, text); }}
+              onAddItem={async (section, item) => { await api.setSection(flowServer, flowAgent, instanceId, r.id, section, [...r[section], item]); }}
+              onSetSection={async (section, items) => { await api.setSection(flowServer, flowAgent, instanceId, r.id, section, items); }}
             />
           ))}
         </div>

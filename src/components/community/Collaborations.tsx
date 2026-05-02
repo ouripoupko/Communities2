@@ -9,8 +9,9 @@ import CreateCollaborationButtons from './collaborations/CreateCollaborationButt
 import styles from './Collaborations.module.scss';
 import { fetchCollaborations } from '../../store/slices/communitiesSlice';
 import {
-  addCollaboration,
   createInitiative,
+  createWish,
+  createAgreement,
   type Collaboration,
 } from '../../services/contracts/community';
 
@@ -62,30 +63,23 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
       throw new Error('Not logged in or missing data');
     }
 
-    const newItem: Collaboration = {
-      id: crypto.randomUUID(),
-      type: createType as Collaboration['type'],
-      title: data.title || data.rule || 'Untitled',
-      createdAt: Date.now(),
-      activityCount: 0,
-    };
-
     if (createType === 'initiative') {
       await createInitiative(serverUrl, publicKey, communityId, {
         title: data.title || 'Untitled',
         description: data.description,
       });
-      return;
     } else if (createType === 'wish') {
-      newItem.dreamNeed = data.dreamNeed;
-      newItem.author = publicKey;
+      await createWish(serverUrl, publicKey, communityId, {
+        title: data.title || 'Untitled',
+        dreamNeed: data.dreamNeed,
+      });
     } else if (createType === 'agreement') {
-      newItem.rule = data.rule;
-      newItem.protection = data.protection;
-      newItem.consensusStatus = 'Pending';
+      await createAgreement(serverUrl, publicKey, communityId, {
+        title: data.rule || 'Untitled',
+        rule: data.rule,
+        protection: data.protection,
+      });
     }
-
-    await addCollaboration(serverUrl, publicKey, communityId, newItem);
   };
 
   const filteredItems = useMemo(() => {
@@ -103,11 +97,11 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
       window.open('https://www.wellofwishes.org/wishes/b33f1810-9c04-484a-9339-9d6d7f9f730b', '_blank');
       return;
     }
-    navigate(`/wish/${communityId}/${item.id}/related`, { state: { wish: item } });
+    navigate(`/wish/${item.id}/related`, { state: { wish: item, communityId } });
   };
 
   const handleAgreementClick = (item: Collaboration) => {
-    navigate(`/agreement/${communityId}/${item.id}`, { state: { agreement: item } });
+    navigate(`/agreement/${item.id}`, { state: { agreement: item, communityId } });
   };
 
   const handleInitiativeClick = (item: Collaboration) => {
@@ -125,8 +119,8 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
       hostAgent,
     };
     navigate(
-      `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${communityId}/${item.id}/roadmap`,
-      { state: { initiative: initiativeData } },
+      `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${item.id}/roadmap`,
+      { state: { initiative: initiativeData, communityId } },
     );
   };
 

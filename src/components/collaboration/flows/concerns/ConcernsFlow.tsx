@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
+import { useEventStream } from '../../../../hooks/useEventStream';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './concernsApi';
 import type { Concern, ConcernVote, ConcernStatus } from './concernsApi';
@@ -205,24 +206,25 @@ const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, 
 
   useEffect(() => { void load(); }, [load]);
 
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === instanceId) void load();
+  }, [instanceId, load]));
+
   const handleAdd = useCallback(async (title: string, desc: string) => {
     await api.addConcern(flowServer, flowAgent, instanceId, currentUser, title, desc);
-    await load();
-  }, [flowServer, flowAgent, instanceId, currentUser, load]);
+  }, [flowServer, flowAgent, instanceId, currentUser]);
 
   const handleVote = useCallback(async (concernId: string, v: ConcernVote) => {
     const concern = concerns.find(c => c.id === concernId);
     if (!concern) return;
     await api.voteConcern(flowServer, flowAgent, instanceId, concern, currentUser, v);
-    await load();
-  }, [flowServer, flowAgent, instanceId, concerns, currentUser, load]);
+  }, [flowServer, flowAgent, instanceId, concerns, currentUser]);
 
   const handleClearVote = useCallback(async (concernId: string) => {
     const concern = concerns.find(c => c.id === concernId);
     if (!concern) return;
     await api.clearVoteConcern(flowServer, flowAgent, instanceId, concern, currentUser);
-    await load();
-  }, [flowServer, flowAgent, instanceId, concerns, currentUser, load]);
+  }, [flowServer, flowAgent, instanceId, concerns, currentUser]);
 
   const { active, resolved, rejected } = useMemo(() => {
     const active:   Concern[] = [];
