@@ -10,8 +10,9 @@ class Community:
         self.collaborations = Storage('collaborations')
         self.issues = Storage('issues')
         self.accounts = Storage('accounts')
+        self.allocations = Storage('allocations')
         if 'centralAccount' not in self.accounts:
-            self.accounts['centralAccount'] = {'balanceOf':0, 'creationTime': timestamp(), 'elapsedDays': 0}
+            self.accounts['centralAccount'] = {'balanceOf':0, 'creationTime': timestamp(), 'elapsedDays': 0, 'type': 'central'}
 
 
     def add_issue(self, issue):
@@ -170,8 +171,13 @@ class Community:
             return account_data['balanceOf']
 
         burnFactor = (100 - parameters('burn')) / 100
-        is_fund = account_data.get('type') == 'fund'
-        mint = 0 if is_fund else parameters('mint')
+        account_type = account_data.get('type')
+        if account_type == 'fund':
+            mint = 0
+        elif account_type == 'central':
+            mint = parameters('commons_mint')
+        else:
+            mint = parameters('mint')
         for i in range(days_passed):
             account_data['balanceOf'] *= burnFactor
             account_data['balanceOf'] += mint
@@ -233,3 +239,99 @@ class Community:
 
     def get_accounts(self):
         return [account for account in self.accounts]
+
+    def get_account_details(self):
+        result = {}
+        for account in self.accounts:
+            data = self.accounts[account].get_dict()
+            result[account] = {
+                'type': data.get('type', 'personal'),
+                'balance': self.check_balance(account),
+            }
+        return result
+
+    def set_allocation(self, allocation):
+        member = master()
+        if member not in self.members:
+            return False
+        total = 0
+        for account in allocation:
+            total = total + allocation[account]
+        if total > 1000:
+            return False
+        self.allocations[member] = allocation
+        return True
+
+    def get_allocations(self):
+        result = {}
+        for member in self.allocations:
+            result[member] = self.allocations[member].get_dict()
+        return result
+
+    def get_distribution_status(self):
+        payment_count = self.properties['payment_count'] or 0
+        central_data = self.accounts['centralAccount'].get_dict()
+        time_passed = elapsed_time(central_data['creationTime'], timestamp()) / 600
+        days_since_creation = round(time_passed - 0.5) if time_passed >= 0.5 else 0
+        return {
+            'payment_count': payment_count,
+            'days_since_creation': days_since_creation,
+            'can_distribute': payment_count < days_since_creation
+        }
+
+    def distribute(self):
+        caller = master()
+        if caller not in self.members:
+            return False
+
+        payment_count = self.properties['payment_count'] or 0
+        central_data = self.accounts['centralAccount'].get_dict()
+        time_passed = elapsed_time(central_data['creationTime'], timestamp()) / 600
+        days_since_creation = round(time_passed - 0.5) if time_passed >= 0.5 else 0
+        if payment_count >= days_since_creation:
+            return False
+
+        totals = {}
+        grand_total = 0
+        for member in self.allocations:
+            alloc = self.allocations[member].get_dict()
+            for account in alloc:
+                points = alloc[account]
+                if account in totals:
+                    totals[account] = totals[account] + points
+                else:
+                    totals[account] = points
+                grand_total = grand_total + points
+
+        if grand_total == 0:
+            return False
+
+        self.check_balance('centralAccount', True)
+        total_balance = self.accounts['centralAccount'].get_dict()['balanceOf']
+
+        if total_balance <= 0:
+            return False
+
+        distributed = 0
+        for account in self.accounts:
+            if account == 'centralAccount':
+                continue
+            account_data = self.accounts[account].get_dict()
+            if account_data.get('type') != 'fund':
+                continue
+            if account not in totals:
+                continue
+            amount = total_balance * totals[account] / grand_total
+            if amount > 0:
+                self.check_balance(account, True)
+                fund_data = self.accounts[account].get_dict()
+                fund_data['balanceOf'] = fund_data['balanceOf'] + amount
+                self.accounts[account] = fund_data
+                distributed = distributed + amount
+
+        central_data = self.accounts['centralAccount'].get_dict()
+        central_data['balanceOf'] = central_data['balanceOf'] - distributed
+        self.accounts['centralAccount'] = central_data
+
+        self.properties['payment_count'] = payment_count + 1
+        return True

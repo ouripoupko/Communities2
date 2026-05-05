@@ -1,9 +1,13 @@
 // ---------------------------------------------------------------------------
-// Fundraising flow — persisted via contract API
+// Funding flow — fundraising + budget allocation, persisted via contract API
 // ---------------------------------------------------------------------------
 
 import { contractRead, contractWrite } from '../../../../services/api';
 import type { IMethod } from '../../../../services/interfaces';
+
+// ---------------------------------------------------------------------------
+// Fundraising types
+// ---------------------------------------------------------------------------
 
 export interface Contribution {
   id: string;
@@ -26,6 +30,35 @@ export interface FundState {
 export const CURRENCY_SYMBOL = 'credits';
 
 // ---------------------------------------------------------------------------
+// Budget allocation types
+// ---------------------------------------------------------------------------
+
+export const TOTAL_POINTS = 1000;
+
+export interface BudgetItem {
+  id: string;
+  name: string;
+  createdBy: string;
+}
+
+export interface ParticipantAllocation {
+  participantId: string;
+  allocation: Record<string, number>;
+}
+
+export interface BudgetState {
+  items: BudgetItem[];
+  allocations: ParticipantAllocation[];
+}
+
+export interface CommunityInfo {
+  communityServer: string;
+  communityAgent: string;
+  communityId: string;
+  fundAccountName: string;
+}
+
+// ---------------------------------------------------------------------------
 // Normalizers
 // ---------------------------------------------------------------------------
 
@@ -46,8 +79,30 @@ function normalizeContribution(c: Record<string, unknown>): Contribution {
   };
 }
 
+function normalizeBudgetItem(i: Record<string, unknown>): BudgetItem {
+  return {
+    id: typeof i.id === 'string' ? i.id : String(i.id ?? ''),
+    name: typeof i.name === 'string' ? i.name : '',
+    createdBy: typeof i.createdBy === 'string' ? i.createdBy : '',
+  };
+}
+
+function normalizeAllocation(a: Record<string, unknown>): ParticipantAllocation {
+  const allocation = (a.allocation && typeof a.allocation === 'object' && !Array.isArray(a.allocation))
+    ? (a.allocation as Record<string, unknown>)
+    : {};
+  const normalized: Record<string, number> = {};
+  for (const [k, v] of Object.entries(allocation)) {
+    normalized[k] = typeof v === 'number' ? v : Number(v ?? 0);
+  }
+  return {
+    participantId: typeof a.participantId === 'string' ? a.participantId : '',
+    allocation: normalized,
+  };
+}
+
 // ---------------------------------------------------------------------------
-// Async API
+// Fundraising API
 // ---------------------------------------------------------------------------
 
 export async function loadFund(server: string, agent: string, contractId: string): Promise<FundState> {
@@ -56,7 +111,6 @@ export async function loadFund(server: string, agent: string, contractId: string
     contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_contributions', values: {} } as IMethod }),
   ]);
 
-  // config is null if the contract returns an empty object {}
   const configIsEmpty = !rawConfig || (typeof rawConfig === 'object' && Object.keys(rawConfig as object).length === 0);
   const config = configIsEmpty ? null : normalizeConfig(rawConfig as Record<string, unknown>);
 
@@ -80,13 +134,6 @@ export async function configureFund(
     contractId,
     method: { name: 'set_config', values: { config: { name: name.trim(), description: description.trim(), goal } } } as IMethod,
   });
-}
-
-export interface CommunityInfo {
-  communityServer: string;
-  communityAgent: string;
-  communityId: string;
-  fundAccountName: string;
 }
 
 export async function loadCommunityInfo(
@@ -150,6 +197,63 @@ export async function contribute(
 }
 
 // ---------------------------------------------------------------------------
+// Budget allocation API
+// ---------------------------------------------------------------------------
+
+export async function loadBudget(server: string, agent: string, contractId: string): Promise<BudgetState> {
+  const [rawItems, rawAllocations] = await Promise.all([
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_items', values: {} } as IMethod }),
+    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_all_allocations', values: {} } as IMethod }),
+  ]);
+
+  const itemsArray: unknown[] = Array.isArray(rawItems) ? rawItems : [];
+  const items = itemsArray.map(i => normalizeBudgetItem(i as Record<string, unknown>));
+
+  const allocationsArray: unknown[] = Array.isArray(rawAllocations) ? rawAllocations : [];
+  const allocations = allocationsArray.map(a => normalizeAllocation(a as Record<string, unknown>));
+
+  return { items, allocations };
+}
+
+export async function addItem(
+  server: string,
+  agent: string,
+  contractId: string,
+  currentUser: string,
+  name: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: {
+      name: 'add_item',
+      values: {
+        item: {
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          createdBy: currentUser,
+        },
+      },
+    } as IMethod,
+  });
+}
+
+export async function saveMyAllocation(
+  server: string,
+  agent: string,
+  contractId: string,
+  allocation: Record<string, number>,
+): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_my_allocation', values: { allocation } } as IMethod,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
 
@@ -161,4 +265,34 @@ export function contributionByUser(contributions: Contribution[], participantId:
   return contributions
     .filter(c => c.participantId === participantId)
     .reduce((sum, c) => sum + c.amount, 0);
+}
+
+export function myPointsUsed(allocations: ParticipantAllocation[], currentUser: string): number {
+  const mine = allocations.find(a => a.participantId === currentUser);
+  if (!mine) return 0;
+  return Object.values(mine.allocation).reduce((sum, v) => sum + v, 0);
+}
+
+export interface AggregatedItem {
+  item: BudgetItem;
+  totalPoints: number;
+  percentage: number;
+}
+
+export function getAggregated(items: BudgetItem[], allocations: ParticipantAllocation[]): AggregatedItem[] {
+  if (items.length === 0) return [];
+
+  const totals = items.map(item => {
+    const pts = allocations.reduce((sum, pa) => sum + (pa.allocation[item.id] ?? 0), 0);
+    return { item, totalPoints: pts };
+  });
+
+  const grandTotal = totals.reduce((sum, t) => sum + t.totalPoints, 0);
+
+  return totals
+    .map(({ item, totalPoints }) => {
+      const percentage = grandTotal > 0 ? (totalPoints / grandTotal) * 100 : 0;
+      return { item, totalPoints, percentage };
+    })
+    .sort((a, b) => b.totalPoints - a.totalPoints);
 }

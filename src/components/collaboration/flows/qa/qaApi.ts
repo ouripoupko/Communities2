@@ -14,7 +14,8 @@ export interface Answer {
   text: string;
   createdBy: string;
   createdAt: number;
-  upvotes: string[];
+  approvals: string[];
+  disapprovals: string[];
 }
 
 function normalizeQuestion(q: Record<string, unknown>): Question {
@@ -27,16 +28,14 @@ function normalizeQuestion(q: Record<string, unknown>): Question {
 }
 
 function normalizeAnswer(a: Record<string, unknown>): Answer {
-  const upvotes = Array.isArray(a.upvotes)
-    ? (a.upvotes as unknown[]).map(u => String(u))
-    : [];
   return {
-    id:         String(a.id         ?? ''),
-    questionId: String(a.questionId ?? ''),
-    text:       String(a.text       ?? ''),
-    createdBy:  String(a.createdBy  ?? ''),
-    createdAt:  Number(a.createdAt  ?? 0),
-    upvotes,
+    id:           String(a.id          ?? ''),
+    questionId:   String(a.questionId  ?? ''),
+    text:         String(a.text        ?? ''),
+    createdBy:    String(a.createdBy   ?? ''),
+    createdAt:    Number(a.createdAt   ?? 0),
+    approvals:    Array.isArray(a.approvals)    ? (a.approvals    as unknown[]).map(u => String(u)) : [],
+    disapprovals: Array.isArray(a.disapprovals) ? (a.disapprovals as unknown[]).map(u => String(u)) : [],
   };
 }
 
@@ -103,31 +102,16 @@ export async function deleteQuestion(
   server: string,
   agent: string,
   contractId: string,
-  questions: Question[],
-  answers: Answer[],
-  questionId: string,
+  question: Question,
   currentUser: string,
 ): Promise<void> {
-  const q = questions.find(q => q.id === questionId);
-  if (!q || q.createdBy !== currentUser) return;
-
-  const filteredQuestions = questions.filter(q => q.id !== questionId);
-  const filteredAnswers   = answers.filter(a => a.questionId !== questionId);
-
-  await Promise.all([
-    contractWrite({
-      serverUrl: server,
-      publicKey: agent,
-      contractId,
-      method: { name: 'set_questions', values: { questions: filteredQuestions } } as IMethod,
-    }),
-    contractWrite({
-      serverUrl: server,
-      publicKey: agent,
-      contractId,
-      method: { name: 'set_answers', values: { answers: filteredAnswers } } as IMethod,
-    }),
-  ]);
+  if (question.createdBy !== currentUser) return;
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'delete_question', values: { question_id: question.id } } as IMethod,
+  });
 }
 
 export async function addAnswer(
@@ -145,12 +129,13 @@ export async function addAnswer(
   if (alreadyAnswered) return;
 
   const answer: Answer = {
-    id:         crypto.randomUUID(),
+    id:           crypto.randomUUID(),
     questionId,
-    text:       text.trim(),
-    createdBy:  currentUser,
-    createdAt:  Date.now(),
-    upvotes:    [],
+    text:         text.trim(),
+    createdBy:    currentUser,
+    createdAt:    Date.now(),
+    approvals:    [],
+    disapprovals: [],
   };
   await contractWrite({
     serverUrl: server,
@@ -164,19 +149,17 @@ export async function editAnswer(
   server: string,
   agent: string,
   contractId: string,
-  answers: Answer[],
-  answerId: string,
+  answer: Answer,
   currentUser: string,
   text: string,
 ): Promise<void> {
-  const updated = answers.map(a =>
-    a.id === answerId && a.createdBy === currentUser ? { ...a, text: text.trim() } : a,
-  );
+  if (answer.createdBy !== currentUser) return;
+  const updated = { ...answer, text: text.trim() };
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_answers', values: { answers: updated } } as IMethod,
+    method: { name: 'set_answer', values: { answer: updated } } as IMethod,
   });
 }
 
@@ -184,53 +167,43 @@ export async function deleteAnswer(
   server: string,
   agent: string,
   contractId: string,
-  answers: Answer[],
-  answerId: string,
+  answer: Answer,
   currentUser: string,
 ): Promise<void> {
-  const filtered = answers.filter(
-    a => !(a.id === answerId && a.createdBy === currentUser),
-  );
+  if (answer.createdBy !== currentUser) return;
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_answers', values: { answers: filtered } } as IMethod,
+    method: { name: 'delete_answer', values: { answer_id: answer.id } } as IMethod,
   });
 }
 
-export async function toggleUpvote(
+export async function vote(
   server: string,
   agent: string,
   contractId: string,
-  answers: Answer[],
-  answerId: string,
+  answer: Answer,
+  voteType: 'approve' | 'disapprove',
   currentUser: string,
 ): Promise<void> {
-  const target = answers.find(a => a.id === answerId);
-  if (!target) return;
+  if (answer.createdBy === currentUser) return;
 
-  const { questionId } = target;
-  const alreadyVotedThis = target.upvotes.includes(currentUser);
+  const currentVote = getMyVote(answer, currentUser);
+  let approvals    = answer.approvals.filter(u => u !== currentUser);
+  let disapprovals = answer.disapprovals.filter(u => u !== currentUser);
 
-  // Remove currentUser's upvote from all answers in the same question
-  let updated = answers.map(a => {
-    if (a.questionId !== questionId) return a;
-    return { ...a, upvotes: a.upvotes.filter(u => u !== currentUser) };
-  });
-
-  // If the clicked answer was NOT already the one voted, add the upvote
-  if (!alreadyVotedThis) {
-    updated = updated.map(a =>
-      a.id === answerId ? { ...a, upvotes: [...a.upvotes, currentUser] } : a,
-    );
+  if (currentVote !== voteType) {
+    if (voteType === 'approve') approvals    = [...approvals, currentUser];
+    else                        disapprovals = [...disapprovals, currentUser];
   }
 
+  const updated = { ...answer, approvals, disapprovals };
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_answers', values: { answers: updated } } as IMethod,
+    method: { name: 'set_answer', values: { answer: updated } } as IMethod,
   });
 }
 
@@ -238,21 +211,32 @@ export async function toggleUpvote(
 // Pure helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Combines the net gap (approvals − disapprovals) with voter confidence.
+ * Uses Bayesian shrinkage toward 0: score approaches net as voter count grows.
+ * k=3 means an answer needs ~3 votes before its gap is taken at face value.
+ */
+export function supportScore(approvals: number, disapprovals: number): number {
+  const net   = approvals - disapprovals;
+  const total = approvals + disapprovals;
+  if (total === 0) return 0;
+  return net * (total / (total + 3));
+}
+
+export function getMyVote(answer: Answer, currentUser: string): 'approve' | 'disapprove' | null {
+  if (answer.approvals.includes(currentUser))    return 'approve';
+  if (answer.disapprovals.includes(currentUser)) return 'disapprove';
+  return null;
+}
+
 export function getSortedAnswers(answers: Answer[], questionId: string): Answer[] {
   return answers
     .filter(a => a.questionId === questionId)
-    .sort((a, b) => b.upvotes.length - a.upvotes.length || a.createdAt - b.createdAt);
-}
-
-export function getMyUpvotedAnswerId(
-  answers: Answer[],
-  questionId: string,
-  currentUser: string,
-): string | null {
-  const a = answers.find(
-    a => a.questionId === questionId && a.upvotes.includes(currentUser),
-  );
-  return a ? a.id : null;
+    .sort((a, b) => {
+      const sa = supportScore(a.approvals.length, a.disapprovals.length);
+      const sb = supportScore(b.approvals.length, b.disapprovals.length);
+      return sb - sa || a.createdAt - b.createdAt;
+    });
 }
 
 export function canAddAnswer(

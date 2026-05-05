@@ -1,9 +1,12 @@
-class FundraisingFlow:
+class FundingFlow:
 
     def __init__(self):
-        self.parameters = Storage('parameters')
-        self.config = Storage('config')
+        self.db = Storage('funding_flow')
+        self.parameters = self.db['parameters']
+        self.config = self.db['config']
         self.contributions = Storage('contributions')
+        self.items = Storage('items')
+        self.allocations = Storage('allocations')
 
     def set_community_and_fund(self, community_server, community_agent, community_id, fund_account_name):
         if 'community_id' not in self.parameters:
@@ -37,3 +40,17 @@ class FundraisingFlow:
 
     def get_contributions(self):
         return [self.contributions[key].get_dict() for key in self.contributions]
+
+    # Budget items
+    def add_item(self, item):
+        self.items.append(item)
+
+    def get_items(self):
+        return [self.items[key].get_dict() for key in self.items]
+
+    # Allocations — one record per participant
+    def set_my_allocation(self, allocation):
+        self.allocations[master()] = {'participantId': master(), 'allocation': allocation}
+
+    def get_all_allocations(self):
+        return [self.allocations[key].get_dict() for key in self.allocations]

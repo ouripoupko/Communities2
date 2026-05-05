@@ -4,10 +4,9 @@ import type { IMethod } from '../interfaces';
 import rankingFlowCode         from '../../assets/contracts/ranking_flow_contract.py?raw';
 import scoringFlowCode         from '../../assets/contracts/scoring_flow_contract.py?raw';
 import documentFlowCode        from '../../assets/contracts/document_flow_contract.py?raw';
-import fundraisingFlowCode     from '../../assets/contracts/fundraising_flow_contract.py?raw';
+import fundingFlowCode         from '../../assets/contracts/funding_flow_contract.py?raw';
 import discussionFlowCode      from '../../assets/contracts/discussion_flow_contract.py?raw';
 import schedulingFlowCode      from '../../assets/contracts/scheduling_flow_contract.py?raw';
-import budgetAllocationFlowCode from '../../assets/contracts/budget_allocation_flow_contract.py?raw';
 import taskBoardFlowCode       from '../../assets/contracts/task_board_flow_contract.py?raw';
 import concernsFlowCode        from '../../assets/contracts/concerns_flow_contract.py?raw';
 import qaFlowCode              from '../../assets/contracts/qa_flow_contract.py?raw';
@@ -40,17 +39,16 @@ interface FlowContractSpec {
 }
 
 const FLOW_SPECS: Record<string, FlowContractSpec> = {
-  'ranking':          { contract: 'RankingFlow',          code: rankingFlowCode },
-  'scoring':          { contract: 'ScoringFlow',          code: scoringFlowCode },
-  'document':         { contract: 'DocumentFlow',         code: documentFlowCode },
-  'fundraising':      { contract: 'FundraisingFlow',      code: fundraisingFlowCode },
-  'discussion':       { contract: 'DiscussionFlow',       code: discussionFlowCode },
-  'scheduling':       { contract: 'SchedulingFlow',       code: schedulingFlowCode },
-  'budget-allocation':{ contract: 'BudgetAllocationFlow', code: budgetAllocationFlowCode },
-  'task-board':       { contract: 'TaskBoardFlow',        code: taskBoardFlowCode },
-  'concerns':         { contract: 'ConcernsFlow',         code: concernsFlowCode },
-  'qa':               { contract: 'QAFlow',               code: qaFlowCode },
-  'roles':            { contract: 'RolesFlow',            code: rolesFlowCode },
+  'ranking':  { contract: 'RankingFlow',  code: rankingFlowCode },
+  'scoring':  { contract: 'ScoringFlow',  code: scoringFlowCode },
+  'document': { contract: 'DocumentFlow', code: documentFlowCode },
+  'funding':  { contract: 'FundingFlow',  code: fundingFlowCode },
+  'discussion':{ contract: 'DiscussionFlow', code: discussionFlowCode },
+  'scheduling':{ contract: 'SchedulingFlow', code: schedulingFlowCode },
+  'task-board':{ contract: 'TaskBoardFlow',  code: taskBoardFlowCode },
+  'concerns': { contract: 'ConcernsFlow', code: concernsFlowCode },
+  'qa':       { contract: 'QAFlow',       code: qaFlowCode },
+  'roles':    { contract: 'RolesFlow',    code: rolesFlowCode },
 };
 
 // ---------------------------------------------------------------------------

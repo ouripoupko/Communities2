@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Coins, Send, TrendingUp, TrendingDown } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Coins, Send, TrendingUp, TrendingDown, Star } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchUserBalance } from '../../store/slices/currencySlice';
+import { useEventStream } from '../../hooks/useEventStream';
 import styles from './Currency.module.scss';
-import { transfer, setParameters } from '../../services/contracts/community';
+import {
+  transfer, setParameters,
+  getAccountDetails, getAllAllocations, setAllocation,
+  getDistributionStatus, distributeCommons,
+} from '../../services/contracts/community';
+import type { IDistributionStatus } from '../../services/contracts/community';
 
 interface CurrencyProps {
   communityId: string;
@@ -28,10 +34,12 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   // Get median values for display (top card)
   const medianMintRate = parameters?.medians?.mint || 0;
   const medianBurnRate = parameters?.medians?.burn || 0;
-  
+  const medianCommonsMintRate = parameters?.medians?.commons_mint || 0;
+
   // Get user's stored parameters (bottom card)
   const userMintPreference = parameters?.parameters?.mint || 0;
   const userBurnPreference = parameters?.parameters?.burn || 0;
+  const userCommonsMintPreference = parameters?.parameters?.commons_mint || 0;
 
   // Check if user is a member of the community
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
@@ -42,20 +50,36 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
   const [amount, setAmount] = useState('');
   const [mintPreference, setMintPreference] = useState('');
   const [burnPreference, setBurnPreference] = useState('');
+  const [commonsMintPreference, setCommonsMintPreference] = useState('');
   const [mintFocused, setMintFocused] = useState(false);
   const [burnFocused, setBurnFocused] = useState(false);
+  const [commonsMintFocused, setCommonsMintFocused] = useState(false);
+
+  // Budget allocation state
+  const [accountDetails, setAccountDetails] = useState<Record<string, { type: string; balance: number }>>({});
+  const [allAllocations, setAllAllocations] = useState<Record<string, Record<string, number>>>({});
+  const [distributionStatus, setDistributionStatus] = useState<IDistributionStatus | null>(null);
+  const [myAllocation, setMyAllocation] = useState<Record<string, number>>({});
+  const [allocationLoading, setAllocationLoading] = useState(true);
+  const [allocationSaving, setAllocationSaving] = useState(false);
+  const [distributing, setDistributing] = useState(false);
+  const myAllocationInitialized = useRef(false);
+  const myAllocationRef = useRef(myAllocation);
+  myAllocationRef.current = myAllocation;
   
   // Update local state when parameters change
   useEffect(() => {
     if (parameters) {
       setMintPreference('');
       setBurnPreference('');
+      setCommonsMintPreference('');
     }
   }, [parameters]);
-  
+
   // Check if preferences have changed
-  const hasChanges = (mintPreference !== '' && mintPreference !== userMintPreference.toString()) || 
-                     (burnPreference !== '' && burnPreference !== userBurnPreference.toString());
+  const hasChanges = (mintPreference !== '' && mintPreference !== userMintPreference.toString()) ||
+                     (burnPreference !== '' && burnPreference !== userBurnPreference.toString()) ||
+                     (commonsMintPreference !== '' && commonsMintPreference !== userCommonsMintPreference.toString());
 
   // Fetch user balance on component mount
   useEffect(() => {
@@ -67,6 +91,40 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
       }));
     }
   }, [communityId, publicKey, serverUrl, dispatch]);
+
+  // Reset allocation init flag when community changes
+  useEffect(() => {
+    myAllocationInitialized.current = false;
+    setAllocationLoading(true);
+  }, [communityId]);
+
+  const loadAllocationData = useCallback(async () => {
+    if (!publicKey || !serverUrl || !communityId) return;
+    try {
+      const [details, allAllocs, status] = await Promise.all([
+        getAccountDetails(serverUrl, publicKey, communityId),
+        getAllAllocations(serverUrl, publicKey, communityId),
+        getDistributionStatus(serverUrl, publicKey, communityId),
+      ]);
+      setAccountDetails(details);
+      setAllAllocations(allAllocs);
+      setDistributionStatus(status);
+      if (!myAllocationInitialized.current) {
+        setMyAllocation(allAllocs[publicKey] ?? {});
+        myAllocationInitialized.current = true;
+      }
+    } catch (e) {
+      console.error('Failed to load allocation data:', e);
+    } finally {
+      setAllocationLoading(false);
+    }
+  }, [publicKey, serverUrl, communityId]);
+
+  useEffect(() => { void loadAllocationData(); }, [loadAllocationData]);
+
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === communityId) void loadAllocationData();
+  }, [communityId, loadAllocationData]));
 
   const handlePayment = async () => {
     console.log('handlePayment', selectedMember, amount);
@@ -96,22 +154,24 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
     if (!serverUrl || !publicKey || !communityId) return;
     
     // Use current values or fall back to stored values if input is empty
-    const mintValue = mintPreference !== '' ? parseFloat(mintPreference) : userMintPreference;
-    const burnValue = burnPreference !== '' ? parseFloat(burnPreference) : userBurnPreference;
-    
+    const mintValue        = mintPreference        !== '' ? parseFloat(mintPreference)        : userMintPreference;
+    const burnValue        = burnPreference        !== '' ? parseFloat(burnPreference)        : userBurnPreference;
+    const commonsMintValue = commonsMintPreference !== '' ? parseFloat(commonsMintPreference) : userCommonsMintPreference;
+
     // Validate that the parsed values are valid numbers
-    if (isNaN(mintValue) || isNaN(burnValue)) {
-      alert('Please enter valid numbers for mint and burn rates.');
+    if (isNaN(mintValue) || isNaN(burnValue) || isNaN(commonsMintValue)) {
+      alert('Please enter valid numbers for mint, burn, and commons mint rates.');
       return;
     }
-    
+
     try {
       await setParameters(
         serverUrl,
         publicKey,
         communityId,
         mintValue,
-        burnValue
+        burnValue,
+        commonsMintValue
       );
 
     } catch (error) {
@@ -120,11 +180,70 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
     }
   };
 
+  // Collective percentages across all members
+  const collectivePercentages = useMemo(() => {
+    const totals: Record<string, number> = {};
+    let grandTotal = 0;
+    for (const memberAlloc of Object.values(allAllocations)) {
+      for (const [account, points] of Object.entries(memberAlloc)) {
+        totals[account] = (totals[account] ?? 0) + points;
+        grandTotal += points;
+      }
+    }
+    if (grandTotal === 0) return {} as Record<string, number>;
+    return Object.fromEntries(
+      Object.entries(totals).map(([acc, pts]) => [acc, (pts / grandTotal) * 100])
+    );
+  }, [allAllocations]);
+
+  const totalAllocated = useMemo(
+    () => Object.values(myAllocation).reduce((s, v) => s + v, 0),
+    [myAllocation]
+  );
+
+  const fundAccounts = useMemo(
+    () => Object.entries(accountDetails)
+      .filter(([, info]) => info.type === 'fund')
+      .map(([name, info]) => ({ name, ...info })),
+    [accountDetails]
+  );
+
+  const handleSetAccountPoints = (account: string, raw: string) => {
+    const points = Math.max(0, Math.round(Number(raw) || 0));
+    setMyAllocation(prev => ({ ...prev, [account]: points }));
+  };
+
+  const handleSaveAllocation = useCallback(async () => {
+    if (!publicKey || !serverUrl || !communityId) return;
+    setAllocationSaving(true);
+    try {
+      await setAllocation(serverUrl, publicKey, communityId, myAllocationRef.current);
+    } catch (e) {
+      console.error('Failed to save allocation:', e);
+    } finally {
+      setAllocationSaving(false);
+    }
+  }, [publicKey, serverUrl, communityId]);
+
+  const handleDistribute = async () => {
+    if (!publicKey || !serverUrl || !communityId) return;
+    setDistributing(true);
+    try {
+      await distributeCommons(serverUrl, publicKey, communityId);
+    } catch (e) {
+      console.error('Failed to distribute:', e);
+    } finally {
+      setDistributing(false);
+    }
+  };
+
   const handleRevertPreferences = () => {
     setMintPreference('');
     setBurnPreference('');
+    setCommonsMintPreference('');
     setMintFocused(false);
     setBurnFocused(false);
+    setCommonsMintFocused(false);
   };
 
   if (isMembersLoading || balanceLoading) {
@@ -175,7 +294,11 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 </div>
                 <div className={styles.stat}>
                   <span className={styles.label}>Median Burn Rate:</span>
-                  <span className={styles.value}>{medianBurnRate} credits/day</span>
+                  <span className={styles.value}>{medianBurnRate}% per day</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.label}>Median Commons Mint:</span>
+                  <span className={styles.value}>{medianCommonsMintRate} credits/day</span>
                 </div>
               </div>
             </div>
@@ -238,20 +361,9 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                   id="mintPreference"
                   type="number"
                   value={mintPreference}
-                  onChange={(e) => {
-                    console.log('Mint input changed:', e.target.value);
-                    setMintPreference(e.target.value);
-                  }}
-                  onFocus={() => {
-                    setMintFocused(true);
-                    if (mintPreference === '') {
-                      setMintPreference('');
-                    }
-                  }}
-                  onBlur={() => {
-                    console.log('Mint input blurred, value:', mintPreference);
-                    setMintFocused(false);
-                  }}
+                  onChange={(e) => setMintPreference(e.target.value)}
+                  onFocus={() => setMintFocused(true)}
+                  onBlur={() => setMintFocused(false)}
                   placeholder={!mintFocused && mintPreference === '' ? userMintPreference.toString() : ''}
                   className={`input-field ${styles.inputField}`}
                   min="0"
@@ -260,31 +372,37 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
                 <TrendingUp size={16} className={styles.mintIcon} />
               </div>
               <div className={styles.preferenceItem}>
-                <label htmlFor="burnPreference">Burn Rate (credits/day)</label>
+                <label htmlFor="burnPreference">Burn Rate (% per day)</label>
                 <input
                   id="burnPreference"
                   type="number"
                   value={burnPreference}
-                  onChange={(e) => {
-                    console.log('Burn input changed:', e.target.value);
-                    setBurnPreference(e.target.value);
-                  }}
-                  onFocus={() => {
-                    setBurnFocused(true);
-                    if (burnPreference === '') {
-                      setBurnPreference('');
-                    }
-                  }}
-                  onBlur={() => {
-                    console.log('Burn input blurred, value:', burnPreference);
-                    setBurnFocused(false);
-                  }}
+                  onChange={(e) => setBurnPreference(e.target.value)}
+                  onFocus={() => setBurnFocused(true)}
+                  onBlur={() => setBurnFocused(false)}
                   placeholder={!burnFocused && burnPreference === '' ? userBurnPreference.toString() : ''}
+                  className={`input-field ${styles.inputField}`}
+                  min="0"
+                  max="100"
+                  step="any"
+                />
+                <TrendingDown size={16} className={styles.burnIcon} />
+              </div>
+              <div className={styles.preferenceItem}>
+                <label htmlFor="commonsMintPreference">Commons Minting (credits/day)</label>
+                <input
+                  id="commonsMintPreference"
+                  type="number"
+                  value={commonsMintPreference}
+                  onChange={(e) => setCommonsMintPreference(e.target.value)}
+                  onFocus={() => setCommonsMintFocused(true)}
+                  onBlur={() => setCommonsMintFocused(false)}
+                  placeholder={!commonsMintFocused && commonsMintPreference === '' ? userCommonsMintPreference.toString() : ''}
                   className={`input-field ${styles.inputField}`}
                   min="0"
                   step="any"
                 />
-                <TrendingDown size={16} className={styles.burnIcon} />
+                <TrendingUp size={16} className={styles.mintIcon} />
               </div>
             </div>
             <div className={styles.preferenceActions}>
@@ -307,8 +425,101 @@ const Currency: React.FC<CurrencyProps> = ({ communityId }) => {
         </div>
 
       </div>
+
+      {/* ── Budget Allocation ─────────────────────────────────────────── */}
+      <div className={styles.allocationCard}>
+        <div className={styles.allocationHeader}>
+          <h3>Budget Allocation</h3>
+          {distributionStatus && (
+            <div className={styles.distributionStatus}>
+              <span className={styles.statusText}>
+                Day {distributionStatus.days_since_creation} · {distributionStatus.payment_count} payment{distributionStatus.payment_count !== 1 ? 's' : ''} made
+              </span>
+              <button
+                className={`${styles.distributeBtn} ${!distributionStatus.can_distribute || distributing ? styles.distributeBtnDisabled : ''}`}
+                onClick={handleDistribute}
+                disabled={!distributionStatus.can_distribute || distributing}
+                title={distributionStatus.can_distribute ? 'Distribute commons balance to funds' : 'No new payment available today'}
+              >
+                {distributing ? 'Paying…' : 'Pay to Funds'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <p className={styles.allocationSubtitle}>
+          Allocate 1000 points among funds. The community's collective allocation determines what share of the commons each fund receives each day.
+        </p>
+
+        {allocationLoading ? (
+          <p className={styles.allocationLoading}>Loading accounts…</p>
+        ) : (
+          <>
+            <div className={`${styles.allocationRow} ${styles.allocationHeadings}`}>
+              <span className={styles.colAccount}>Account</span>
+              <span className={styles.colPct}>Community %</span>
+              <span className={styles.colPts}>My points</span>
+            </div>
+
+            {/* Commons (treasury) row — top, marked uniquely */}
+            <div className={`${styles.allocationRow} ${styles.allocationRowCommons}`}>
+              <span className={styles.colAccount}>
+                <Star size={13} className={styles.commonsIcon} />
+                Commons Treasury
+              </span>
+              <span className={styles.colPct}>
+                {(collectivePercentages['centralAccount'] ?? 0).toFixed(1)}%
+              </span>
+              <input
+                type="number"
+                className={styles.colPts}
+                value={myAllocation['centralAccount'] ?? 0}
+                onChange={e => handleSetAccountPoints('centralAccount', e.target.value)}
+                min={0}
+                max={1000}
+              />
+            </div>
+
+            {/* Fund rows */}
+            {fundAccounts.length === 0 ? (
+              <p className={styles.noFunds}>No fund accounts yet. Create a funding flow to add funds.</p>
+            ) : (
+              fundAccounts.map(fund => (
+                <div key={fund.name} className={styles.allocationRow}>
+                  <span className={styles.colAccount} title={fund.name}>{fund.name}</span>
+                  <span className={styles.colPct}>
+                    {(collectivePercentages[fund.name] ?? 0).toFixed(1)}%
+                  </span>
+                  <input
+                    type="number"
+                    className={styles.colPts}
+                    value={myAllocation[fund.name] ?? 0}
+                    onChange={e => handleSetAccountPoints(fund.name, e.target.value)}
+                    min={0}
+                    max={1000}
+                  />
+                </div>
+              ))
+            )}
+
+            <div className={styles.allocationFooter}>
+              <span className={`${styles.allocationTotal} ${totalAllocated > 1000 ? styles.allocationTotalOver : ''}`}>
+                {totalAllocated} / 1000 points
+              </span>
+              <button
+                className={`${styles.updateButton} ${allocationSaving || totalAllocated > 1000 ? styles.disabled : ''}`}
+                onClick={handleSaveAllocation}
+                disabled={allocationSaving || totalAllocated > 1000}
+              >
+                {allocationSaving ? 'Saving…' : 'Save My Allocation'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
     </div>
   );
 };
 
-export default Currency; 
+export default Currency;

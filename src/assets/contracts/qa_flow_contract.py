@@ -4,22 +4,31 @@ class QAFlow:
         self.questions = Storage('questions')
         self.answers = Storage('answers')
 
-    # Questions
+    # Questions — keyed by question id
     def add_question(self, question):
-        self.questions.append(question)
+        self.questions[question['id']] = question
 
     def get_questions(self):
         return [self.questions[key].get_dict() for key in self.questions]
 
-    def set_questions(self, questions):
-        pass  # TODO
+    def delete_question(self, question_id):
+        if question_id in self.questions:
+            del self.questions[question_id]
+        to_delete = [key for key in self.answers
+                     if self.answers[key]['questionId'] == question_id]
+        for key in to_delete:
+            del self.answers[key]
 
-    # Answers
+    # Answers — keyed by answer id
     def add_answer(self, answer):
-        self.answers.append(answer)
+        self.answers[answer['id']] = answer
 
     def get_answers(self):
         return [self.answers[key].get_dict() for key in self.answers]
 
-    def set_answers(self, answers):
-        pass  # TODO
+    def set_answer(self, answer):
+        self.answers[answer['id']] = answer
+
+    def delete_answer(self, answer_id):
+        if answer_id in self.answers:
+            del self.answers[answer_id]

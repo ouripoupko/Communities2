@@ -1,7 +1,8 @@
 class Wish:
 
     def __init__(self, community_server=None, community_agent=None, community_id=None):
-        self.parameters = Storage('parameters')
+        self.db = Storage('wish')
+        self.parameters = self.db['parameters']
         if 'community_id' not in self.parameters:
             self.parameters['community_server'] = community_server
             self.parameters['community_agent'] = community_agent

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  HelpCircle, ChevronDown, ChevronRight, Plus, Pencil, Trash2, ThumbsUp,
+  HelpCircle, ChevronDown, ChevronRight, Plus, Pencil, Trash2, ThumbsUp, ThumbsDown,
 } from 'lucide-react';
 
 import type { FlowProps } from '../types';
@@ -53,35 +53,21 @@ const InlineTextForm: React.FC<{
 // ---------------------------------------------------------------------------
 const AnswerItem: React.FC<{
   answer: Answer;
-  myUpvotedId: string | null;
   currentUser: string;
   server: string;
   agent: string;
   contractId: string;
-  answers: Answer[];
-}> = ({ answer, myUpvotedId, currentUser, server, agent, contractId, answers }) => {
+}> = ({ answer, currentUser, server, agent, contractId }) => {
   const [editing, setEditing] = useState(false);
-  const isOwn     = answer.createdBy === currentUser;
-  const isUpvoted = myUpvotedId === answer.id;
+  const isOwn    = answer.createdBy === currentUser;
+  const myVote   = api.getMyVote(answer, currentUser);
+
+  const handleVote = async (voteType: 'approve' | 'disapprove') => {
+    await api.vote(server, agent, contractId, answer, voteType, currentUser);
+  };
 
   return (
     <div className={`${styles.answerItem} ${isOwn ? styles.answerOwn : ''}`}>
-      {/* Upvote column */}
-      <div className={styles.upvoteColumn}>
-        <button
-          className={`${styles.upvoteBtn} ${isUpvoted ? styles.upvoteBtnActive : ''}`}
-          onClick={async () => {
-            await api.toggleUpvote(server, agent, contractId, answers, answer.id, currentUser);
-          }}
-          title={isUpvoted ? 'Remove upvote' : 'Upvote this answer'}
-        >
-          <ThumbsUp size={14} />
-        </button>
-        <span className={`${styles.upvoteCount} ${isUpvoted ? styles.upvoteCountActive : ''}`}>
-          {answer.upvotes.length}
-        </span>
-      </div>
-
       {/* Answer content */}
       <div className={styles.answerContent}>
         {editing ? (
@@ -90,7 +76,7 @@ const AnswerItem: React.FC<{
             initialValue={answer.text}
             submitLabel="Save"
             onSubmit={async text => {
-              await api.editAnswer(server, agent, contractId, answers, answer.id, currentUser, text);
+              await api.editAnswer(server, agent, contractId, answer, currentUser, text);
               setEditing(false);
             }}
             onCancel={() => setEditing(false)}
@@ -113,7 +99,7 @@ const AnswerItem: React.FC<{
                   <button
                     className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
                     onClick={async () => {
-                      await api.deleteAnswer(server, agent, contractId, answers, answer.id, currentUser);
+                      await api.deleteAnswer(server, agent, contractId, answer, currentUser);
                     }}
                   >
                     <Trash2 size={11} /> Delete
@@ -123,6 +109,28 @@ const AnswerItem: React.FC<{
             </div>
           </>
         )}
+      </div>
+
+      {/* Vote column — right side */}
+      <div className={styles.voteColumn}>
+        <button
+          className={`${styles.voteBtn} ${styles.voteBtnApprove} ${myVote === 'approve' ? styles.voteBtnApproveActive : ''}`}
+          onClick={() => handleVote('approve')}
+          disabled={isOwn}
+          title={myVote === 'approve' ? 'Remove approval' : 'Approve this answer'}
+        >
+          <ThumbsUp size={16} />
+          <span className={styles.voteCount}>{answer.approvals.length}</span>
+        </button>
+        <button
+          className={`${styles.voteBtn} ${styles.voteBtnDisapprove} ${myVote === 'disapprove' ? styles.voteBtnDisapproveActive : ''}`}
+          onClick={() => handleVote('disapprove')}
+          disabled={isOwn}
+          title={myVote === 'disapprove' ? 'Remove disapproval' : 'Disapprove this answer'}
+        >
+          <ThumbsDown size={16} />
+          <span className={styles.voteCount}>{answer.disapprovals.length}</span>
+        </button>
       </div>
     </div>
   );
@@ -139,21 +147,20 @@ const QuestionItem: React.FC<{
   agent: string;
   contractId: string;
   questions: Question[];
-}> = ({ question, answers, currentUser, server, agent, contractId, questions }) => {
+}> = ({ question, answers, currentUser, server, agent, contractId }) => {
   const sortedAnswers = api.getSortedAnswers(answers, question.id);
   const [expanded,     setExpanded]     = useState(true);
   const [showAll,      setShowAll]      = useState(false);
   const [addingAnswer, setAddingAnswer] = useState(false);
 
-  const myUpvotedId = api.getMyUpvotedAnswerId(answers, question.id, currentUser);
-  const canAdd      = api.canAddAnswer(answers, question.id, currentUser);
+  const canAdd  = api.canAddAnswer(answers, question.id, currentUser);
 
   // Always show at least the top answer; rest are behind "show more"
   const topAnswer   = sortedAnswers[0] ?? null;
   const remaining   = sortedAnswers.slice(1);
   const hiddenCount = showAll ? 0 : remaining.length;
 
-  const answerItemProps = { currentUser, server, agent, contractId, answers };
+  const answerItemProps = { currentUser, server, agent, contractId };
 
   return (
     <div className={styles.questionCard}>
@@ -178,7 +185,7 @@ const QuestionItem: React.FC<{
               className={styles.questionDeleteBtn}
               onClick={async e => {
                 e.stopPropagation();
-                await api.deleteQuestion(server, agent, contractId, questions, answers, question.id, currentUser);
+                await api.deleteQuestion(server, agent, contractId, question, currentUser);
               }}
               title="Delete question"
             >
@@ -200,12 +207,7 @@ const QuestionItem: React.FC<{
 
           {/* Top answer always shown */}
           {topAnswer && (
-            <AnswerItem
-              key={topAnswer.id}
-              answer={topAnswer}
-              myUpvotedId={myUpvotedId}
-              {...answerItemProps}
-            />
+            <AnswerItem key={topAnswer.id} answer={topAnswer} {...answerItemProps} />
           )}
 
           {/* Remaining answers — hidden until expanded */}
@@ -220,12 +222,7 @@ const QuestionItem: React.FC<{
           )}
 
           {showAll && remaining.map(a => (
-            <AnswerItem
-              key={a.id}
-              answer={a}
-              myUpvotedId={myUpvotedId}
-              {...answerItemProps}
-            />
+            <AnswerItem key={a.id} answer={a} {...answerItemProps} />
           ))}
 
           {showAll && remaining.length > 0 && (
@@ -340,11 +337,7 @@ const QAFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curren
       ) : (
         <div className={styles.questionList}>
           {questions.map(q => (
-            <QuestionItem
-              key={q.id}
-              question={q}
-              {...questionItemProps}
-            />
+            <QuestionItem key={q.id} question={q} {...questionItemProps} />
           ))}
         </div>
       )}

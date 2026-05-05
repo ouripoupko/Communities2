@@ -1,7 +1,8 @@
 @use '../../../../styles/variables' as *;
 @use 'sass:color';
 
-$upvote-color: #6366f1; // indigo — distinct from primary blue
+$approve-color:    #10b981;
+$disapprove-color: #ef4444;
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 .container {
@@ -232,55 +233,70 @@ $upvote-color: #6366f1; // indigo — distinct from primary blue
   border-color: rgba(59, 130, 246, 0.3);
 }
 
-// ─── Upvote column ────────────────────────────────────────────────────────────
-.upvoteColumn {
+// ─── Vote column ──────────────────────────────────────────────────────────────
+.voteColumn {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  gap: $spacing-xs;
   flex-shrink: 0;
-  padding-top: 2px;
+  justify-content: center;
+  min-width: 64px;
 }
 
-.upvoteBtn {
+.voteBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
   background: none;
   border: 1.5px solid $gray-200;
-  border-radius: $radius-sm;
+  border-radius: $radius-md;
   color: $gray-400;
   cursor: pointer;
-  transition: all $transition-base;
-
-  &:hover {
-    border-color: $upvote-color;
-    color: $upvote-color;
-    background: rgba(99, 102, 241, 0.06);
-  }
-}
-
-.upvoteBtnActive {
-  border-color: $upvote-color;
-  color: $upvote-color;
-  background: rgba(99, 102, 241, 0.1);
-
-  &:hover {
-    background: rgba(99, 102, 241, 0.18);
-  }
-}
-
-.upvoteCount {
-  font-size: $text-xs;
+  font-size: $text-sm;
   font-weight: $font-semibold;
-  color: $gray-400;
-  line-height: 1;
+  transition: all $transition-base;
+  white-space: nowrap;
+
+  &:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
 }
 
-.upvoteCountActive {
-  color: $upvote-color;
+.voteBtnApprove {
+  &:not(:disabled):hover {
+    border-color: $approve-color;
+    color: $approve-color;
+    background: rgba(16, 185, 129, 0.06);
+  }
+}
+
+.voteBtnApproveActive {
+  border-color: $approve-color;
+  color: $approve-color;
+  background: rgba(16, 185, 129, 0.1);
+
+  &:not(:disabled):hover { background: rgba(16, 185, 129, 0.18); }
+}
+
+.voteBtnDisapprove {
+  &:not(:disabled):hover {
+    border-color: $disapprove-color;
+    color: $disapprove-color;
+    background: rgba(239, 68, 68, 0.06);
+  }
+}
+
+.voteBtnDisapproveActive {
+  border-color: $disapprove-color;
+  color: $disapprove-color;
+  background: rgba(239, 68, 68, 0.1);
+
+  &:not(:disabled):hover { background: rgba(239, 68, 68, 0.18); }
+}
+
+.voteCount {
+  line-height: 1;
 }
 
 // ─── Answer content ───────────────────────────────────────────────────────────

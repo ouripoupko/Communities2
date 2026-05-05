@@ -1,7 +1,8 @@
 class SchedulingFlow:
 
     def __init__(self):
-        self.config = Storage('config')
+        self.db = Storage('scheduling_flow')
+        self.config = self.db['config']
         self.selections = Storage('selections')
 
     # Range config (title, description, organizerId, startDate, endDate, dailyStart, dailyEnd, slotMinutes)

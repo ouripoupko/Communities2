@@ -1,17 +1,16 @@
-import { BarChart2, Star, FileText, Heart, MessageSquare, CalendarDays, PieChart, KanbanSquare, AlertTriangle, HelpCircle, Award } from 'lucide-react';
+import { BarChart2, Star, FileText, Heart, MessageSquare, CalendarDays, KanbanSquare, AlertTriangle, HelpCircle, Award } from 'lucide-react';
 import RankingFlow from './voting/RankingFlow';
 import ScoringFlow from './voting/ScoringFlow';
 import DocFlow from './document/DocFlow';
-import FundraisingFlow, { FundraisingSetupDialog } from './fundraising/FundraisingFlow';
-import { configureFund } from './fundraising/fundraisingApi';
-import type { FundConfig } from './fundraising/fundraisingApi';
+import FundingFlow, { FundingSetupDialog } from './funding/FundingFlow';
+import { configureFund } from './funding/fundingApi';
+import type { FundConfig } from './funding/fundingApi';
 import { contractWrite } from '../../../services/api';
 import type { IMethod } from '../../../services/interfaces';
 import DiscussionFlow from './discussion/DiscussionFlow';
 import SchedulingFlow, { SchedulingSetupDialog } from './scheduling/SchedulingFlow';
 import { setupRange } from './scheduling/schedulingApi';
 import type { RangeConfig } from './scheduling/schedulingApi';
-import BudgetFlow from './budget/BudgetFlow';
 import TaskboardFlow from './taskboard/TaskboardFlow';
 import ConcernsFlow from './concerns/ConcernsFlow';
 import QAFlow from './qa/QAFlow';
@@ -79,12 +78,12 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
 
   // ── Governance & Finance ───────────────────────────────────────────────────
   {
-    id: 'fundraising',
-    label: 'Fundraising',
+    id: 'funding',
+    label: 'Funding',
     icon: Heart,
-    component: FundraisingFlow,
+    component: FundingFlow,
     group: 'Governance & Finance',
-    setupComponent: FundraisingSetupDialog,
+    setupComponent: FundingSetupDialog,
     onInit: async (server, agent, contractId, config, _currentUser) => {
       const { name, description, goal } = config as unknown as FundConfig;
       const community = config._community as { server: string; agent: string; id: string } | null;
@@ -105,13 +104,6 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
         });
       }
     },
-  },
-  {
-    id: 'budget-allocation',
-    label: 'Budget Allocation',
-    icon: PieChart,
-    component: BudgetFlow,
-    group: 'Governance & Finance',
   },
 
   // ── Communication ──────────────────────────────────────────────────────────

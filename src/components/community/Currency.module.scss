@@ -1,6 +1,7 @@
 // Currency.module.scss
 // Hierarchical SCSS structure for Currency component
 @use '../../styles/variables' as *;
+@use 'sass:color';
 
 .container {
   max-width: 800px;
@@ -235,6 +236,172 @@
 
   .burnIcon {
     color: #ef4444;
+  }
+
+  // ── Budget Allocation ───────────────────────────────────────────────
+  .allocationCard {
+    margin-top: $spacing-2xl;
+    background: white;
+    border-radius: $radius-lg;
+    padding: $spacing-xl;
+    box-shadow: $shadow-base;
+
+    .allocationHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: $spacing-md;
+      margin-bottom: $spacing-sm;
+
+      h3 {
+        font-size: $text-lg;
+        font-weight: $font-semibold;
+        color: $gray-800;
+        margin: 0;
+      }
+    }
+
+    .distributionStatus {
+      display: flex;
+      align-items: center;
+      gap: $spacing-md;
+
+      .statusText {
+        font-size: $text-sm;
+        color: $gray-500;
+      }
+
+      .distributeBtn {
+        padding: $spacing-sm $spacing-lg;
+        background: $success;
+        color: white;
+        border: none;
+        border-radius: $radius-md;
+        font-size: $text-sm;
+        font-weight: $font-medium;
+        cursor: pointer;
+        transition: background $transition-base;
+
+        &:hover { background: color.adjust($success, $lightness: -8%); }
+      }
+
+      .distributeBtnDisabled {
+        background: $gray-300;
+        color: $gray-500;
+        cursor: not-allowed;
+
+        &:hover { background: $gray-300; }
+      }
+    }
+
+    .allocationSubtitle {
+      font-size: $text-sm;
+      color: $gray-500;
+      margin: 0 0 $spacing-lg;
+      line-height: 1.5;
+    }
+
+    .allocationLoading {
+      font-size: $text-sm;
+      color: $gray-400;
+      font-style: italic;
+    }
+
+    // Grid row: account name | community % | my points
+    .allocationRow {
+      display: grid;
+      grid-template-columns: 1fr 110px 110px;
+      align-items: center;
+      gap: $spacing-md;
+      padding: $spacing-sm 0;
+      border-bottom: 1px solid $gray-100;
+
+      &:last-of-type { border-bottom: none; }
+
+      .colAccount {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        font-size: $text-sm;
+        color: $gray-700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .colPct {
+        font-size: $text-sm;
+        color: $gray-600;
+        font-weight: $font-medium;
+        text-align: center;
+      }
+
+      input.colPts {
+        width: 100%;
+        padding: $spacing-xs $spacing-sm;
+        border: 1px solid $gray-300;
+        border-radius: $radius-sm;
+        font-size: $text-sm;
+        text-align: center;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color $transition-base;
+
+        &:focus { border-color: $primary; }
+      }
+    }
+
+    .allocationHeadings {
+      padding: 0 0 $spacing-xs;
+      border-bottom: 2px solid $gray-200;
+
+      .colAccount, .colPct, .colPts {
+        font-size: $text-xs;
+        font-weight: $font-semibold;
+        color: $gray-500;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+    }
+
+    .allocationRowCommons {
+      background: rgba(234, 179, 8, 0.06);
+      border-radius: $radius-sm;
+      padding: $spacing-sm;
+      margin: 0 (-$spacing-sm);
+
+      .colAccount { font-weight: $font-semibold; color: $gray-800; }
+
+      .commonsIcon { color: #ca8a04; flex-shrink: 0; }
+    }
+
+    .noFunds {
+      font-size: $text-sm;
+      color: $gray-400;
+      font-style: italic;
+      margin: $spacing-md 0 0;
+    }
+
+    .allocationFooter {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: $spacing-md;
+      margin-top: $spacing-lg;
+      padding-top: $spacing-lg;
+      border-top: 1px solid $gray-200;
+    }
+
+    .allocationTotal {
+      font-size: $text-sm;
+      font-weight: $font-medium;
+      color: $gray-600;
+    }
+
+    .allocationTotalOver {
+      color: #ef4444;
+    }
   }
 
   .paymentFormOverlay {
