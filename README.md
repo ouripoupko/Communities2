@@ -1,8 +1,12 @@
 # Communities — A Platform for Decentralized Governance
 
+**Communities is an open-source platform that helps communities forge agreements, manage shared resources, and act together — without relying on a central authority.**
+
 Every human community — from a building's residents' committee to humanity as a whole — needs tools for building agreements, managing shared resources, and acting together. The time has come for such tools, where control remains entirely in the hands of the community itself.
 
-**Communities** is a platform that lets any community govern itself — from member onboarding to forging agreements, legislation, and budgets — with no need for a central authority.
+Communities is a platform that lets any community govern itself — from member onboarding to forging agreements, legislation, and budgets — with no need for a central authority.
+
+**Who is it for?** Any group that needs to coordinate: a residents' committee, a housing cooperative, a non-profit, a local community group, a workers' collective, a neighborhood council — or a network of any of these, operating at scale.
 
 ---
 
@@ -35,7 +39,15 @@ Above all of these sits a rich interface for:
 
 The system is designed to operate at any scale — from a residents' committee, to a network of neighborhoods, a city, and on up to the scale of a nation and of humanity as a whole. Not as a hierarchy imposed from above, but as a **network that grows from below**, out of real agreements between real people.
 
-Existing platforms for coordination — whether social networks, voting tools, or DAOs — either centralize power in a company, reduce governance to binary yes/no votes, or require technical expertise to participate. Communities is designed to be none of these things: it is a general-purpose civic layer for the internet age.
+---
+
+## Why This Is Different
+
+Existing platforms for coordination all fall short in one way or another:
+
+- **It is not a social network.** The community is not a product. No company owns the data, the relationships, or the rules. Everything lives on the members' own agents.
+- **It is not a voting tool.** Reducing governance to binary yes/no votes misses most of what communities actually do — deliberation, resource allocation, gradual trust-building, ongoing agreements. Communities is built for the full picture.
+- **It is not a classic DAO.** Blockchain-based DAOs put the infrastructure in the user's hands: tokens, gas fees, on-chain mechanics. In Communities, the blockchain is an implementation detail; members interact with their community, not a ledger. It is designed for ordinary people and non-technical groups.
 
 ---
 
@@ -63,6 +75,14 @@ The app connects to a Personal Digital Agent server. Each user runs their own ag
 ## Project Status
 
 Active development. Core flows — identity, community creation, member onboarding, currency, collaborations, and fundraising — are implemented and undergoing QA.
+
+---
+
+## Get in Touch
+
+Whether you're curious about the project, thinking about using it for your community, want to contribute, or just want to say hello — we'd love to hear from you.
+
+Open a thread in the [Discussions](../../discussions) tab. Ask a question, share an idea, or just introduce yourself. No agenda required.
 
 ---
 
