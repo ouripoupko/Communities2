@@ -47,7 +47,11 @@ const IdentityView: React.FC = () => {
             <button
               key={item.path}
               onClick={() => navigate(`/identity/${item.path}`)}
-              className={`${styles.navItem} ${location.pathname.includes(`/identity/${item.path}`) ? styles.active : ''}`}
+              className={`${styles.navItem} ${
+                location.pathname.includes(`/identity/${item.path}`) ||
+                (item.path === 'profile' && !navItems.slice(1).some(n => location.pathname.includes(`/identity/${n.path}`)))
+                  ? styles.active : ''
+              }`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
