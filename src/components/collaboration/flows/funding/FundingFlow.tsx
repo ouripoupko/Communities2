@@ -433,8 +433,8 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
   }, [instanceId, load]));
 
   const handleSaveAllocation = useCallback(async () => {
-    await api.saveMyAllocation(flowServer, flowAgent, instanceId, myAllocationRef.current);
-  }, [flowServer, flowAgent, instanceId]);
+    await api.saveMyAllocation(flowServer, flowAgent, instanceId, currentUser, myAllocationRef.current);
+  }, [flowServer, flowAgent, currentUser, instanceId]);
 
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;

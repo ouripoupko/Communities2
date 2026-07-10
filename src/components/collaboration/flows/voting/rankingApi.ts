@@ -78,11 +78,11 @@ export async function addProposal(server: string, agent: string, contractId: str
   });
 }
 
-export async function saveMyRanking(server: string, agent: string, contractId: string, order: string[]): Promise<void> {
+export async function saveMyRanking(server: string, agent: string, contractId: string, currentUser: string, order: string[]): Promise<void> {
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_my_ranking', values: { order } } as IMethod,
+    method: { name: 'set_my_ranking', values: { participant_id: currentUser, order } } as IMethod,
   });
 }

@@ -243,13 +243,14 @@ export async function saveMyAllocation(
   server: string,
   agent: string,
   contractId: string,
+  currentUser: string,
   allocation: Record<string, number>,
 ): Promise<void> {
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_my_allocation', values: { allocation } } as IMethod,
+    method: { name: 'set_my_allocation', values: { participant_id: currentUser, allocation } } as IMethod,
   });
 }
 

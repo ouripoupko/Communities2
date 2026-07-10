@@ -12,8 +12,8 @@ class ScoringFlow:
         return [self.options[key].get_dict() for key in self.options]
 
     # Scores — one record per participant
-    def set_my_scores(self, scores):
-        self.scores[master()] = {'participantId': master(), 'scores': scores}
+    def set_my_scores(self, participant_id, scores):
+        self.scores[participant_id] = {'participantId': participant_id, 'scores': scores}
 
     def get_all_scores(self):
         return [self.scores[key].get_dict() for key in self.scores]

@@ -97,11 +97,12 @@ export async function setMySelection(
   server: string,
   agent: string,
   contractId: string,
+  currentUser: string,
   slots: number[],
 ): Promise<void> {
   await contractWrite({
     serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_my_selection', values: { slots } } as IMethod,
+    method: { name: 'set_my_selection', values: { participant_id: currentUser, slots } } as IMethod,
   });
 }
 

@@ -299,9 +299,9 @@ const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
       const others = prev.selections.filter(s => s.participantId !== currentUser);
       return { ...prev, selections: [...others, { participantId: currentUser, slots }] };
     });
-    try   { await api.setMySelection(flowServer, flowAgent, instanceId, slots); }
+    try   { await api.setMySelection(flowServer, flowAgent, instanceId, currentUser, slots); }
     catch (e) { setError(e instanceof Error ? e.message : 'Failed to save.'); await load(); }
-  }, [flowServer, flowAgent, instanceId, currentUser, load]);
+  }, [flowServer, flowAgent, currentUser, instanceId, load]);
 
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;

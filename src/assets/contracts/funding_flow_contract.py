@@ -49,8 +49,8 @@ class FundingFlow:
         return [self.items[key].get_dict() for key in self.items]
 
     # Allocations — one record per participant
-    def set_my_allocation(self, allocation):
-        self.allocations[master()] = {'participantId': master(), 'allocation': allocation}
+    def set_my_allocation(self, participant_id, allocation):
+        self.allocations[participant_id] = {'participantId': participant_id, 'allocation': allocation}
 
     def get_all_allocations(self):
         return [self.allocations[key].get_dict() for key in self.allocations]

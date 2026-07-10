@@ -217,11 +217,11 @@ const ScoringFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
     const updatedScores = { ...myScores, [optionId]: score };
     setMyScores(updatedScores);
     try {
-      await api.saveMyScores(flowServer, flowAgent, instanceId, updatedScores);
+      await api.saveMyScores(flowServer, flowAgent, instanceId, currentUser, updatedScores);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save scores.');
     }
-  }, [flowServer, flowAgent, instanceId, myScores]);
+  }, [flowServer, flowAgent, currentUser, instanceId, myScores]);
 
   if (loading) return <FlowLoading />;
   if (error) return <FlowError message={error} onRetry={load} />;

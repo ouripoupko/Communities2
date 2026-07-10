@@ -15,8 +15,8 @@ class SchedulingFlow:
         return self.config['data'].get_dict()
 
     # Participant selections — one record per participant, full slot-index list
-    def set_my_selection(self, slots):
-        self.selections[master()] = {'participantId': master(), 'slots': slots}
+    def set_my_selection(self, participant_id, slots):
+        self.selections[participant_id] = {'participantId': participant_id, 'slots': slots}
 
     def get_all_selections(self):
         return [self.selections[key].get_dict() for key in self.selections]

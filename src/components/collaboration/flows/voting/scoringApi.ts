@@ -110,12 +110,13 @@ export async function saveMyScores(
   server: string,
   agent: string,
   contractId: string,
+  currentUser: string,
   scores: Record<string, number>,
 ): Promise<void> {
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_my_scores', values: { scores } } as IMethod,
+    method: { name: 'set_my_scores', values: { participant_id: currentUser, scores } } as IMethod,
   });
 }

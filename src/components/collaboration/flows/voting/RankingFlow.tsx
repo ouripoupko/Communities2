@@ -17,7 +17,7 @@ import { FlowLoading, FlowError } from '../FlowShell';
 import { ACCEPTANCE_BAR_ID } from './types';
 import type { Proposal, ParticipantRanking } from './types';
 import * as api from './rankingApi';
-import { computeCycleGroups } from './smithSet';
+import { computeCycleGroups, type CycleSetMode } from './smithSet';
 import styles from './RankingFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -89,15 +89,17 @@ interface SortableItemProps {
   index: number;
   isBar: boolean;
   moveItem: (from: number, to: number) => void;
+  onDragEnd: () => void;
 }
 
-const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, moveItem }) => {
+const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, moveItem, onDragEnd }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, dragPreview] = useDrag<DragItem, void, { isDragging: boolean }>({
     type: ITEM_TYPE,
     item: { id, label, index },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+    end: () => { onDragEnd(); },
   });
 
   useEffect(() => {
@@ -107,11 +109,23 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, mo
   const [{ isOver }, drop] = useDrop<DragItem, void, { isOver: boolean }>({
     accept: ITEM_TYPE,
     collect: (monitor) => ({ isOver: monitor.isOver() }),
-    hover: (dragged) => {
-      if (dragged.index !== index) {
-        moveItem(dragged.index, index);
-        dragged.index = index;
-      }
+    hover: (dragged, monitor) => {
+      if (dragged.index === index || !ref.current) return;
+
+      // Only swap once the cursor crosses the target's vertical midpoint,
+      // in the direction of travel — prevents the two items from repeatedly
+      // swapping back and forth while their bounding boxes merely overlap.
+      const hoverRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverRect.bottom - hoverRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverRect.top;
+
+      if (dragged.index < index && hoverClientY < hoverMiddleY) return;
+      if (dragged.index > index && hoverClientY > hoverMiddleY) return;
+
+      moveItem(dragged.index, index);
+      dragged.index = index;
     },
   });
 
@@ -144,6 +158,7 @@ interface RankingTabProps {
   proposals: Proposal[];
   order: string[];
   onOrderChange: (order: string[]) => void;
+  onOrderCommit: (order: string[]) => void;
   onAddProposal: (text: string) => void;
   listRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -152,6 +167,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
   proposals,
   order,
   onOrderChange,
+  onOrderCommit,
   onAddProposal,
   listRef,
 }) => {
@@ -170,6 +186,10 @@ const RankingTab: React.FC<RankingTabProps> = ({
     },
     [order, onOrderChange],
   );
+
+  const handleDragEnd = useCallback(() => {
+    onOrderCommit(order);
+  }, [order, onOrderCommit]);
 
   const handleAdd = () => {
     const text = inputText.trim();
@@ -212,6 +232,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
               index={index}
               isBar={isBar}
               moveItem={moveItem}
+              onDragEnd={handleDragEnd}
             />
           );
         })}
@@ -229,18 +250,18 @@ interface AggregatedTabProps {
 }
 
 const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings }) => {
+  const [mode, setMode] = useState<CycleSetMode>('smith');
+
   const proposalMap = useMemo(
     () => new Map(proposals.map((p) => [p.id, p.text])),
     [proposals],
   );
 
   const cycleGroups = useMemo(() => {
-    const rankingsOnly = allRankings.map((r) =>
-      r.order.filter((id) => id !== ACCEPTANCE_BAR_ID),
-    );
-    const candidateIds = proposals.map((p) => p.id);
-    return computeCycleGroups(candidateIds, rankingsOnly);
-  }, [proposals, allRankings]);
+    const candidateIds = [...proposals.map((p) => p.id), ACCEPTANCE_BAR_ID];
+    const rankingsOnly = allRankings.map((r) => r.order);
+    return computeCycleGroups(candidateIds, rankingsOnly, mode);
+  }, [proposals, allRankings, mode]);
 
   if (proposals.length === 0) {
     return <p className={styles.noData}>No proposals yet. Add some in the My Ranking tab.</p>;
@@ -250,9 +271,26 @@ const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings })
     <div className={styles.aggregatedTab}>
       <h3 className={styles.aggregatedTitle}>Aggregated Results</h3>
       <p className={styles.aggregatedSubtitle}>
-        Proposals are grouped into Condorcet cycles (Smith sets). Group 1 is the collective
-        winner. Within each group all proposals beat each other cyclically.
+        Proposals (and the Acceptance Bar) are grouped into Condorcet cycles. Group 1 is the
+        collective winner. Within each group, all items are tied or beat each other cyclically —
+        proposals sharing a group with the bar are contested; groups above it are accepted,
+        groups below it are rejected.
       </p>
+
+      <div className={styles.modeSwitch}>
+        <button
+          className={`${styles.modeButton} ${mode === 'smith' ? styles.modeButtonActive : ''}`}
+          onClick={() => setMode('smith')}
+        >
+          Smith set
+        </button>
+        <button
+          className={`${styles.modeButton} ${mode === 'schwartz' ? styles.modeButtonActive : ''}`}
+          onClick={() => setMode('schwartz')}
+        >
+          Schwartz set
+        </button>
+      </div>
 
       <div className={styles.cycleList}>
         {cycleGroups.map((group) => (
@@ -264,11 +302,17 @@ const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings })
               )}
             </div>
             <div className={styles.cycleGroupItems}>
-              {group.proposalIds.map((id) => (
-                <div key={id} className={styles.cycleItem}>
-                  {proposalMap.get(id) ?? id}
-                </div>
-              ))}
+              {group.proposalIds.map((id) =>
+                id === ACCEPTANCE_BAR_ID ? (
+                  <div key={id} className={styles.cycleAcceptanceBar}>
+                    <AcceptanceBar />
+                  </div>
+                ) : (
+                  <div key={id} className={styles.cycleItem}>
+                    {proposalMap.get(id) ?? id}
+                  </div>
+                ),
+              )}
             </div>
           </div>
         ))}
@@ -314,10 +358,17 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
     if (event.contract === instanceId) void load();
   }, [instanceId, load]));
 
-  const handleOrderChange = useCallback(async (newOrder: string[]) => {
+  const handleOrderChange = useCallback((newOrder: string[]) => {
     setOrder(newOrder);
-    await api.saveMyRanking(flowServer, flowAgent, instanceId, newOrder);
-  }, [flowServer, flowAgent, instanceId]);
+  }, []);
+
+  const handleOrderCommit = useCallback(async (newOrder: string[]) => {
+    try {
+      await api.saveMyRanking(flowServer, flowAgent, instanceId, currentUser, newOrder);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save ranking.');
+    }
+  }, [flowServer, flowAgent, currentUser, instanceId]);
 
   const handleAddProposal = useCallback(async (text: string) => {
     await api.addProposal(flowServer, flowAgent, instanceId, text);
@@ -349,7 +400,8 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
         <RankingTab
           proposals={proposals}
           order={order}
-          onOrderChange={(newOrder) => { void handleOrderChange(newOrder); }}
+          onOrderChange={handleOrderChange}
+          onOrderCommit={(newOrder) => { void handleOrderCommit(newOrder); }}
           onAddProposal={(text) => { void handleAddProposal(text); }}
           listRef={listRef}
         />
