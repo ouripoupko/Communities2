@@ -13,6 +13,7 @@ const getBasename = () => {
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
+const PolicyDetailPage = lazy(() => import('./pages/PolicyDetailPage'));
 const IssueView = lazy(() => import('./pages/IssueView'));
 const InitiativeView = lazy(() => import('./pages/collaboration/InitiativeView'));
 const WishView = lazy(() => import('./pages/collaboration/WishView'));
@@ -44,6 +45,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Navigate to="/identity" replace />} />
           <Route path="/identity/*" element={<IdentityView />} />
+          <Route path="/community/:communityId/policy/:policyId" element={<PolicyDetailPage />} />
           <Route path="/community/:communityId/*" element={<CommunityView />} />
           <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
           <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:initiativeId/*" element={<InitiativeView />} />

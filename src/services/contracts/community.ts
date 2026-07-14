@@ -1,7 +1,6 @@
 import { contractRead, contractWrite, deployContract } from '../api';
 import type { IMethod } from '../interfaces';
 import communityContractCode from '../../assets/contracts/community_contract.py?raw';
-import issueContractCode from '../../assets/contracts/issue_contract.py?raw';
 import initiativeContractCode from '../../assets/contracts/initiative_contract.py?raw';
 import wishContractCode from '../../assets/contracts/wish_contract.py?raw';
 import agreementContractCode from '../../assets/contracts/agreement_contract.py?raw';
@@ -11,17 +10,16 @@ import agreementContractCode from '../../assets/contracts/agreement_contract.py?
  * Handles all community-specific contract calls
  */
 
-export interface IParameters {
-  medians: {
-    mint: number;
-    burn: number;
-    commons_mint: number;
-  };
-  parameters: {
-    mint: number;
-    burn: number;
-    commons_mint: number;
-  };
+/** Logs every call this file makes to the community contract: the wrapper
+ * function in community.ts, the Python method it invokes, and the
+ * parameters sent. */
+function logCommunityCall(tsFunction: string, contractMethod: string, params: unknown): void {
+  console.log(`[community.ts] ${tsFunction} -> community_contract.${contractMethod}`, params);
+}
+
+/** Logs the return value of a read call to the community contract. */
+function logCommunityResult(tsFunction: string, contractMethod: string, result: unknown): void {
+  console.log(`[community.ts] ${tsFunction} <- community_contract.${contractMethod}`, result);
 }
 
 export async function createCommunity(
@@ -29,9 +27,10 @@ export async function createCommunity(
   publicKey: string,
   communityName: string,
   communityDescription: string,
-  profile: string | null
-  
-) {
+  profile: string | null,
+  initialBalance: number = 1000,
+  openJoin: boolean = false,
+): Promise<string | undefined> {
   // Deploy the community contract
   const contractId = await deployContract({
     serverUrl,
@@ -41,9 +40,10 @@ export async function createCommunity(
     code: communityContractCode,
     profile: profile || undefined,
   });
-  
+
   // Set properties: name, description, createdAt
   if (contractId) {
+    logCommunityCall('createCommunity', 'set_property', { key: 'name', value: communityName });
     await contractWrite({
       serverUrl,
       publicKey,
@@ -56,7 +56,8 @@ export async function createCommunity(
         },
       } as IMethod
     });
-    
+
+    logCommunityCall('createCommunity', 'set_property', { key: 'description', value: communityDescription });
     await contractWrite({
       serverUrl,
       publicKey,
@@ -69,7 +70,9 @@ export async function createCommunity(
         },
       } as IMethod,
     });
-    
+
+    const createdAt = new Date().toISOString();
+    logCommunityCall('createCommunity', 'set_property', { key: 'createdAt', value: createdAt });
     await contractWrite({
       serverUrl,
       publicKey,
@@ -78,12 +81,41 @@ export async function createCommunity(
         name: 'set_property',
         values: {
           key: 'createdAt',
-          value: new Date().toISOString()
+          value: createdAt
+        },
+      } as IMethod,
+    });
+
+    logCommunityCall('createCommunity', 'set_property', { key: 'initial_balance', value: initialBalance });
+    await contractWrite({
+      serverUrl,
+      publicKey,
+      contractId,
+      method: {
+        name: 'set_property',
+        values: {
+          key: 'initial_balance',
+          value: initialBalance
+        },
+      } as IMethod,
+    });
+
+    logCommunityCall('createCommunity', 'set_property', { key: 'open_join', value: openJoin });
+    await contractWrite({
+      serverUrl,
+      publicKey,
+      contractId,
+      method: {
+        name: 'set_property',
+        values: {
+          key: 'open_join',
+          value: openJoin
         },
       } as IMethod,
     });
 
     // Call request_join to join the community as the creator
+    logCommunityCall('createCommunity', 'request_join', {});
     await contractWrite({
       serverUrl,
       publicKey,
@@ -94,6 +126,8 @@ export async function createCommunity(
       } as IMethod,
     });
   }
+
+  return contractId;
 }
 
 /**
@@ -104,7 +138,8 @@ export async function getPartners(
   publicKey: string,
   contractId: string,
 ) {
-  return await contractRead({
+  logCommunityCall('getPartners', 'get_partners', {});
+  const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
@@ -113,6 +148,8 @@ export async function getPartners(
       values: {},
     } as IMethod,
   });
+  logCommunityResult('getPartners', 'get_partners', result);
+  return result;
 }
 
 /**
@@ -123,7 +160,8 @@ export async function getAllPeople(
   publicKey: string,
   contractId: string,
 ) {
-  return await contractRead({
+  logCommunityCall('getAllPeople', 'get_all_people', {});
+  const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
@@ -132,6 +170,8 @@ export async function getAllPeople(
       values: {},
     } as IMethod,
   });
+  logCommunityResult('getAllPeople', 'get_all_people', result);
+  return result;
 }
 
 /**
@@ -142,7 +182,8 @@ export async function getProperties(
   publicKey: string,
   contractId: string,
 ) {
-  return await contractRead({
+  logCommunityCall('getProperties', 'get_properties', {});
+  const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
@@ -151,81 +192,8 @@ export async function getProperties(
       values: {},
     } as IMethod,
   });
-}
-
-export async function createIssue(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  issue: { title: string; description: string },
-) {
-  // 1. Deploy the issue contract with the issue title as the name
-  const fileName = 'issue_contract.py';
-  const response = await deployContract({
-    serverUrl,
-    publicKey,
-    name: issue.title,
-    contract: fileName,
-    code: issueContractCode,
-  });
-  const issueId = response.id || response;
-  
-  // 2. Set the issue properties (name and description)
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId: issueId,
-    method: {
-      name: 'set_name',
-      values: { name: issue.title },
-    } as IMethod,
-  });
-  
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId: issueId,
-    method: {
-      name: 'set_description',
-      values: { text: issue.description },
-    } as IMethod,
-  });
-  
-  // 3. Add the issue to the community contract
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'add_issue',
-      values: {
-        issue: {
-          server: serverUrl,
-          agent: publicKey,
-          contract: issueId,
-        },
-      },
-    } as IMethod,
-  });
-}
-
-/**
- * Get community issues
- */
-export async function getIssues(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  return await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_issues',
-      values: {},
-    } as IMethod,
-  });
+  logCommunityResult('getProperties', 'get_properties', result);
+  return result;
 }
 
 export interface Collaboration {
@@ -248,7 +216,8 @@ export interface Collaboration {
 
 /**
  * Read the parent community credentials stored in a collaboration contract
- * (initiative, wish, or agreement).
+ * (initiative, wish, or agreement). Note: this targets the collaboration's
+ * own contract, not the community contract, so it is not logged here.
  */
 export async function getCommunity(
   serverUrl: string,
@@ -301,6 +270,7 @@ export async function createInitiative(
     currencyGathered: 0,
     activityCount: 0,
   };
+  // Targets the initiative's own contract, not the community contract.
   await contractWrite({
     serverUrl,
     publicKey,
@@ -323,6 +293,7 @@ export async function createInitiative(
     hostServer: serverUrl,
     hostAgent: publicKey,
   };
+  // addCollaboration logs its own community contract call.
   await addCollaboration(serverUrl, publicKey, communityId, collaboration);
   return initiativeId;
 }
@@ -357,6 +328,7 @@ export async function createWish(
     hostServer: serverUrl,
     hostAgent: publicKey,
   };
+  // addCollaboration logs its own community contract call.
   await addCollaboration(serverUrl, publicKey, communityId, collaboration);
   return wishId;
 }
@@ -392,6 +364,7 @@ export async function createAgreement(
     hostServer: serverUrl,
     hostAgent: publicKey,
   };
+  // addCollaboration logs its own community contract call.
   await addCollaboration(serverUrl, publicKey, communityId, collaboration);
   return agreementId;
 }
@@ -405,6 +378,7 @@ export async function addCollaboration(
   contractId: string,
   collaboration: Collaboration,
 ) {
+  logCommunityCall('addCollaboration', 'add_collaboration', { collaboration });
   return await contractWrite({
     serverUrl,
     publicKey,
@@ -424,7 +398,8 @@ export async function getCollaborations(
   publicKey: string,
   contractId: string,
 ) {
-  return await contractRead({
+  logCommunityCall('getCollaborations', 'get_collaborations', {});
+  const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
@@ -433,6 +408,8 @@ export async function getCollaborations(
       values: {},
     } as IMethod,
   });
+  logCommunityResult('getCollaborations', 'get_collaborations', result);
+  return result;
 }
 
 export async function requestJoin(
@@ -440,7 +417,10 @@ export async function requestJoin(
   publicKey: string,
   contractId: string,
 ) {
-  // Call request_join on the community contract
+  // Call request_join on the community contract. The contract itself decides
+  // whether to run the web-of-trust nomination flow or accept immediately,
+  // based on the community's stored `open_join` preference (see createCommunity).
+  logCommunityCall('requestJoin', 'request_join', {});
   const response = await contractWrite({
     serverUrl,
     publicKey,
@@ -454,6 +434,29 @@ export async function requestJoin(
 }
 
 /**
+ * Directly invoke the open-join procedure (accepts the caller as a member
+ * immediately, no nomination/approval). Exposed for parity with the contract's
+ * `join_open` method; `requestJoin` above already dispatches to this same
+ * behavior automatically when a community is configured for open joining.
+ */
+export async function joinOpen(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+) {
+  logCommunityCall('joinOpen', 'join_open', {});
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: {
+      name: 'join_open',
+      values: {},
+    } as IMethod,
+  });
+}
+
+/**
  * Approve an agent for community membership
  */
 export async function approveAgent(
@@ -462,6 +465,7 @@ export async function approveAgent(
   contractId: string,
   agentPublicKey: string,
 ) {
+  logCommunityCall('approveAgent', 'approve', { approved: agentPublicKey });
   return await contractWrite({
     serverUrl,
     publicKey,
@@ -482,6 +486,7 @@ export async function disapproveAgent(
   contractId: string,
   agentPublicKey: string,
 ) {
+  logCommunityCall('disapproveAgent', 'disapprove', { disapproved: agentPublicKey });
   return await contractWrite({
     serverUrl,
     publicKey,
@@ -500,6 +505,7 @@ export async function transfer(
   to: string,
   value: number
 ) {
+  logCommunityCall('transfer', 'transfer', { to, value });
   return await contractWrite({
     serverUrl: server,
     publicKey: agent,
@@ -516,7 +522,8 @@ export async function getBalance(
   publicKey: string,
   contractId: string
 ) {
-  return await contractRead({
+  logCommunityCall('getBalance', 'get_balance', {});
+  const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
@@ -525,39 +532,18 @@ export async function getBalance(
       values: {},
     } as IMethod,
   });
-}
-
-export async function setParameters(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  mint: number,
-  burn: number,
-  commons_mint: number
-) {
-  return await contractWrite({
-    serverUrl: serverUrl,
-    publicKey: publicKey,
-    contractId: contractId,
-    method: {
-      name: 'transfer',
-      values: { to: publicKey, value: 0 },
-      parameters: { mint, burn, commons_mint },
-    } as IMethod,
-  });
+  logCommunityResult('getBalance', 'get_balance', result);
+  return result;
 }
 
 export interface IAccountDetails {
   [account: string]: {
     type: string;
     balance: number;
+    name?: string;
+    signers?: string[];
+    threshold?: number;
   };
-}
-
-export interface IDistributionStatus {
-  payment_count: number;
-  days_since_creation: number;
-  can_distribute: boolean;
 }
 
 export async function getAccountDetails(
@@ -565,89 +551,287 @@ export async function getAccountDetails(
   publicKey: string,
   contractId: string,
 ): Promise<IAccountDetails> {
+  logCommunityCall('getAccountDetails', 'get_account_details', {});
   const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
     method: { name: 'get_account_details', values: {} } as IMethod,
   });
+  logCommunityResult('getAccountDetails', 'get_account_details', result);
   return (result as IAccountDetails) ?? {};
 }
 
-export async function getAllAllocations(
+export async function createFundAccount(
   serverUrl: string,
   publicKey: string,
   contractId: string,
-): Promise<Record<string, Record<string, number>>> {
+  name: string,
+  owner: string,
+): Promise<boolean> {
+  logCommunityCall('createFundAccount', 'create_fund_account', { name, owner });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'create_fund_account', values: { name, owner } } as IMethod,
+  });
+}
+
+/**
+ * Public accounts (community-owned accounts with authorized signers + threshold)
+ */
+
+export async function createPublicAccount(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  name: string,
+): Promise<string | false> {
+  logCommunityCall('createPublicAccount', 'create_public_account', { name });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'create_public_account', values: { name } } as IMethod,
+  });
+}
+
+export async function addSigner(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  account: string,
+  signer: string,
+): Promise<boolean> {
+  logCommunityCall('addSigner', 'add_signer', { account, signer });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'add_signer', values: { account, signer } } as IMethod,
+  });
+}
+
+export async function removeSigner(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  account: string,
+  signer: string,
+): Promise<boolean> {
+  logCommunityCall('removeSigner', 'remove_signer', { account, signer });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'remove_signer', values: { account, signer } } as IMethod,
+  });
+}
+
+/**
+ * Generic monetary policies
+ */
+
+export type PolicySideKind = 'void' | 'account' | 'everyPersonal' | 'everyAccount';
+
+export interface IPolicySide {
+  kind: PolicySideKind;
+  account?: string;
+}
+
+export type PolicyMode = 'units' | 'percent';
+export type PolicyRateType = 'community-governed' | 'self-set';
+
+export interface Policy {
+  id: string;
+  name: string;
+  description?: string;
+  source: IPolicySide;
+  destination: IPolicySide;
+  mode: PolicyMode;
+  rateType: PolicyRateType;
+  creator: string;
+  selfRate?: number | null;
+  createdAt: number;
+  lastAppliedTime: number;
+  elapsedTicks: number;
+  currentRate: number;
+}
+
+export async function createPolicy(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  policy: {
+    id: string;
+    name: string;
+    description?: string;
+    source: IPolicySide;
+    destination: IPolicySide;
+    mode: PolicyMode;
+    rateType: PolicyRateType;
+    selfRate?: number | null;
+  },
+): Promise<string> {
+  logCommunityCall('createPolicy', 'create_policy', { policy });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'create_policy', values: { policy } } as IMethod,
+  });
+}
+
+export async function getPolicies(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+): Promise<Policy[]> {
+  logCommunityCall('getPolicies', 'get_policies', {});
   const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
-    method: { name: 'get_allocations', values: {} } as IMethod,
+    method: { name: 'get_policies', values: {} } as IMethod,
   });
-  return (result as Record<string, Record<string, number>>) ?? {};
+  logCommunityResult('getPolicies', 'get_policies', result);
+  return (result as Policy[]) ?? [];
 }
 
-export async function setAllocation(
+/**
+ * A community-governed policy's rate is the live median of every member's
+ * standing preference, tracked via the generic `parameters()` runtime
+ * mechanism (each contract-partner's own value per string key, aggregated
+ * into a median) - one dynamically-named key per policy: `p_<policyId>`.
+ */
+export interface IContractParameters {
+  medians: Record<string, number>;
+  parameters: Record<string, number>;
+}
+
+export function policyParameterKey(policyId: string): string {
+  return `p_${policyId}`;
+}
+
+export async function getContractParameters(
   serverUrl: string,
   publicKey: string,
   contractId: string,
-  allocation: Record<string, number>,
-): Promise<void> {
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'set_allocation', values: { allocation } } as IMethod,
-  });
-}
-
-export async function getDistributionStatus(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-): Promise<IDistributionStatus> {
+): Promise<IContractParameters> {
+  logCommunityCall('getContractParameters', 'get_parameters', {});
   const result = await contractRead({
     serverUrl,
     publicKey,
     contractId,
-    method: { name: 'get_distribution_status', values: {} } as IMethod,
+    method: { name: 'get_parameters', values: {} } as IMethod,
   });
-  return (result as IDistributionStatus) ?? { payment_count: 0, days_since_creation: 0, can_distribute: false };
+  logCommunityResult('getContractParameters', 'get_parameters', result);
+  return (result as IContractParameters) ?? { medians: {}, parameters: {} };
 }
 
-export async function distributeCommons(
+export async function setPolicyPreference(
   serverUrl: string,
   publicKey: string,
   contractId: string,
-): Promise<void> {
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'distribute', values: {} } as IMethod,
+  policyId: string,
+  value: number,
+): Promise<boolean> {
+  logCommunityCall('setPolicyPreference', 'set_policy_preference', {
+    values: { policy_id: policyId },
+    parameters: { [policyParameterKey(policyId)]: value },
   });
-}
-
-export async function getParameters(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string
-) {
-  const parameters: IParameters = await contractRead({
+  return await contractWrite({
     serverUrl,
     publicKey,
     contractId,
     method: {
-      name: "get_parameters",
-      values: {},
+      name: 'set_policy_preference',
+      values: { policy_id: policyId },
+      parameters: { [policyParameterKey(policyId)]: value },
     } as IMethod,
   });
-  
-  if (!parameters.parameters || Object.keys(parameters.parameters).length === 0) {
-    console.log('No parameters found, setting default values');
-    setParameters(serverUrl, publicKey, contractId, 100, 0.0003, 0);
-  }
-
-  return parameters;
 }
+
+export async function setCommitmentRate(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  policyId: string,
+  value: number,
+): Promise<boolean> {
+  logCommunityCall('setCommitmentRate', 'set_commitment_rate', { policy_id: policyId, value });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'set_commitment_rate', values: { policy_id: policyId, value } } as IMethod,
+  });
+}
+
+export async function setPolicyDetails(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  policyId: string,
+  name: string,
+  description: string,
+): Promise<boolean> {
+  logCommunityCall('setPolicyDetails', 'set_policy_details', { policy_id: policyId, name, description });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'set_policy_details', values: { policy_id: policyId, name, description } } as IMethod,
+  });
+}
+
+export async function deletePolicy(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  policyId: string,
+): Promise<boolean> {
+  logCommunityCall('deletePolicy', 'delete_policy', { policy_id: policyId });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'delete_policy', values: { policy_id: policyId } } as IMethod,
+  });
+}
+
+/**
+ * Wallet payments - generic over immediate (1-of-1) and pending (N-of-M) outcomes.
+ */
+
+export type PaymentStatus = 'completed' | 'pending' | 'failed';
+
+export interface IPayment {
+  id?: string;
+  status: PaymentStatus;
+  fromAccount?: string;
+  to?: string;
+  value?: number;
+  approvals?: string[];
+  threshold?: number;
+  reason?: string;
+}
+
+export async function sendPayment(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  fromAccount: string,
+  to: string,
+  value: number,
+): Promise<IPayment> {
+  logCommunityCall('sendPayment', 'send_payment', { from_account: fromAccount, to, value });
+  return await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'send_payment', values: { from_account: fromAccount, to, value } } as IMethod,
+  });
+}
+

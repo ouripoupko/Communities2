@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { getIssues } from '../../services/contracts/community';
 import { getAiFeedback, getCommentsFromServer, getIssue, getProposalsFromServer } from '../../services/contracts/issue';
 
 // Define Proposal and CommunityIssue interfaces
@@ -30,7 +29,6 @@ interface IssuesState {
   issueDetails: Record<string, any>;
   issueProposals: Record<string, Proposal[]>;
   proposalsLoading: Record<string, boolean>;
-  communityIssues: Record<string, CommunityIssue[]>;
   issueComments: Record<string, any[]>;
 }
 
@@ -42,7 +40,6 @@ const initialState: IssuesState = {
   issueDetails: {},
   issueProposals: {},
   proposalsLoading: {},
-  communityIssues: {},
   issueComments: {},
 };
 
@@ -89,19 +86,6 @@ export const deleteIssue = createAsyncThunk(
   async (id: string) => {
     // TODO: Implement deleteIssue API call
     return id;
-  }
-);
-
-// Async thunks for issue contract data
-export const fetchCommunityIssues = createAsyncThunk(
-  'issues/fetchCommunityIssues',
-  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await getIssues(
-      args.serverUrl,
-      args.publicKey,
-      args.contractId,
-    );
-    return { contractId: args.contractId, issues: result };
   }
 );
 
@@ -263,21 +247,6 @@ const issuesSlice = createSlice({
       .addCase(deleteIssue.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to delete issue';
-      });
-
-    // Fetch community issues
-    builder
-      .addCase(fetchCommunityIssues.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchCommunityIssues.fulfilled, (state, action) => {
-        state.loading = false;
-        state.communityIssues[action.payload.contractId] = action.payload.issues;
-      })
-      .addCase(fetchCommunityIssues.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch community issues';
       });
 
     builder

@@ -1,0 +1,137 @@
+@use '../styles/variables' as *;
+
+.badge {
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-full;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  background-color: rgba(59, 130, 246, 0.12);
+  color: $primary;
+}
+
+.rateHeader {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+  padding-bottom: $spacing-lg;
+  margin-bottom: $spacing-lg;
+  border-bottom: 1px solid $gray-100;
+}
+
+.rateLabel {
+  font-size: $text-sm;
+  color: $gray-500;
+}
+
+.rateValue {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: $gray-800;
+}
+
+.section {
+  margin-bottom: $spacing-xl;
+
+  h4 {
+    margin: 0 0 $spacing-sm 0;
+    color: $gray-800;
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h4 {
+    margin: 0;
+  }
+}
+
+.editLink {
+  background: none;
+  border: none;
+  color: $primary;
+  font-size: $text-sm;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.hint {
+  font-size: $text-sm;
+  color: $gray-500;
+  margin: $spacing-xs 0;
+}
+
+.inlineForm {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+  margin: $spacing-sm 0;
+
+  input {
+    max-width: 200px;
+  }
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.editActions {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.description {
+  color: $gray-700;
+  white-space: pre-wrap;
+}
+
+.deleteButton {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-md $spacing-xl;
+  background-color: white;
+  color: $error;
+  border: 1px solid $error;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background-color $transition-base;
+
+  &:hover:not(:disabled) {
+    background-color: #fef2f2;
+  }
+
+  &:disabled {
+    color: $gray-400;
+    border-color: $gray-300;
+    cursor: not-allowed;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .rateHeader {
+    border-bottom-color: $dark-border;
+  }
+
+  .rateValue {
+    color: $dark-text;
+  }
+
+  .section h4 {
+    color: $dark-text;
+  }
+
+  .description {
+    color: $dark-text-secondary;
+  }
+}

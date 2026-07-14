@@ -1,13 +1,14 @@
 import React, { useMemo, useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { Handshake, Users, Coins, Share2, IdCard, QrCode } from 'lucide-react';
+import { Handshake, Users, Scale, Coins, Share2, IdCard, QrCode } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import PageHeader from '../components/PageHeader';
 
 // Lazy load components to reduce initial bundle size
 const Collaborations = lazy(() => import('../components/community/Collaborations'));
 const Members = lazy(() => import('../components/community/Members'));
-const Currency = lazy(() => import('../components/community/Currency'));
+const Policies = lazy(() => import('../components/community/Policies'));
+const Wallet = lazy(() => import('../components/community/Wallet'));
 const Share = lazy(() => import('../components/community/Share'));
 const IdentityCardDialog = lazy(() => import('../components/community/dialogs/IdentityCardDialog'));
 const QRScannerDialog = lazy(() => import('../components/community/dialogs/QRScannerDialog'));
@@ -95,7 +96,8 @@ const CommunityView: React.FC = () => {
   const navItems = [
     { path: 'collaborations', label: 'Collaborations', icon: Handshake },
     { path: 'members', label: 'Members', icon: Users },
-    { path: 'currency', label: 'Currency', icon: Coins },
+    { path: 'policies', label: 'Policies', icon: Scale },
+    { path: 'wallet', label: 'Wallet', icon: Coins },
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
@@ -183,7 +185,8 @@ const CommunityView: React.FC = () => {
               <Route path="issues" element={<Navigate to={`/community/${communityId}/collaborations`} replace />} />
               <Route path="collaborations" element={<Collaborations communityId={communityId!} />} />
               <Route path="members" element={<Members communityId={communityId!} />} />
-              <Route path="currency" element={<Currency communityId={communityId!} />} />
+              <Route path="policies" element={<Policies communityId={communityId!} />} />
+              <Route path="wallet" element={<Wallet communityId={communityId!} />} />
               <Route path="share" element={<Share communityId={communityId!} />} />
               <Route path="*" element={<Collaborations communityId={communityId!} />} />
             </Routes>

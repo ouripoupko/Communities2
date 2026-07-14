@@ -3,7 +3,7 @@ import { HandHeart, Plus, Search } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCollaborations } from '../../store/slices/communitiesSlice';
 import { fetchOffers, addOfferThunk, acceptOfferThunk, compensateOfferThunk } from '../../store/slices/wishSlice';
-import { fetchUserBalance } from '../../store/slices/currencySlice';
+import { getBalance } from '../../services/contracts/community';
 import { eventStreamService } from '../../services/eventStream';
 import type { BlockchainEvent } from '../../services/eventStream';
 import type { WishOffer } from '../../services/contracts/wish';
@@ -28,7 +28,8 @@ const Offers: React.FC<OffersProps> = ({ wishId, communityId }) => {
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { communityCollaborations } = useAppSelector((state) => state.communities);
   const { offers, offersLoading } = useAppSelector((state) => state.wish);
-  const { userBalance, loading: balanceLoading } = useAppSelector((state) => state.currency);
+  const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   const collaborations = communityCollaborations[communityId] ?? [];
   const offerList = offers[wishId] ?? [];
@@ -144,16 +145,12 @@ const Offers: React.FC<OffersProps> = ({ wishId, communityId }) => {
   };
 
   const handleFetchBalance = useCallback(() => {
-    if (serverUrl && publicKey && communityId) {
-      dispatch(
-        fetchUserBalance({
-          serverUrl,
-          publicKey,
-          contractId: communityId,
-        }),
-      );
-    }
-  }, [serverUrl, publicKey, communityId, dispatch]);
+    if (!serverUrl || !publicKey || !communityId) return;
+    setBalanceLoading(true);
+    void getBalance(serverUrl, publicKey, communityId)
+      .then((balance) => setUserBalance(Math.round((balance as number) * 100) / 100))
+      .finally(() => setBalanceLoading(false));
+  }, [serverUrl, publicKey, communityId]);
 
   return (
     <div className={wishStyles.tabContent}>

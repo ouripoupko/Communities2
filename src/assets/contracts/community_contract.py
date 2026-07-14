@@ -6,41 +6,30 @@ class Community:
         self.nominates = self.db['nominates']
         self.approvals = self.db['approvals']
         self.properties = self.db['properties']
-        self.sub_contracts = self.db['sub_contracts']
         self.collaborations = Storage('collaborations')
-        self.issues = Storage('issues')
         self.accounts = Storage('accounts')
-        self.allocations = Storage('allocations')
-        if 'centralAccount' not in self.accounts:
-            self.accounts['centralAccount'] = {'balanceOf':0, 'creationTime': timestamp(), 'elapsedDays': 0, 'type': 'central'}
+        self.policies = Storage('policies')
+        self.pending_payments = Storage('pending_payments')
 
+    # ==================================================================
+    # COMMUNITY (properties of the community itself)
+    # ==================================================================
 
-    def add_issue(self, issue):
-        self.issues.append(issue)
+    def set_property(self, key, value):
+        self.properties[key] = value
 
-    def get_issues(self):
-        return [self.issues[key].get_dict() for key in self.issues]
+    def get_properties(self):
+        return self.properties.get_dict()
 
-    def add_collaboration(self, collaboration):
-        self.collaborations.append(collaboration)
-
-    def get_collaborations(self):
-        return [self.collaborations[key].get_dict() for key in self.collaborations]
-
-    def set_instructions(self, instructions):
-        self.properties['instructions'] = instructions
-    
-    def set_sub_contract(self, name, invite):
-        self.sub_contracts[name] = invite
-
-    def get_sub_contract(self, name):
-        return self.sub_contracts[name]
+    # ==================================================================
+    # MEMBERS (joining, web-of-trust nomination, approval)
+    # ==================================================================
 
     def get_all_people(self):
         return {'tasks': self.get_tasks(),
                 'members': self.get_members(),
                 'nominates': self.get_nominates()}
-    
+
     def get_tasks(self):
         reply = {}
         requester = master()
@@ -52,31 +41,34 @@ class Community:
                 if requester in self.nominates[task]:
                     reply[task] = requester in self.approvals and task in self.approvals[requester]
         return reply
-    
+
     def get_members(self):
         return {key: self.members[key] for key in self.members}
         # return partners()
 
-    def is_member(self, agent):
-        return agent in self.members
-
     def get_nominates(self):
         return [key for key in self.nominates]
-    
-    def set_property(self, key, value):
-        self.properties[key] = value
-    
-    def get_properties(self):
-        return self.properties.get_dict()
 
     def become_member(self, key, value):
         self.members[key] = value
-        self.accounts[key] = {'balanceOf':1000, 'creationTime': timestamp(), 'elapsedDays': 0}
+        initial_balance = self.properties['initial_balance']
+        if initial_balance is None:
+            initial_balance = 1000
+        self.accounts[key] = {'balanceOf': initial_balance}
+
+    def join_open(self):
+        requester = master()
+        if requester in self.members:
+            return False
+        self.become_member(requester, [])
+        return True
 
     def request_join(self):
         requester = master()
         if requester in self.members or requester in self.nominates:
             return False
+        if self.properties['open_join']:
+            return self.join_open()
         if len(self.members) == 0:
             self.become_member(requester, [])
         elif len(self.members) < 5:
@@ -148,55 +140,37 @@ class Community:
                         else:
                             del self.approvals[member]
 
+    # ==================================================================
+    # COLLABORATIONS (initiatives, wishes, agreements)
+    # ==================================================================
+
+    def add_collaboration(self, collaboration):
+        self.collaborations.append(collaboration)
+
+    def get_collaborations(self):
+        return [self.collaborations[key].get_dict() for key in self.collaborations]
+
+    # ==================================================================
+    # CURRENCY (accounts, balances, monetary policies, payments)
+    # ==================================================================
+
     def create_fund_account(self, name, owner):
         if name in self.accounts:
             return False
         self.accounts[name] = {
             'balanceOf': 0,
-            'creationTime': timestamp(),
-            'elapsedDays': 0,
             'type': 'fund',
             'owner': owner
         }
         return True
 
-    def check_balance(self, account, update = False):
-        if account not in self.accounts:
-            return 0
-        account_data = self.accounts[account].get_dict()
-        # to count days divide by 86400. for testing, divide by 60
-        time_passed = elapsed_time(account_data['creationTime'], timestamp()) / 600
-        days_passed = round(time_passed - 0.5) - account_data['elapsedDays']
-        if days_passed <= 0:
-            return account_data['balanceOf']
-
-        burnFactor = (100 - parameters('burn')) / 100
-        account_type = account_data.get('type')
-        if account_type == 'fund':
-            mint = 0
-        elif account_type == 'central':
-            mint = parameters('commons_mint')
-        else:
-            mint = parameters('mint')
-        for i in range(days_passed):
-            account_data['balanceOf'] *= burnFactor
-            account_data['balanceOf'] += mint
-        account_data['elapsedDays'] += days_passed
-        if update:
-            self.accounts[account] = account_data
-        return account_data['balanceOf']
-
     def transfer(self, to, value):
         sender = master()
         if sender not in self.accounts or to not in self.accounts:
             return False
-        sender_data = self.accounts[sender].get_dict()
-        if sender_data.get('type') == 'fund':
-            return False
-        self.check_balance(sender, True)
-        self.check_balance(to, True)
-
         sender_account = self.accounts[sender].get_dict()
+        if sender_account.get('type') == 'fund':
+            return False
         to_account = self.accounts[to].get_dict()
         if sender_account['balanceOf'] >= value:
             sender_account['balanceOf'] -= value
@@ -206,132 +180,347 @@ class Community:
             return True
         return False
 
-    def fund_transfer(self, fund_name, to, value):
-        caller = master()
-        if fund_name not in self.accounts or to not in self.accounts:
-            return False
-        fund_data = self.accounts[fund_name].get_dict()
-        if fund_data.get('type') != 'fund' or fund_data.get('owner') != caller:
-            return False
-        self.check_balance(fund_name, True)
-        self.check_balance(to, True)
-
-        fund_account = self.accounts[fund_name].get_dict()
-        to_account = self.accounts[to].get_dict()
-        if fund_account['balanceOf'] >= value:
-            fund_account['balanceOf'] -= value
-            to_account['balanceOf'] += value
-            self.accounts[fund_name] = fund_account
-            self.accounts[to] = to_account
-            return True
-        return False
-
     def get_balance(self):
         account = master()
-        return self.check_balance(account)
-
-    def get_fund_balance(self, fund_name):
-        return self.check_balance(fund_name)
-
-    def before_parameters_update(self):
-        for account in self.accounts:
-            self.check_balance(account, True)
-
-    def get_accounts(self):
-        return [account for account in self.accounts]
+        return self._project_balances().get(account, 0)
 
     def get_account_details(self):
+        # Read-only: never writes. Every account's balance is projected live
+        # via _project_balances (every pending policy tick applied on the
+        # fly, including for fund accounts reached through an `everyAccount`
+        # policy) - there's no more type-specific balance math.
+        projected = self._project_balances()
         result = {}
         for account in self.accounts:
             data = self.accounts[account].get_dict()
-            result[account] = {
-                'type': data.get('type', 'personal'),
-                'balance': self.check_balance(account),
+            account_type = data.get('type', 'personal')
+            balance = projected.get(account, data.get('balanceOf', 0))
+            entry = {
+                'type': account_type,
+                'balance': balance,
             }
+            if account_type == 'public':
+                entry['name'] = data.get('name', account)
+                entry['signers'] = data.get('signers', [])
+                entry['threshold'] = data.get('threshold', 1)
+            result[account] = entry
         return result
 
-    def set_allocation(self, allocation):
-        member = master()
-        if member not in self.members:
-            return False
-        total = 0
-        for account in allocation:
-            total = total + allocation[account]
-        if total > 1000:
-            return False
-        self.allocations[member] = allocation
-        return True
+    # ------------------------------------------------------------------
+    # CURRENCY / Public accounts (signers/threshold)
+    # ------------------------------------------------------------------
 
-    def get_allocations(self):
-        result = {}
-        for member in self.allocations:
-            result[member] = self.allocations[member].get_dict()
-        return result
-
-    def get_distribution_status(self):
-        payment_count = self.properties['payment_count'] or 0
-        central_data = self.accounts['centralAccount'].get_dict()
-        time_passed = elapsed_time(central_data['creationTime'], timestamp()) / 600
-        days_since_creation = round(time_passed - 0.5) if time_passed >= 0.5 else 0
-        return {
-            'payment_count': payment_count,
-            'days_since_creation': days_since_creation,
-            'can_distribute': payment_count < days_since_creation
+    def create_public_account(self, name):
+        if name in self.accounts:
+            return False
+        self.accounts[name] = {
+            'balanceOf': 0,
+            'type': 'public',
+            'name': name,
+            'signers': [master()],
+            'threshold': 1,
         }
+        return name
 
-    def distribute(self):
+    def add_signer(self, account, signer):
         caller = master()
-        if caller not in self.members:
+        if account not in self.accounts:
             return False
-
-        payment_count = self.properties['payment_count'] or 0
-        central_data = self.accounts['centralAccount'].get_dict()
-        time_passed = elapsed_time(central_data['creationTime'], timestamp()) / 600
-        days_since_creation = round(time_passed - 0.5) if time_passed >= 0.5 else 0
-        if payment_count >= days_since_creation:
+        data = self.accounts[account].get_dict()
+        if data.get('type') != 'public' or caller not in data.get('signers', []):
             return False
-
-        totals = {}
-        grand_total = 0
-        for member in self.allocations:
-            alloc = self.allocations[member].get_dict()
-            for account in alloc:
-                points = alloc[account]
-                if account in totals:
-                    totals[account] = totals[account] + points
-                else:
-                    totals[account] = points
-                grand_total = grand_total + points
-
-        if grand_total == 0:
-            return False
-
-        self.check_balance('centralAccount', True)
-        total_balance = self.accounts['centralAccount'].get_dict()['balanceOf']
-
-        if total_balance <= 0:
-            return False
-
-        distributed = 0
-        for account in self.accounts:
-            if account == 'centralAccount':
-                continue
-            account_data = self.accounts[account].get_dict()
-            if account_data.get('type') != 'fund':
-                continue
-            if account not in totals:
-                continue
-            amount = total_balance * totals[account] / grand_total
-            if amount > 0:
-                self.check_balance(account, True)
-                fund_data = self.accounts[account].get_dict()
-                fund_data['balanceOf'] = fund_data['balanceOf'] + amount
-                self.accounts[account] = fund_data
-                distributed = distributed + amount
-
-        central_data = self.accounts['centralAccount'].get_dict()
-        central_data['balanceOf'] = central_data['balanceOf'] - distributed
-        self.accounts['centralAccount'] = central_data
-
-        self.properties['payment_count'] = payment_count + 1
+        signers = data.get('signers', [])
+        if signer not in signers:
+            signers.append(signer)
+            data['signers'] = signers
+            self.accounts[account] = data
         return True
+
+    def remove_signer(self, account, signer):
+        caller = master()
+        if account not in self.accounts:
+            return False
+        data = self.accounts[account].get_dict()
+        if data.get('type') != 'public' or caller not in data.get('signers', []):
+            return False
+        signers = data.get('signers', [])
+        if signer in signers and len(signers) > 1:
+            signers.remove(signer)
+            data['signers'] = signers
+            self.accounts[account] = data
+            return True
+        return False
+
+    # ------------------------------------------------------------------
+    # CURRENCY / Policies (generic monetary-policy primitive)
+    # ------------------------------------------------------------------
+
+    def create_policy(self, policy):
+        policy['creator'] = master()
+        policy['createdAt'] = timestamp()
+        policy['lastAppliedTime'] = timestamp()
+        policy['elapsedTicks'] = 0
+        self.policies[policy['id']] = policy
+        return policy['id']
+
+    def set_policy_preference(self, policy_id, value):
+        # Settle at the old rate before this member's new value shifts the
+        # median, so past ticks are accounted at the rate that was actually
+        # in effect during them.
+        self._settle_all_policies()
+        # The actual per-member value is captured by the runtime via the
+        # `parameters` side-channel on this same call (key `p_<policy_id>`);
+        # this method just validates the call is meaningful.
+        if policy_id not in self.policies:
+            return False
+        policy = self.policies[policy_id].get_dict()
+        return policy.get('rateType') == 'community-governed'
+
+    def set_commitment_rate(self, policy_id, value):
+        self._settle_all_policies()
+        if policy_id not in self.policies:
+            return False
+        policy = self.policies[policy_id].get_dict()
+        if policy.get('rateType') != 'self-set' or policy.get('creator') != master():
+            return False
+        policy['selfRate'] = value
+        self.policies[policy_id] = policy
+        return True
+
+    def _is_involved_signer(self, policy, caller):
+        for side in (policy.get('source'), policy.get('destination')):
+            if side and side.get('kind') == 'account':
+                account = side.get('account')
+                if account in self.accounts:
+                    data = self.accounts[account].get_dict()
+                    if caller in data.get('signers', []):
+                        return True
+        return False
+
+    def set_policy_details(self, policy_id, name, description):
+        if policy_id not in self.policies:
+            return False
+        policy = self.policies[policy_id].get_dict()
+        caller = master()
+        if caller != policy.get('creator') and not self._is_involved_signer(policy, caller):
+            return False
+        policy['name'] = name
+        policy['description'] = description
+        self.policies[policy_id] = policy
+        return True
+
+    def delete_policy(self, policy_id):
+        self._settle_all_policies()
+        if policy_id not in self.policies:
+            return False
+        policy = self.policies[policy_id].get_dict()
+        if master() != policy.get('creator'):
+            return False
+        if policy.get('rateType') == 'community-governed':
+            if (parameters('p_' + policy_id) or 0) != 0:
+                return False
+        del self.policies[policy_id]
+        return True
+
+    def get_policies(self):
+        # Read-only: never writes. Each policy's elapsedTicks/lastAppliedTime/
+        # currentRate are projected live via _projected_policy.
+        return [self._projected_policy(pid) for pid in self.policies]
+
+    # ------------------------------------------------------------------
+    # CURRENCY / Policy settlement (generic per-tick accrual engine)
+    # ------------------------------------------------------------------
+
+    def _resolve(self, side):
+        kind = side.get('kind')
+        if kind == 'account':
+            account = side.get('account')
+            return [account] if account in self.accounts else []
+        if kind == 'everyPersonal':
+            return [member for member in self.members]
+        if kind == 'everyAccount':
+            return [account for account in self.accounts]
+        return []  # 'void'
+
+    def _credit(self, account, amount):
+        if account not in self.accounts or amount <= 0:
+            return
+        data = self.accounts[account].get_dict()
+        data['balanceOf'] = data.get('balanceOf', 0) + amount
+        self.accounts[account] = data
+
+    def _debit(self, account, amount):
+        if account not in self.accounts or amount <= 0:
+            return
+        data = self.accounts[account].get_dict()
+        data['balanceOf'] = data.get('balanceOf', 0) - amount
+        self.accounts[account] = data
+
+    def _settle_policy(self, policy_id, balances=None):
+        """Applies every elapsed tick of policy_id since it was last applied.
+
+        With balances=None (used only by write methods), this is a real
+        settlement: it debits/credits self.accounts for real and persists
+        the policy's new lastAppliedTime/elapsedTicks.
+
+        With balances given a dict of {account: balanceOf}, nothing is
+        written anywhere - the same math is applied to that dict in place
+        instead, so callers can compute the live, up-to-date numbers on a
+        read without touching storage. Both modes share this one method so
+        the two can't drift out of sync with each other.
+        """
+        if policy_id not in self.policies:
+            return
+        policy = self.policies[policy_id].get_dict()
+        ticks = round(elapsed_time(policy['lastAppliedTime'], timestamp()) / 600 - 0.5)
+        if ticks <= 0:
+            return
+        if policy.get('rateType') == 'self-set':
+            rate = policy.get('selfRate') or 0
+        else:
+            rate = parameters('p_' + policy_id) or 0
+        sources = self._resolve(policy['source'])
+        destinations = self._resolve(policy['destination'])
+        is_mint = policy['source'].get('kind') == 'void'
+        is_burn = policy['destination'].get('kind') == 'void'
+
+        def balance_of(account):
+            if balances is not None:
+                return balances.get(account, 0)
+            return self.accounts[account].get_dict().get('balanceOf', 0) if account in self.accounts else 0
+
+        def credit(account, amount):
+            if amount <= 0:
+                return
+            if balances is not None:
+                if account in balances:
+                    balances[account] = balances[account] + amount
+            else:
+                self._credit(account, amount)
+
+        def debit(account, amount):
+            if amount <= 0:
+                return
+            if balances is not None:
+                if account in balances:
+                    balances[account] = balances[account] - amount
+            else:
+                self._debit(account, amount)
+
+        def amount_for(account, rate, mode):
+            balance = balance_of(account)
+            if mode == 'percent':
+                return balance * (rate / 100)
+            return min(rate, balance)
+
+        for i in range(ticks):
+            if is_mint:
+                if policy['mode'] == 'units' and rate:
+                    for dest in destinations:
+                        credit(dest, rate)
+                # percent-of-void is undefined (no source balance) - no-op
+            elif is_burn:
+                for src in sources:
+                    debit(src, amount_for(src, rate, policy['mode']))
+            else:
+                for src in sources:
+                    amount = amount_for(src, rate, policy['mode'])
+                    if amount > 0:
+                        debit(src, amount)
+                        for dest in destinations:
+                            credit(dest, amount)
+
+        if balances is None:
+            policy['lastAppliedTime'] = timestamp()
+            policy['elapsedTicks'] = policy.get('elapsedTicks', 0) + ticks
+            self.policies[policy_id] = policy
+
+    def _settle_all_policies(self):
+        for policy_id in self.policies:
+            self._settle_policy(policy_id)
+        self.properties['last_balances_update'] = timestamp()
+
+    def _project_balances(self):
+        """Live account balances as of right now, without writing anything:
+        starts from each account's persisted balanceOf and applies every
+        policy's pending ticks (since its own lastAppliedTime) on top, in a
+        local dict. Used by read methods so they always reflect the current
+        state even if no write has settled things in a while."""
+        balances = {
+            account: self.accounts[account].get_dict().get('balanceOf', 0)
+            for account in self.accounts
+        }
+        for policy_id in self.policies:
+            self._settle_policy(policy_id, balances)
+        return balances
+
+    def _projected_policy(self, policy_id):
+        """A policy's dict with live-projected elapsedTicks/lastAppliedTime
+        and currentRate, without writing anything."""
+        policy = self.policies[policy_id].get_dict()
+        ticks = round(elapsed_time(policy['lastAppliedTime'], timestamp()) / 600 - 0.5)
+        if ticks > 0:
+            policy['elapsedTicks'] = policy.get('elapsedTicks', 0) + ticks
+            policy['lastAppliedTime'] = timestamp()
+        if policy.get('rateType') == 'self-set':
+            policy['currentRate'] = policy.get('selfRate') or 0
+        else:
+            policy['currentRate'] = parameters('p_' + policy_id) or 0
+        return policy
+
+    # ------------------------------------------------------------------
+    # CURRENCY / Wallet payments (threshold-aware; public account threshold
+    # isn't yet editable client-side, so send_payment always resolves
+    # immediately today. approve_payment - the second-signer approval for
+    # a pending N-of-M payment - was removed as dead code; reintroduce it
+    # once thresholds above 1 are actually reachable.)
+    # ------------------------------------------------------------------
+
+    def _move_funds(self, frm, to, value):
+        if frm not in self.accounts or to not in self.accounts:
+            return False
+        frm_data = self.accounts[frm].get_dict()
+        if frm_data.get('balanceOf', 0) >= value:
+            self._debit(frm, value)
+            self._credit(to, value)
+            return True
+        return False
+
+    def _maybe_execute_payment(self, payment_id):
+        payment = self.pending_payments[payment_id].get_dict()
+        if payment.get('status') == 'pending' and len(payment.get('approvals', [])) >= payment.get('threshold', 1):
+            ok = self._move_funds(payment['fromAccount'], payment['to'], payment['value'])
+            payment['status'] = 'completed' if ok else 'failed'
+            self.pending_payments[payment_id] = payment
+        payment['id'] = payment_id
+        return payment
+
+    def send_payment(self, from_account, to, value):
+        self._settle_all_policies()
+        if from_account not in self.accounts or to not in self.accounts:
+            return {'status': 'failed', 'reason': 'invalid_account'}
+        acct = self.accounts[from_account].get_dict()
+        caller = master()
+        if acct.get('type') == 'public':
+            if caller not in acct.get('signers', []):
+                return {'status': 'failed', 'reason': 'not_a_signer'}
+            payment_id = self.pending_payments.append({
+                'fromAccount': from_account,
+                'to': to,
+                'value': value,
+                'approvals': [caller],
+                'threshold': acct.get('threshold', 1),
+                'status': 'pending',
+                'createdAt': timestamp(),
+            })
+            return self._maybe_execute_payment(payment_id)
+        else:
+            if from_account != caller:
+                return {'status': 'failed', 'reason': 'not_owner'}
+            ok = self._move_funds(from_account, to, value)
+            return {
+                'status': 'completed' if ok else 'failed',
+                'fromAccount': from_account,
+                'to': to,
+                'value': value,
+            }

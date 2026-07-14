@@ -1,0 +1,108 @@
+@use '../../styles/variables' as *;
+
+.container {
+  background-color: white;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-base;
+  padding: $spacing-lg;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+}
+
+.title {
+  margin: 0;
+  font-size: $text-base;
+  color: $gray-800;
+}
+
+.threshold {
+  font-size: $text-sm;
+  color: $gray-500;
+}
+
+.list {
+  list-style: none;
+  margin: 0 0 $spacing-md 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-sm $spacing-md;
+  background-color: $gray-50;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $gray-800;
+}
+
+.removeButton {
+  background: none;
+  border: none;
+  color: $error;
+  font-size: $text-xs;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.addRow {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: flex-start;
+}
+
+.addButton {
+  padding: $spacing-sm $spacing-lg;
+  background-color: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: $primary-dark;
+  }
+
+  &:disabled {
+    background-color: $gray-400;
+    cursor: not-allowed;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    background-color: $dark-bg;
+  }
+
+  .title {
+    color: $dark-text;
+  }
+
+  .threshold {
+    color: $dark-text-secondary;
+  }
+
+  .item {
+    background-color: $dark-surface;
+    color: $dark-text;
+  }
+}

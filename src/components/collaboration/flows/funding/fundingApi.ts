@@ -4,6 +4,7 @@
 
 import { contractRead, contractWrite } from '../../../../services/api';
 import type { IMethod } from '../../../../services/interfaces';
+import { transfer as communityTransfer } from '../../../../services/contracts/community';
 
 // ---------------------------------------------------------------------------
 // Fundraising types
@@ -168,15 +169,13 @@ export async function contribute(
   communityInfo?: CommunityInfo,
 ): Promise<void> {
   if (communityInfo) {
-    await contractWrite({
-      serverUrl: communityInfo.communityServer,
-      publicKey: currentUser,
-      contractId: communityInfo.communityId,
-      method: {
-        name: 'transfer',
-        values: { to: communityInfo.fundAccountName, value: amount },
-      } as IMethod,
-    });
+    await communityTransfer(
+      communityInfo.communityServer,
+      currentUser,
+      communityInfo.communityId,
+      communityInfo.fundAccountName,
+      amount,
+    );
   }
   await contractWrite({
     serverUrl: server,

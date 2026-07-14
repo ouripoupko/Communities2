@@ -1,0 +1,202 @@
+@use '../../styles/variables' as *;
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: $spacing-xl;
+
+  h2 {
+    margin: 0 0 $spacing-xs 0;
+    color: $gray-800;
+  }
+
+  p {
+    margin: 0;
+    color: $gray-500;
+  }
+}
+
+.gates {
+  display: flex;
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+  flex-wrap: wrap;
+}
+
+.gateButton {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-md $spacing-xl;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: transform $transition-fast, box-shadow $transition-base;
+  background-color: $primary;
+  color: white;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: $shadow-md;
+  }
+}
+
+.gateButton.secondary {
+  background-color: white;
+  color: $gray-700;
+  border: 1px solid $gray-300;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: $spacing-lg;
+}
+
+.card {
+  background-color: white;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  box-shadow: $shadow-base;
+  cursor: pointer;
+  transition: box-shadow $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-lg;
+  }
+}
+
+.cardTop {
+  display: flex;
+  gap: $spacing-md;
+}
+
+.typeIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: $radius-md;
+  flex-shrink: 0;
+
+  &.policy {
+    background-color: rgba(59, 130, 246, 0.12);
+    color: $primary;
+  }
+
+  &.commitment {
+    background-color: rgba(13, 148, 136, 0.12);
+    color: #0d9488;
+  }
+}
+
+.cardContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: $text-lg;
+  color: $gray-800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-full;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+
+  &.policy {
+    background-color: rgba(59, 130, 246, 0.12);
+    color: $primary;
+  }
+
+  &.commitment {
+    background-color: rgba(13, 148, 136, 0.12);
+    color: #0d9488;
+  }
+}
+
+.cardSummary {
+  margin: $spacing-xs 0 0 0;
+  font-size: $text-sm;
+  color: $gray-500;
+}
+
+.cardRate {
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1px solid $gray-100;
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  color: $gray-800;
+}
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $spacing-3xl;
+  color: $gray-500;
+}
+
+@media (max-width: $breakpoint-md) {
+  .gates {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .header h2 {
+    color: $dark-text;
+  }
+
+  .header p {
+    color: $dark-text-secondary;
+  }
+
+  .gateButton.secondary {
+    background-color: $dark-bg;
+    color: $dark-text;
+    border-color: $dark-border;
+  }
+
+  .card {
+    background-color: $dark-bg;
+  }
+
+  .cardTitle {
+    color: $dark-text;
+  }
+
+  .cardSummary {
+    color: $dark-text-secondary;
+  }
+
+  .cardRate {
+    color: $dark-text;
+    border-top-color: $dark-border;
+  }
+
+  .loadingState {
+    color: $dark-text-secondary;
+  }
+}

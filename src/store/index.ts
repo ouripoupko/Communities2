@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import communitiesReducer from './slices/communitiesSlice';
 import issuesReducer from './slices/issuesSlice';
 import userReducer from './slices/userSlice';
-import currencyReducer from './slices/currencySlice';
+import policiesReducer from './slices/policiesSlice';
 import initiativeReducer from './slices/initiativeSlice';
 import wishReducer from './slices/wishSlice';
 import agreementReducer from './slices/agreementSlice';
@@ -12,7 +12,7 @@ export const store = configureStore({
     communities: communitiesReducer,
     issues: issuesReducer,
     user: userReducer,
-    currency: currencyReducer,
+    policies: policiesReducer,
     initiative: initiativeReducer,
     wish: wishReducer,
     agreement: agreementReducer,

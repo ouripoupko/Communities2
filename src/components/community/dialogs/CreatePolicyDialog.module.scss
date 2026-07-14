@@ -1,5 +1,5 @@
-// CreateIssueDialog.module.scss
-// Hierarchical SCSS structure following the component hierarchy
+// CreatePolicyDialog.module.scss
+// Follows the CreateFlowDialog overlay/dialog/header/content/actions pattern
 
 .overlay {
   position: fixed;
@@ -18,9 +18,10 @@
     background: white;
     border-radius: 0.75rem;
     width: 100%;
-    max-width: 500px;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
 
     .header {
       display: flex;
@@ -76,6 +77,7 @@
           font-size: 0.875rem;
           transition: border-color 0.2s, box-shadow 0.2s;
           box-sizing: border-box;
+          background-color: white;
 
           &:focus {
             outline: none;
@@ -96,7 +98,11 @@
 
         .textarea {
           resize: vertical;
-          min-height: 100px;
+          min-height: 80px;
+        }
+
+        .pickerWrap {
+          margin-top: 0.75rem;
         }
       }
 
@@ -165,7 +171,6 @@
   }
 }
 
-// Responsive Design
 @media (max-width: 640px) {
   .overlay {
     padding: 0.5rem;

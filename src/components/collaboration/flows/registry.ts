@@ -7,6 +7,7 @@ import { configureFund } from './funding/fundingApi';
 import type { FundConfig } from './funding/fundingApi';
 import { contractWrite } from '../../../services/api';
 import type { IMethod } from '../../../services/interfaces';
+import { createFundAccount } from '../../../services/contracts/community';
 import DiscussionFlow from './discussion/DiscussionFlow';
 import SchedulingFlow, { SchedulingSetupDialog } from './scheduling/SchedulingFlow';
 import { setupRange } from './scheduling/schedulingApi';
@@ -98,10 +99,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
             fund_account_name: name,
           } } as IMethod,
         });
-        await contractWrite({
-          serverUrl: community.server, publicKey: agent, contractId: community.id,
-          method: { name: 'create_fund_account', values: { name, owner: agent } } as IMethod,
-        });
+        await createFundAccount(community.server, agent, community.id, name, agent);
       }
     },
   },

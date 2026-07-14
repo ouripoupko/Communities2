@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppSelector } from '../../../store/hooks';
 import styles from './CreateCommunityDialog.module.scss';
-import { createCommunity } from '../../../services/contracts/community';
+import { createCommunity, createPolicy } from '../../../services/contracts/community';
 
 interface CreateCommunityDialogProps {
   isVisible: boolean;
@@ -12,6 +12,9 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
   const user = useAppSelector((state) => state.user);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [newCommunityDescription, setNewCommunityDescription] = useState('');
+  const [initialBalance, setInitialBalance] = useState('1000');
+  const [joinPolicy, setJoinPolicy] = useState<'trust' | 'open'>('trust');
+  const [includeStarterPolicies, setIncludeStarterPolicies] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,28 +23,59 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
       setError('Please fill in all required fields');
       return;
     }
+    const initialBalanceValue = parseFloat(initialBalance);
+    if (isNaN(initialBalanceValue) || initialBalanceValue < 0) {
+      setError('Please enter a valid starting balance');
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      await createCommunity(
+      const contractId = await createCommunity(
         user.serverUrl,
         user.publicKey,
         newCommunityName,
         newCommunityDescription,
         user.profileContractId,
+        initialBalanceValue,
+        joinPolicy === 'open',
       );
-      
+
+      if (contractId && includeStarterPolicies) {
+        await createPolicy(user.serverUrl, user.publicKey, contractId, {
+          id: crypto.randomUUID(),
+          name: 'Personal Minting',
+          description: "Mints currency directly into every member's personal account.",
+          source: { kind: 'void' },
+          destination: { kind: 'everyPersonal' },
+          mode: 'units',
+          rateType: 'community-governed',
+        });
+        await createPolicy(user.serverUrl, user.publicKey, contractId, {
+          id: crypto.randomUUID(),
+          name: 'Demurrage',
+          description: 'Gradually burns a share of every account balance.',
+          source: { kind: 'everyAccount' },
+          destination: { kind: 'void' },
+          mode: 'percent',
+          rateType: 'community-governed',
+        });
+      }
+
       // Close dialog first, before resetting form
       onClose();
-      
+
       // Reset form after closing
       setNewCommunityName('');
       setNewCommunityDescription('');
+      setInitialBalance('1000');
+      setJoinPolicy('trust');
+      setIncludeStarterPolicies(true);
       setError(null);
       setIsSubmitting(false);
-      
+
     } catch (error) {
       console.error('Failed to create community:', error);
       setError('Failed to create community. Please try again.');
@@ -51,9 +85,12 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
 
   const handleClose = () => {
     if (isSubmitting) return; // Prevent closing during submission
-    
+
     setNewCommunityName('');
     setNewCommunityDescription('');
+    setInitialBalance('1000');
+    setJoinPolicy('trust');
+    setIncludeStarterPolicies(true);
     setError(null);
     onClose();
   };
@@ -102,7 +139,48 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
               disabled={isSubmitting}
             />
           </div>
-          
+
+          <div className={styles.formGroup}>
+            <label htmlFor="initialBalance" className={styles.label}>Starting balance for new members</label>
+            <input
+              id="initialBalance"
+              type="number"
+              value={initialBalance}
+              onChange={(e) => setInitialBalance(e.target.value)}
+              placeholder="1000"
+              className={styles.inputField}
+              disabled={isSubmitting}
+              min="0"
+              step="any"
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="joinPolicy" className={styles.label}>How can new members join?</label>
+            <select
+              id="joinPolicy"
+              value={joinPolicy}
+              onChange={(e) => setJoinPolicy(e.target.value as 'trust' | 'open')}
+              className={styles.inputField}
+              disabled={isSubmitting}
+            >
+              <option value="trust">Web of trust — existing members approve new joiners</option>
+              <option value="open">Open — anyone can join immediately, no approval needed</option>
+            </select>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label>
+              <input
+                type="checkbox"
+                checked={includeStarterPolicies}
+                onChange={(e) => setIncludeStarterPolicies(e.target.checked)}
+                disabled={isSubmitting}
+              />
+              {' '}Include starter policies: Personal Minting + Demurrage
+            </label>
+          </div>
+
           {error && (
             <div className={styles.errorMessage}>
               {error}

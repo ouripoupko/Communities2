@@ -1,0 +1,87 @@
+@use '../../styles/variables' as *;
+
+.container {
+  position: relative;
+  width: 100%;
+}
+
+.input {
+  cursor: text;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + #{$spacing-xs});
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: white;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  box-shadow: $shadow-lg;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $spacing-sm $spacing-md;
+  background: none;
+  border: none;
+  border-bottom: 1px solid $gray-100;
+  text-align: left;
+  cursor: pointer;
+  font-size: $text-sm;
+  color: $gray-800;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: $gray-50;
+  }
+}
+
+.optionLabel {
+  font-weight: $font-medium;
+}
+
+.optionKind {
+  font-size: $text-xs;
+  color: $gray-500;
+}
+
+.empty {
+  padding: $spacing-md;
+  font-size: $text-sm;
+  color: $gray-500;
+  text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dropdown {
+    background-color: $dark-bg;
+    border-color: $dark-border;
+  }
+
+  .option {
+    color: $dark-text;
+    border-bottom-color: $dark-border;
+
+    &:hover {
+      background-color: $dark-surface;
+    }
+  }
+
+  .optionKind {
+    color: $dark-text-secondary;
+  }
+
+  .empty {
+    color: $dark-text-secondary;
+  }
+}

@@ -68,9 +68,11 @@ interface MembersProps {
 }
 
 const Members: React.FC<MembersProps> = ({ communityId }) => {
-  const { communityMembers, communityTasks, communityNominates, profiles } = useAppSelector((state) => state.communities);
+  const { communityMembers, communityTasks, communityNominates, communityProperties, profiles } =
+    useAppSelector((state) => state.communities);
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+  const isOpenJoin = !!communityProperties[communityId]?.open_join;
   const tasks: Record<string, boolean> = communityTasks[communityId] || {};
   const taskAgents: string[] = Object.keys(tasks);
   const nominates: string[] = Array.isArray(communityNominates[communityId]) ? communityNominates[communityId] : [];
@@ -215,7 +217,10 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
       <div className={styles.container}>
         <div className={styles.header}>
           <h2>Members</h2>
-          <p>{allMembers.length} community members</p>
+          <p>
+            {allMembers.length} community members ·{' '}
+            {isOpenJoin ? 'Open membership — anyone can join immediately' : 'Web of trust — new members need approval'}
+          </p>
         </div>
         
         {!currentUserInList && publicKey && (

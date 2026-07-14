@@ -1,0 +1,139 @@
+@use '../../styles/variables' as *;
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: $spacing-xl;
+
+  h2 {
+    margin: 0 0 $spacing-xs 0;
+    color: $gray-800;
+  }
+
+  p {
+    margin: 0;
+    color: $gray-500;
+  }
+}
+
+.section {
+  background-color: white;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-base;
+  padding: $spacing-xl;
+  margin-bottom: $spacing-lg;
+
+  h3 {
+    margin: 0 0 $spacing-md 0;
+    color: $gray-800;
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+  margin-bottom: $spacing-md;
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.accountRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  flex-wrap: wrap;
+}
+
+.balance {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: $gray-800;
+}
+
+.sendButton {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-lg;
+  background-color: $primary;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+
+  &:hover {
+    background-color: $primary-dark;
+  }
+}
+
+.commitmentButton {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-lg;
+  background-color: white;
+  color: $gray-700;
+  border: 1px solid $gray-300;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+
+  &:hover {
+    background-color: $gray-50;
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.emptyHint {
+  color: $gray-500;
+  font-size: $text-sm;
+}
+
+@media (prefers-color-scheme: dark) {
+  .header h2 {
+    color: $dark-text;
+  }
+
+  .header p {
+    color: $dark-text-secondary;
+  }
+
+  .section {
+    background-color: $dark-bg;
+
+    h3 {
+      color: $dark-text;
+    }
+  }
+
+  .balance {
+    color: $dark-text;
+  }
+
+  .commitmentButton {
+    background-color: $dark-bg;
+    color: $dark-text;
+    border-color: $dark-border;
+  }
+
+  .emptyHint {
+    color: $dark-text-secondary;
+  }
+}
