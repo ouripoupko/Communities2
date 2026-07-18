@@ -46,10 +46,8 @@ You don't need to understand the technical details of either to use the app — 
 
 The login screen asks for two things:
 
-| Field | What it is |
-|---|---|
-| **Public Key** | Your identity. If you're brand new, use the "generate a random key" option to create one. **Save it somewhere safe** — if you lose it, you lose access to your identity and everything tied to it. |
-| **Server URL** | The address of your Personal Digital Agent. The app remembers servers you've used before so you can pick from your history. |
+- **Public Key** — your identity. If you're brand new, use the "generate a random key" option to create one. **Save it somewhere safe** — if you lose it, you lose access to your identity and everything tied to it.
+- **Server URL** — the address of your Personal Digital Agent. The app remembers servers you've used before so you can pick from your history.
 
 There's no password to forget and no email verification — possession of your key *is* your login.
 
@@ -195,33 +193,20 @@ Open the community and go to the **Members** tab. If you're not yet a member, yo
 
 ## 6. Inside a Community
 
-<table>
-<tr>
-<td width="240" valign="top">
-
-<img src="screenshots/community-tab-bar-overview.png" width="220" alt="A community's page showing the full tab bar (Collaborations, Members, Policies, Wallet, Share) and the ID Card / Scan buttons in the header">
-
-</td>
-<td valign="top">
+![A community's page showing the full tab bar (Collaborations, Members, Policies, Wallet, Share) and the ID Card / Scan buttons in the header](screenshots/community-tab-bar-overview.png)
 
 Once you're in a community, five tabs plus two header buttons give you everything you need:
 
-| Tab | What it's for |
-|---|---|
-| **Collaborations** | The community's projects, wishes, and agreements — see [section 7](#7-collaborations-initiatives-wishes-and-agreements). |
-| **Members** | Everyone in the community, plus the join/approve flow described above. |
-| **Policies** | The community's shared monetary rules — see [section 9](#9-money-policies-and-wallet). |
-| **Wallet** | Your personal balance and payments — see [section 9](#9-money-policies-and-wallet). |
-| **Share** | A QR code and credentials for inviting new people (see above). |
+- **Collaborations** — the community's projects, wishes, and agreements — see [section 7](#7-collaborations-initiatives-wishes-and-agreements).
+- **Members** — everyone in the community, plus the join/approve flow described above.
+- **Policies** — the community's shared monetary rules — see [section 9](#9-money-policies-and-wallet).
+- **Wallet** — your personal balance and payments — see [section 9](#9-money-policies-and-wallet).
+- **Share** — a QR code and credentials for inviting new people (see above).
 
 Two buttons also live in the community header:
 
 - **ID Card** — shows your own identity card and QR code *for this specific community*, so someone can quickly scan and recognize you.
 - **Scan** — opens your camera to scan someone else's QR code (for example, to verify another member's ID card).
-
-</td>
-</tr>
-</table>
 
 ---
 
