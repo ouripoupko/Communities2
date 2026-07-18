@@ -320,12 +320,33 @@
 
 .contributeRow {
   display: flex;
+  flex-wrap: wrap;
   gap: $spacing-sm;
   align-items: stretch;
 
   .input {
-    flex: 1;
+    flex: 1 1 160px;
+    min-width: 0;
     width: auto;
+  }
+
+  .btnPrimary {
+    flex-shrink: 0;
+  }
+}
+
+// On narrow screens, drop the button to its own full-width line instead of
+// letting it get squeezed past the edge of the screen next to the input.
+@media (max-width: $breakpoint-sm) {
+  .contributeRow {
+    .input {
+      flex-basis: 100%;
+    }
+
+    .btnPrimary {
+      flex: 1 1 100%;
+      justify-content: center;
+    }
   }
 }
 
