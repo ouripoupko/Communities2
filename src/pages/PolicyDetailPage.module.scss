@@ -6,7 +6,7 @@
   font-size: $text-xs;
   font-weight: $font-medium;
   background-color: rgba(59, 130, 246, 0.12);
-  color: $primary;
+  color: var(--color-primary);
 }
 
 .rateHeader {
@@ -15,18 +15,18 @@
   gap: $spacing-sm;
   padding-bottom: $spacing-lg;
   margin-bottom: $spacing-lg;
-  border-bottom: 1px solid $gray-100;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .rateLabel {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 }
 
 .rateValue {
   font-size: $text-2xl;
   font-weight: $font-bold;
-  color: $gray-800;
+  color: var(--color-text-primary);
 }
 
 .section {
@@ -34,7 +34,7 @@
 
   h4 {
     margin: 0 0 $spacing-sm 0;
-    color: $gray-800;
+    color: var(--color-text-primary);
   }
 }
 
@@ -51,7 +51,7 @@
 .editLink {
   background: none;
   border: none;
-  color: $primary;
+  color: var(--color-primary);
   font-size: $text-sm;
   cursor: pointer;
 
@@ -62,7 +62,7 @@
 
 .hint {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: $spacing-xs 0;
 }
 
@@ -89,7 +89,7 @@
 }
 
 .description {
-  color: $gray-700;
+  color: var(--color-text-secondary);
   white-space: pre-wrap;
 }
 
@@ -98,9 +98,9 @@
   align-items: center;
   gap: $spacing-sm;
   padding: $spacing-md $spacing-xl;
-  background-color: white;
-  color: $error;
-  border: 1px solid $error;
+  background-color: var(--color-surface);
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
@@ -112,26 +112,8 @@
   }
 
   &:disabled {
-    color: $gray-400;
-    border-color: $gray-300;
+    color: var(--color-text-tertiary);
+    border-color: var(--color-border);
     cursor: not-allowed;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .rateHeader {
-    border-bottom-color: $dark-border;
-  }
-
-  .rateValue {
-    color: $dark-text;
-  }
-
-  .section h4 {
-    color: $dark-text;
-  }
-
-  .description {
-    color: $dark-text-secondary;
   }
 }

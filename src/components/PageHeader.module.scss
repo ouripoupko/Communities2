@@ -8,8 +8,8 @@
   gap: $spacing-md;
   margin-bottom: $spacing-lg;
   padding: $spacing-xl;
-  background-color: white;
-  border-bottom: 1px solid $gray-200;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
   box-shadow: $shadow-sm;
 
   .headerTop {
@@ -30,7 +30,7 @@
         align-items: center;
         gap: $spacing-xs;
         padding: $spacing-sm $spacing-md;
-        background-color: $primary;
+        background-color: var(--color-primary);
         color: white;
         border: none;
         border-radius: $radius-md;
@@ -42,7 +42,7 @@
         white-space: nowrap;
 
         &:hover {
-          background-color: $primary-dark;
+          background-color: var(--color-primary-dark);
           transform: translateY(-1px);
         }
 
@@ -59,14 +59,14 @@
         }
 
         &.logoutButton {
-          background-color: #fb7185;
+          background-color: var(--color-danger);
           color: white;
-          border: 1px solid #f43f5e;
+          border: 1px solid var(--color-danger-border);
 
           &:hover {
-            background-color: #e11d48;
+            background-color: var(--color-danger-hover);
             color: white;
-            border-color: #e11d48;
+            border-color: var(--color-danger-hover);
             transform: translateY(-1px);
           }
 
@@ -83,8 +83,8 @@
       gap: $spacing-sm;
       padding: $spacing-sm $spacing-lg;
       background-color: transparent;
-      color: $gray-500;
-      border: 1px solid $gray-300;
+      color: var(--color-text-tertiary);
+      border: 1px solid var(--color-border);
       border-radius: $radius-md;
       font-size: $text-sm;
       cursor: pointer;
@@ -93,8 +93,8 @@
       white-space: nowrap;
 
       &:hover {
-        background-color: $gray-100;
-        color: $gray-700;
+        background-color: var(--color-surface-muted);
+        color: var(--color-text-secondary);
       }
     }
   }
@@ -118,7 +118,7 @@
         h1 {
           font-size: $text-xl;
           font-weight: $font-bold;
-          color: $gray-800;
+          color: var(--color-text-primary);
           margin: 0;
           flex-shrink: 0;
         }
@@ -128,9 +128,9 @@
           align-items: center;
           gap: $spacing-sm;
           padding: $spacing-sm $spacing-md;
-          background-color: #fb7185;
+          background-color: var(--color-danger);
           color: white;
-          border: 1px solid #f43f5e;
+          border: 1px solid var(--color-danger-border);
           border-radius: $radius-md;
           font-size: $text-sm;
           cursor: pointer;
@@ -139,9 +139,9 @@
           white-space: nowrap;
 
           &:hover {
-            background-color: #e11d48;
+            background-color: var(--color-danger-hover);
             color: white;
-            border-color: #e11d48;
+            border-color: var(--color-danger-hover);
           }
         }
 
@@ -149,7 +149,7 @@
           display: flex;
           align-items: center;
           gap: $spacing-sm;
-          color: $gray-600;
+          color: var(--color-text-secondary);
           font-size: $text-sm;
           flex-shrink: 0;
           white-space: nowrap;
@@ -157,7 +157,7 @@
       }
 
       p {
-        color: $gray-600;
+        color: var(--color-text-secondary);
         margin: 0;
         font-size: $text-sm;
       }
@@ -173,7 +173,7 @@
         align-items: center;
         gap: $spacing-xs;
         padding: $spacing-sm $spacing-md;
-        background-color: $primary;
+        background-color: var(--color-primary);
         color: white;
         border: none;
         border-radius: $radius-md;
@@ -185,7 +185,7 @@
         white-space: nowrap;
 
         &:hover {
-          background-color: $primary-dark;
+          background-color: var(--color-primary-dark);
           transform: translateY(-1px);
         }
 
@@ -202,14 +202,14 @@
         }
 
         &.logoutButton {
-          background-color: #fb7185;
+          background-color: var(--color-danger);
           color: white;
-          border: 1px solid #f43f5e;
+          border: 1px solid var(--color-danger-border);
 
           &:hover {
-            background-color: #e11d48;
+            background-color: var(--color-danger-hover);
             color: white;
-            border-color: #e11d48;
+            border-color: var(--color-danger-hover);
             transform: translateY(-1px);
           }
 
@@ -239,7 +239,7 @@
         h1 {
           font-size: $text-xl;
           font-weight: $font-bold;
-          color: $gray-800;
+          color: var(--color-text-primary);
           margin: 0;
           flex-shrink: 0;
         }
@@ -248,7 +248,7 @@
           display: flex;
           align-items: center;
           gap: $spacing-sm;
-          color: $gray-600;
+          color: var(--color-text-secondary);
           font-size: $text-sm;
           flex-shrink: 0;
           white-space: nowrap;
@@ -256,7 +256,7 @@
       }
 
       p {
-        color: $gray-600;
+        color: var(--color-text-secondary);
         margin: 0;
         font-size: $text-sm;
       }
@@ -280,98 +280,6 @@
           flex-direction: row;
           align-items: flex-start;
           gap: $spacing-sm;
-        }
-      }
-    }
-  }
-}
-
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .header {
-    background-color: $dark-bg;
-    border-color: $dark-border;
-
-    .headerTop {
-      .backButton {
-        color: $dark-text-secondary;
-        border-color: $dark-border;
-
-        &:hover {
-          background-color: $dark-border;
-          color: $dark-text;
-        }
-      }
-
-      .headerActions {
-        .actionButton {
-          background-color: $primary;
-          color: white;
-
-          &:hover {
-            background-color: $primary-dark;
-          }
-
-          &.logoutButton {
-            background-color: #be185d;
-            color: white;
-            border-color: #9d174d;
-
-            &:hover {
-              background-color: #e11d48;
-              color: white;
-              border-color: #e11d48;
-            }
-          }
-        }
-      }
-    }
-
-    .headerLeft {
-      .headerActions {
-        .actionButton {
-          background-color: $primary;
-          color: white;
-
-          &:hover {
-            background-color: $primary-dark;
-          }
-
-          &.logoutButton {
-            background-color: #be185d;
-            color: white;
-            border-color: #9d174d;
-
-            &:hover {
-              background-color: #e11d48;
-              color: white;
-              border-color: #e11d48;
-            }
-          }
-        }
-      }
-    }
-
-    .headerBottom {
-      .info {
-        h1 {
-          color: $dark-text;
-        }
-
-        p {
-          color: $dark-text-secondary;
-        }
-
-        .titleRow .logoutButton {
-          background-color: #be185d;
-          color: white;
-          border-color: #9d174d;
-
-          &:hover {
-            background-color: #e11d48;
-            color: white;
-            border-color: #e11d48;
-          }
         }
       }
     }

@@ -4,13 +4,13 @@
   .tabTitle {
     font-size: $text-xl;
     font-weight: $font-semibold;
-    color: $gray-800;
+    color: var(--color-text-primary);
     margin: 0 0 $spacing-sm 0;
   }
 
   .tabSubtitle {
     font-size: $text-sm;
-    color: $gray-600;
+    color: var(--color-text-secondary);
     margin: 0 0 $spacing-xl 0;
   }
 }
@@ -28,30 +28,30 @@
   gap: $spacing-md;
   padding: $spacing-md;
   border-radius: $radius-md;
-  background: $gray-50;
-  border-left: 3px solid $gray-300;
+  background: var(--color-surface-muted);
+  border-left: 3px solid var(--color-border);
 
   &.done {
-    border-left-color: $success;
+    border-left-color: var(--color-success);
     opacity: 0.85;
 
     .roadmapIcon {
-      color: $success;
+      color: var(--color-success);
     }
   }
 
   &.current {
-    border-left-color: $primary;
-    background: rgba($primary, 0.06);
+    border-left-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.06);
 
     .roadmapIcon {
-      color: $primary;
+      color: var(--color-primary);
     }
   }
 
   &.pending {
     .roadmapIcon {
-      color: $gray-400;
+      color: var(--color-text-tertiary);
     }
   }
 }
@@ -71,20 +71,20 @@
 .roadmapOrder {
   font-size: $text-sm;
   font-weight: $font-semibold;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   min-width: 1.5rem;
 }
 
 .roadmapLabel {
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
 }
 
 .currentBadge {
   font-size: $text-xs;
   font-weight: $font-medium;
-  color: $primary;
-  background: rgba($primary, 0.12);
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.12);
   padding: $spacing-xs $spacing-sm;
   border-radius: $radius-sm;
 }
@@ -104,9 +104,9 @@
   align-items: center;
   gap: $spacing-sm;
   padding: $spacing-md $spacing-lg;
-  background: rgba($primary, 0.1);
-  color: $primary;
-  border: 1px solid rgba($primary, 0.35);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
@@ -114,7 +114,7 @@
   transition: all $transition-base;
 
   &:hover {
-    background: rgba($primary, 0.15);
+    background: rgba(var(--color-primary-rgb), 0.15);
   }
 }
 
@@ -125,10 +125,10 @@
   justify-content: center;
   padding: $spacing-3xl;
   text-align: center;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 
   .emptyIcon {
-    color: $gray-300;
+    color: var(--color-text-tertiary);
     margin-bottom: $spacing-lg;
   }
 
@@ -149,25 +149,25 @@
   gap: $spacing-md;
   padding: $spacing-lg;
   border-radius: $radius-lg;
-  border: 1px solid $gray-200;
-  background: white;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 
   &.priorityHigh {
     border-left: 4px solid #dc2626;
   }
 
   &.priorityMedium {
-    border-left: 4px solid $warning;
+    border-left: 4px solid var(--color-warning);
   }
 
   &.priorityLow {
-    border-left: 4px solid $gray-400;
+    border-left: 4px solid var(--color-border-strong);
   }
 }
 
 .gapIcon {
   flex-shrink: 0;
-  color: $gray-600;
+  color: var(--color-text-secondary);
 }
 
 .gapContent {
@@ -177,13 +177,13 @@
 .gapTitle {
   font-size: $text-base;
   font-weight: $font-semibold;
-  color: $gray-800;
+  color: var(--color-text-primary);
   margin: 0 0 $spacing-xs 0;
 }
 
 .gapDescription {
   font-size: $text-sm;
-  color: $gray-600;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -203,9 +203,9 @@
   align-items: center;
   gap: $spacing-sm;
   padding: $spacing-md $spacing-lg;
-  background: rgba($primary, 0.1);
-  color: $primary;
-  border: 1px solid rgba($primary, 0.35);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
@@ -213,7 +213,7 @@
   transition: all $transition-base;
 
   &:hover {
-    background: rgba($primary, 0.15);
+    background: rgba(var(--color-primary-rgb), 0.15);
   }
 }
 
@@ -229,20 +229,20 @@
   gap: $spacing-md;
   padding: $spacing-md $spacing-lg;
   border-radius: $radius-md;
-  background: $gray-50;
+  background: var(--color-surface-muted);
   transition: background $transition-base;
 
   &:hover {
-    background: $gray-100;
+    background: var(--color-surface-muted-strong);
   }
 
   &.completed {
     .stepIcon {
-      color: $success;
+      color: var(--color-success);
     }
 
     .stepLabel {
-      color: $gray-500;
+      color: var(--color-text-tertiary);
       text-decoration: line-through;
     }
   }
@@ -250,44 +250,18 @@
 
 .stepIcon {
   flex-shrink: 0;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
 }
 
 .stepLabel {
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
 }
 
+// Dark mode: the "current step" tint is intentionally a bit stronger here
+// than the light-mode alpha, for visibility against a dark page.
 @media (prefers-color-scheme: dark) {
-  .tabContent {
-    .tabTitle { color: $dark-text; }
-    .tabSubtitle { color: $dark-text-secondary; }
-  }
-
-  .roadmapItem {
-    background: $dark-surface;
-
-    &.current {
-      background: rgba($primary, 0.15);
-    }
-
-    .roadmapLabel { color: $dark-text; }
-  }
-
-  .gapCard {
-    background: $dark-bg;
-    border-color: $dark-border;
-
-    .gapTitle { color: $dark-text; }
-    .gapDescription { color: $dark-text-secondary; }
-  }
-
-  .stepItem {
-    background: $dark-surface;
-
-    &:hover { background: $dark-bg; }
-
-    .stepLabel { color: $dark-text; }
-    &.completed .stepLabel { color: $dark-text-secondary; }
+  .roadmapItem.current {
+    background: rgba(var(--color-primary-rgb), 0.15);
   }
 }

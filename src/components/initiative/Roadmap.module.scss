@@ -16,12 +16,12 @@
   h2 {
     font-size: $text-2xl;
     font-weight: $font-bold;
-    color: $gray-800;
+    color: var(--color-text-primary);
     margin: 0 0 $spacing-xs 0;
   }
 
   p {
-    color: $gray-600;
+    color: var(--color-text-secondary);
     margin: 0;
     font-size: $text-sm;
   }
@@ -37,7 +37,7 @@
     align-items: center;
     gap: $spacing-sm;
     padding: $spacing-md $spacing-lg;
-    background-color: $primary;
+    background-color: var(--color-primary);
     color: white;
     border: none;
     border-radius: $radius-md;
@@ -47,7 +47,7 @@
     transition: all $transition-base;
 
     &:hover {
-      background-color: $primary-dark;
+      background-color: var(--color-primary-dark);
       transform: translateY(-1px);
     }
   }
@@ -55,11 +55,11 @@
 }
 
 .document {
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   padding: $spacing-2xl;
   box-shadow: $shadow-base;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   min-height: 200px;
 }
 
@@ -67,7 +67,7 @@
   position: relative;
   display: inline;
   &.selected {
-    background: rgba($primary, 0.15);
+    background: rgba(var(--color-primary-rgb), 0.15);
   }
 
   .segmentCheckbox {
@@ -81,13 +81,13 @@
   transition: background $transition-base;
 
   &:hover {
-    background: rgba($primary, 0.08);
+    background: rgba(var(--color-primary-rgb), 0.08);
   }
 
   .segmentText {
     font-size: $text-base;
     line-height: 1.75;
-    color: $gray-800;
+    color: var(--color-text-primary);
   }
 
   .segmentMeta {
@@ -130,9 +130,9 @@
   .editBtn {
     padding: $spacing-xs $spacing-sm;
     background: transparent;
-    border: 1px solid $gray-300;
+    border: 1px solid var(--color-border);
     border-radius: $radius-sm;
-    color: $gray-600;
+    color: var(--color-text-secondary);
     cursor: pointer;
     font-size: $text-xs;
     display: inline-flex;
@@ -140,8 +140,8 @@
     gap: 2px;
 
     &:hover {
-      background: $gray-100;
-      color: $gray-800;
+      background: var(--color-surface-muted);
+      color: var(--color-text-primary);
     }
   }
 }
@@ -149,14 +149,14 @@
 .proposalOverlay {
   margin: $spacing-lg 0;
   padding: $spacing-lg;
-  background: rgba($primary, 0.06);
-  border: 1px dashed $primary;
+  background: rgba(var(--color-primary-rgb), 0.06);
+  border: 1px dashed var(--color-primary);
   border-radius: $radius-md;
 
   .proposalLabel {
     font-size: $text-xs;
     font-weight: $font-semibold;
-    color: $primary;
+    color: var(--color-primary);
     margin-bottom: $spacing-sm;
     text-transform: uppercase;
   }
@@ -164,7 +164,7 @@
   .proposalText {
     font-size: $text-base;
     line-height: 1.6;
-    color: $gray-800;
+    color: var(--color-text-primary);
     margin-bottom: $spacing-md;
   }
 
@@ -186,7 +186,7 @@
   }
 
   .supportBtn {
-    background: $success;
+    background: var(--color-success);
     color: white;
 
     &:hover {
@@ -195,17 +195,17 @@
   }
 
   .rejectBtn {
-    background: $gray-200;
-    color: $gray-700;
+    background: var(--color-surface-muted-strong);
+    color: var(--color-text-secondary);
 
     &:hover {
-      background: $gray-300;
+      background: var(--color-border-strong);
     }
   }
 
   .voteCount {
     font-size: $text-sm;
-    color: $gray-500;
+    color: var(--color-text-tertiary);
     margin-left: $spacing-md;
   }
 }
@@ -213,7 +213,7 @@
 .emptyState {
   text-align: center;
   padding: $spacing-3xl $spacing-lg;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 
   p {
     margin: 0 0 $spacing-md 0;
@@ -243,22 +243,10 @@
   }
 }
 
+// Dark mode: the primary-tinted overlay is intentionally a bit stronger
+// here than the light-mode alpha, for visibility against a dark page.
 @media (prefers-color-scheme: dark) {
-  .document {
-    background: $dark-bg;
-    border-color: $dark-border;
-  }
-
-  .segment .segmentText {
-    color: $dark-text;
-  }
-
   .proposalOverlay {
-    background: rgba($primary, 0.12);
-    border-color: $primary;
-
-    .proposalText {
-      color: $dark-text;
-    }
+    background: rgba(var(--color-primary-rgb), 0.12);
   }
 }

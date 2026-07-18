@@ -49,10 +49,10 @@ $wish-bg: rgba(192, 38, 211, 0.12);
   align-items: flex-start;
   gap: $spacing-md;
   padding: $spacing-lg;
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   box-shadow: $shadow-base;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   cursor: pointer;
   transition: all $transition-base;
 
@@ -83,13 +83,13 @@ $wish-bg: rgba(192, 38, 211, 0.12);
     margin: 0 0 $spacing-xs 0;
     font-size: $text-base;
     font-weight: $font-semibold;
-    color: $gray-800;
+    color: var(--color-text-primary);
   }
 
   .cardDesc {
     margin: 0;
     font-size: $text-sm;
-    color: $gray-600;
+    color: var(--color-text-secondary);
     line-height: 1.5;
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -99,22 +99,10 @@ $wish-bg: rgba(192, 38, 211, 0.12);
   }
 }
 
+// Dark mode: the hover tint is intentionally a bit stronger here than the
+// light-mode alpha, for visibility against a dark page.
 @media (prefers-color-scheme: dark) {
-  .card {
-    background: $dark-bg;
-    border-color: $dark-border;
-
-    &:hover {
-      background: rgba(192, 38, 211, 0.15);
-      border-color: $wish-color;
-    }
-
-    .cardTitle {
-      color: $dark-text;
-    }
-
-    .cardDesc {
-      color: $dark-text-secondary;
-    }
+  .card:hover {
+    background: rgba(192, 38, 211, 0.15);
   }
 }

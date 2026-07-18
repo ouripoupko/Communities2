@@ -16,7 +16,7 @@
 .tabBar {
   display: flex;
   gap: $spacing-sm;
-  border-bottom: 2px solid $gray-200;
+  border-bottom: 2px solid var(--color-border);
   padding-bottom: 0;
 }
 
@@ -31,18 +31,18 @@
   margin-bottom: -2px;
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: color $transition-base, border-color $transition-base;
 
   &:hover {
-    color: $primary;
+    color: var(--color-primary);
   }
 }
 
 .activeTab {
-  color: $primary;
-  border-bottom-color: $primary;
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 // ---------------------------------------------------------------------------
@@ -65,19 +65,19 @@
 .addInput {
   flex: 1;
   padding: $spacing-md $spacing-lg;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   transition: border-color $transition-base;
 
   &:focus {
-    border-color: $primary;
+    border-color: var(--color-primary);
   }
 
   &::placeholder {
-    color: $gray-400;
+    color: var(--color-text-tertiary);
   }
 }
 
@@ -86,7 +86,7 @@
   align-items: center;
   gap: $spacing-xs;
   padding: $spacing-md $spacing-lg;
-  background: $primary;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: $radius-md;
@@ -97,13 +97,13 @@
   white-space: nowrap;
 
   &:hover {
-    background: $primary-dark;
+    background: var(--color-primary-dark);
   }
 }
 
 .hint {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: 0;
 }
 
@@ -121,19 +121,19 @@
   align-items: center;
   gap: $spacing-md;
   padding: $spacing-md $spacing-lg;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-base;
   font-weight: $font-medium;
-  color: $gray-800;
+  color: var(--color-text-primary);
   cursor: grab;
   box-shadow: $shadow-sm;
   transition: border-color $transition-base, box-shadow $transition-base;
   user-select: none;
 
   &:hover {
-    border-color: $primary;
+    border-color: var(--color-primary);
     box-shadow: $shadow-base;
   }
 
@@ -143,18 +143,18 @@
   }
 
   &.over {
-    border-color: $primary;
+    border-color: var(--color-primary);
     background: color.adjust(#3b82f6, $lightness: 45%);
   }
 
   &.preview {
-    border-color: $primary;
+    border-color: var(--color-primary);
     box-shadow: $shadow-md;
   }
 }
 
 .dragHandle {
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   font-size: $text-lg;
   line-height: 1;
   flex-shrink: 0;
@@ -216,20 +216,20 @@
 .aggregatedTitle {
   font-size: $text-xl;
   font-weight: $font-semibold;
-  color: $gray-800;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .aggregatedSubtitle {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: 0;
 }
 
 .modeSwitch {
   display: inline-flex;
   align-self: flex-start;
-  background: $gray-100;
+  background: var(--color-surface-muted);
   border-radius: $radius-full;
   padding: 3px;
   gap: 2px;
@@ -242,23 +242,23 @@
   border-radius: $radius-full;
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: background $transition-base, color $transition-base;
 
   &:hover {
-    color: $gray-800;
+    color: var(--color-text-primary);
   }
 }
 
 .modeButtonActive {
-  background: white;
-  color: $primary;
+  background: var(--color-surface);
+  color: var(--color-primary);
   box-shadow: $shadow-sm;
 }
 
 .noData {
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   font-size: $text-sm;
   text-align: center;
   padding: $spacing-3xl 0;
@@ -271,7 +271,7 @@
 }
 
 .cycleGroup {
-  border: 1.5px solid $gray-200;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-lg;
   overflow: hidden;
 }
@@ -281,20 +281,20 @@
   align-items: center;
   gap: $spacing-md;
   padding: $spacing-md $spacing-lg;
-  background: $gray-50;
-  border-bottom: 1px solid $gray-200;
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .cycleRank {
   font-weight: $font-semibold;
   font-size: $text-sm;
-  color: $gray-700;
+  color: var(--color-text-secondary);
 }
 
 .cycleBadge {
   font-size: $text-xs;
   font-weight: $font-medium;
-  color: $warning;
+  color: var(--color-warning);
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: $radius-full;
@@ -310,8 +310,8 @@
 .cycleItem {
   padding: $spacing-md $spacing-lg;
   font-size: $text-base;
-  color: $gray-800;
-  border-bottom: 1px solid $gray-100;
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
 
   &:last-child {
     border-bottom: none;
@@ -320,7 +320,7 @@
 
 .cycleAcceptanceBar {
   padding: $spacing-sm $spacing-lg;
-  border-bottom: 1px solid $gray-100;
+  border-bottom: 1px solid var(--color-border);
 
   &:last-child {
     border-bottom: none;

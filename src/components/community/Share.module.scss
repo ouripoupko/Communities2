@@ -12,12 +12,12 @@
     h2 {
       font-size: $text-2xl;
       font-weight: $font-bold;
-      color: $gray-800;
+      color: var(--color-text-primary);
       margin-bottom: $spacing-sm;
     }
 
     p {
-      color: $gray-600;
+      color: var(--color-text-secondary);
     }
   }
 
@@ -28,7 +28,7 @@
 
     .qrSection,
     .communityInfoSection {
-      background: white;
+      background: var(--color-surface);
       border-radius: $radius-lg;
       padding: $spacing-2xl;
       box-shadow: $shadow-base;
@@ -38,7 +38,7 @@
       h3 {
         font-size: $text-xl;
         font-weight: $font-semibold;
-        color: $gray-800;
+        color: var(--color-text-primary);
         margin-bottom: $spacing-xl;
       }
     }
@@ -50,7 +50,7 @@
         margin-bottom: $spacing-lg;
 
         .qrCode {
-          border: 1px solid $gray-200;
+          border: 1px solid var(--color-border);
           border-radius: $radius-md;
           padding: $spacing-sm;
           background: white;
@@ -59,7 +59,7 @@
 
       .qrDescription {
         text-align: center;
-        color: $gray-600;
+        color: var(--color-text-secondary);
         font-size: $text-sm;
       }
     }
@@ -77,18 +77,18 @@
           justify-content: space-between;
           align-items: center;
           padding: $spacing-md;
-          background-color: $gray-50;
+          background-color: var(--color-surface-muted);
           border-radius: $radius-md;
-          border: 1px solid $gray-200;
+          border: 1px solid var(--color-border);
 
           .label {
             font-weight: $font-medium;
-            color: $gray-700;
+            color: var(--color-text-secondary);
             font-size: $text-sm;
           }
 
           .value {
-            color: $gray-800;
+            color: var(--color-text-primary);
             font-weight: $font-semibold;
             font-size: $text-sm;
             max-width: 200px;
@@ -114,9 +114,9 @@
           align-items: center;
           gap: $spacing-sm;
           padding: $spacing-md $spacing-xl;
-          background-color: $gray-100;
-          color: $gray-700;
-          border: 1px solid $gray-300;
+          background-color: var(--color-surface-muted);
+          color: var(--color-text-secondary);
+          border: 1px solid var(--color-border);
           border-radius: $radius-md;
           font-size: $text-sm;
           font-weight: $font-medium;
@@ -124,8 +124,8 @@
           transition: all $transition-base;
 
           &:hover {
-            background-color: $gray-200;
-            color: $gray-800;
+            background-color: var(--color-surface-muted-strong);
+            color: var(--color-text-primary);
           }
         }
       }
@@ -172,66 +172,6 @@
 
         .value {
           max-width: none;
-        }
-      }
-    }
-  }
-}
-
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .container {
-    .header {
-      h2 {
-        color: $dark-text;
-      }
-
-      p {
-        color: $dark-text-secondary;
-      }
-    }
-
-    .content {
-      .qrSection,
-      .communityInfoSection {
-        background-color: $dark-bg;
-
-        h3 {
-          color: $dark-text;
-        }
-      }
-
-      .qrSection {
-        .qrCodeContainer .qrCode {
-          background-color: white;
-          border-color: $dark-border;
-        }
-
-        .qrDescription {
-          color: $dark-text-secondary;
-        }
-      }
-
-      .communityInfoSection .communityDetails .detailItem {
-        background-color: $dark-surface;
-        border-color: $dark-border;
-
-        .label {
-          color: $dark-text;
-        }
-
-        .value {
-          color: $dark-text;
-        }
-      }
-
-      .actionsSection .actionButtons .actionButton {
-        background-color: $dark-surface;
-        color: $dark-text;
-        border-color: $dark-border;
-
-        &:hover {
-          background-color: $dark-border;
         }
       }
     }

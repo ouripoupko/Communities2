@@ -17,8 +17,8 @@
   z-index: 20;
   max-height: 220px;
   overflow-y: auto;
-  background-color: white;
-  border: 1px solid $gray-200;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-lg;
 }
@@ -31,18 +31,18 @@
   padding: $spacing-sm $spacing-md;
   background: none;
   border: none;
-  border-bottom: 1px solid $gray-100;
+  border-bottom: 1px solid var(--color-border);
   text-align: left;
   cursor: pointer;
   font-size: $text-sm;
-  color: $gray-800;
+  color: var(--color-text-primary);
 
   &:last-child {
     border-bottom: none;
   }
 
   &:hover {
-    background-color: $gray-50;
+    background-color: var(--color-surface-muted);
   }
 }
 
@@ -52,36 +52,12 @@
 
 .optionKind {
   font-size: $text-xs;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 }
 
 .empty {
   padding: $spacing-md;
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   text-align: center;
-}
-
-@media (prefers-color-scheme: dark) {
-  .dropdown {
-    background-color: $dark-bg;
-    border-color: $dark-border;
-  }
-
-  .option {
-    color: $dark-text;
-    border-bottom-color: $dark-border;
-
-    &:hover {
-      background-color: $dark-surface;
-    }
-  }
-
-  .optionKind {
-    color: $dark-text-secondary;
-  }
-
-  .empty {
-    color: $dark-text-secondary;
-  }
 }

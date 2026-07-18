@@ -12,12 +12,12 @@
     h2 {
       font-size: $text-2xl;
       font-weight: $font-bold;
-      color: $gray-800;
+      color: var(--color-text-primary);
       margin-bottom: $spacing-sm;
     }
 
     p {
-      color: $gray-600;
+      color: var(--color-text-secondary);
     }
   }
 
@@ -26,14 +26,14 @@
 
     .winnerCard {
       background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-      border: 2px solid $warning;
+      border: 2px solid var(--color-warning);
       border-radius: $radius-xl;
       padding: $spacing-2xl;
       text-align: center;
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 
       .trophyIcon {
-        color: $warning;
+        color: var(--color-warning);
         margin-bottom: $spacing-lg;
       }
 
@@ -48,19 +48,19 @@
         h4 {
           font-size: $text-xl;
           font-weight: $font-semibold;
-          color: $gray-800;
+          color: var(--color-text-primary);
           margin-bottom: $spacing-md;
         }
 
         p {
-          color: $gray-600;
+          color: var(--color-text-secondary);
           line-height: 1.6;
           margin-bottom: $spacing-md;
         }
 
         .author {
           font-size: $text-sm;
-          color: $gray-500;
+          color: var(--color-text-tertiary);
           font-style: italic;
         }
       }
@@ -86,7 +86,7 @@
 
           .value {
             font-size: $text-xl;
-            color: $gray-800;
+            color: var(--color-text-primary);
             font-weight: $font-bold;
           }
         }
@@ -100,7 +100,7 @@
     h3 {
       font-size: $text-xl;
       font-weight: $font-semibold;
-      color: $gray-800;
+      color: var(--color-text-primary);
       margin-bottom: $spacing-xl;
     }
 
@@ -114,10 +114,10 @@
         align-items: center;
         gap: $spacing-lg;
         padding: $spacing-xl;
-        background: white;
+        background: var(--color-surface);
         border-radius: $radius-lg;
         box-shadow: $shadow-base;
-        border: 1px solid $gray-200;
+        border: 1px solid var(--color-border);
         transition: all $transition-base;
 
         &:hover {
@@ -126,7 +126,7 @@
         }
 
         &.winner {
-          border-color: $warning;
+          border-color: var(--color-warning);
           background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         }
 
@@ -138,11 +138,11 @@
             height: 32px;
 
             &.winner {
-              color: $warning;
+              color: var(--color-warning);
             }
 
             &.second {
-              color: $gray-500;
+              color: var(--color-text-tertiary);
             }
 
             &.third {
@@ -156,8 +156,8 @@
             justify-content: center;
             width: 32px;
             height: 32px;
-            background-color: $gray-100;
-            color: $gray-700;
+            background-color: var(--color-surface-muted);
+            color: var(--color-text-secondary);
             border-radius: $radius-full;
             font-weight: $font-semibold;
             font-size: $text-sm;
@@ -170,19 +170,19 @@
           h4 {
             font-size: $text-lg;
             font-weight: $font-semibold;
-            color: $gray-800;
+            color: var(--color-text-primary);
             margin-bottom: $spacing-sm;
           }
 
           p {
-            color: $gray-600;
+            color: var(--color-text-secondary);
             line-height: 1.6;
             margin-bottom: $spacing-sm;
           }
 
           .author {
             font-size: $text-sm;
-            color: $gray-500;
+            color: var(--color-text-tertiary);
             font-style: italic;
           }
         }
@@ -198,12 +198,12 @@
             gap: $spacing-xs;
 
             .label {
-              color: $gray-500;
+              color: var(--color-text-tertiary);
               font-weight: $font-medium;
             }
 
             .value {
-              color: $gray-700;
+              color: var(--color-text-secondary);
               font-weight: $font-semibold;
             }
           }
@@ -213,7 +213,7 @@
   }
 
   .scoringInfo {
-    background: white;
+    background: var(--color-surface);
     border-radius: $radius-lg;
     padding: $spacing-xl;
     box-shadow: $shadow-base;
@@ -222,12 +222,12 @@
       display: flex;
       align-items: center;
       gap: $spacing-lg;
-      color: $gray-500;
+      color: var(--color-text-tertiary);
 
       h4 {
         font-size: $text-base;
         font-weight: $font-semibold;
-        color: $gray-700;
+        color: var(--color-text-secondary);
         margin: 0 0 $spacing-xs 0;
       }
 
@@ -359,56 +359,3 @@
     }
   }
 }
-
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .container {
-    .header {
-      h2 {
-        color: $dark-text;
-      }
-
-      p {
-        color: $dark-text-secondary;
-      }
-    }
-
-    .resultsSection {
-      h3 {
-        color: $dark-text;
-      }
-
-      .resultsList {
-        .resultCard {
-          background-color: $dark-bg;
-          border-color: $dark-border;
-
-          .resultContent {
-            h4 {
-              color: $dark-text;
-            }
-
-            p {
-              color: $dark-text-secondary;
-            }
-          }
-        }
-      }
-    }
-
-    .scoringInfo {
-      background-color: $dark-bg;
-
-      .infoCard {
-        h4 {
-          color: $dark-text;
-        }
-
-        p {
-          color: $dark-text-secondary;
-        }
-      }
-    }
-  }
-}
-

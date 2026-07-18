@@ -24,7 +24,7 @@
   }
 
   .createForm {
-    background: white;
+    background: var(--color-surface);
     border-radius: $radius-lg;
     padding: $spacing-2xl;
     width: 90%;
@@ -40,14 +40,14 @@
       h3 {
         font-size: $text-xl;
         font-weight: $font-semibold;
-        color: $gray-800;
+        color: var(--color-text-primary);
         margin: 0;
       }
 
       .closeButton {
         background: none;
         border: none;
-        color: $gray-500;
+        color: var(--color-text-tertiary);
         cursor: pointer;
         padding: $spacing-xs;
         border-radius: $radius-sm;
@@ -57,8 +57,8 @@
         justify-content: center;
 
         &:hover:not(:disabled) {
-          background-color: $gray-100;
-          color: $gray-700;
+          background-color: var(--color-surface-muted);
+          color: var(--color-text-secondary);
         }
 
         &:disabled {
@@ -70,7 +70,7 @@
 
     .errorMessage {
       background-color: #fef2f2;
-      color: $error;
+      color: var(--color-error);
       padding: $spacing-md;
       border-radius: $radius-md;
       border: 1px solid #fecaca;
@@ -95,15 +95,3 @@
     }
   }
 }
-
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .createFormOverlay .createForm {
-    background-color: $dark-bg;
-
-    .formHeader h3 {
-      color: $dark-text;
-    }
-  }
-}
-

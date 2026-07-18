@@ -12,12 +12,12 @@
     h2 {
       font-size: $text-2xl;
       font-weight: $font-bold;
-      color: $gray-800;
+      color: var(--color-text-primary);
       margin-bottom: $spacing-sm;
     }
 
     p {
-      color: $gray-600;
+      color: var(--color-text-secondary);
     }
   }
 
@@ -32,18 +32,18 @@
     border-radius: $radius-lg;
     font-size: $text-lg;
     font-weight: $font-medium;
-    background-color: $primary;
+    background-color: var(--color-primary);
     color: white;
     border: none;
     cursor: pointer;
     transition: all 0.2s ease;
 
     &:hover:not(:disabled) {
-      background-color: $primary-dark;
+      background-color: var(--color-primary-dark);
     }
 
     &:active:not(:disabled) {
-      background-color: $primary-dark;
+      background-color: var(--color-primary-dark);
     }
 
     &:disabled {
@@ -58,7 +58,7 @@
     h3 {
       font-size: $text-xl;
       font-weight: $font-semibold;
-      color: $gray-700;
+      color: var(--color-text-secondary);
       margin-bottom: $spacing-lg;
     }
   }
@@ -72,11 +72,11 @@
       display: flex;
       align-items: center; // Center both columns vertically
       gap: $spacing-lg;
-      background: white;
+      background: var(--color-surface);
       border-radius: $radius-lg;
       padding: $spacing-lg;
       box-shadow: $shadow-base;
-      border: 1px solid $gray-200;
+      border: 1px solid var(--color-border);
       transition: box-shadow 0.2s ease;
       min-height: 80px; // Reduced card height
 
@@ -89,11 +89,11 @@
         width: 56px;
         height: 56px;
         border-radius: $radius-full;
-        background-color: $gray-100;
+        background-color: var(--color-surface-muted);
         display: flex;
         align-items: center;
         justify-content: center;
-        color: $gray-400;
+        color: var(--color-text-tertiary);
         flex-shrink: 0;
         overflow: hidden;
 
@@ -110,8 +110,8 @@
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: $gray-100;
-          color: $gray-400;
+          background-color: var(--color-surface-muted);
+          color: var(--color-text-tertiary);
         }
       }
 
@@ -133,7 +133,7 @@
         .memberName {
           font-size: $text-2xl; // Even bigger font for name
           font-weight: $font-semibold;
-          color: $gray-800;
+          color: var(--color-text-primary);
           line-height: 1.2;
           margin: 0;
           flex: 1;
@@ -147,7 +147,7 @@
         .publicKey {
           font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
           font-size: $text-sm;
-          color: $gray-500;
+          color: var(--color-text-tertiary);
           line-height: 1.3;
           margin: 0;
           // Truncate long keys
@@ -169,20 +169,20 @@
           flex-shrink: 0; // Prevent button from shrinking
 
           &.pendingButton {
-            background-color: $primary;
+            background-color: var(--color-primary);
             color: white;
 
             &:hover {
-              background-color: $primary-dark;
+              background-color: var(--color-primary-dark);
             }
 
             &:active {
-              background-color: $primary-dark;
+              background-color: var(--color-primary-dark);
             }
           }
 
           &.approvedButton {
-            background-color: $success;
+            background-color: var(--color-success);
             color: white;
             cursor: not-allowed;
           }
@@ -218,69 +218,6 @@
           button {
             padding: $spacing-sm $spacing-md; // Smaller but still bigger than before
             font-size: $text-base;
-          }
-        }
-      }
-    }
-  }
-}
-
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .container {
-    .header {
-      h2 {
-        color: $dark-text;
-      }
-
-      p {
-        color: $dark-text-secondary;
-      }
-    }
-
-    .section {
-      h3 {
-        color: $dark-text;
-      }
-    }
-
-    .list {
-      .memberCard {
-        background-color: $dark-bg;
-        border-color: $dark-border;
-
-        .memberAvatar {
-          background-color: $dark-surface;
-
-          .defaultAvatar {
-            background-color: $dark-surface;
-            color: $dark-text-secondary;
-          }
-        }
-
-        .memberInfo {
-          .memberName {
-            color: $dark-text;
-          }
-
-          .publicKey {
-            color: $dark-text-secondary;
-          }
-
-          button {
-            &.pendingButton {
-              background-color: $primary;
-              color: white;
-
-              &:hover {
-                background-color: $primary-dark;
-              }
-            }
-
-            &.approvedButton {
-              background-color: $success;
-              color: white;
-            }
           }
         }
       }

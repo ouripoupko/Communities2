@@ -11,7 +11,7 @@
   padding: $spacing-lg;
 
   .card {
-    background: white;
+    background: var(--color-surface);
     border-radius: $radius-xl;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     padding: $spacing-3xl;
@@ -25,12 +25,12 @@
       h1 {
         font-size: $text-3xl;
         font-weight: $font-bold;
-        color: $gray-800;
+        color: var(--color-text-primary);
         margin-bottom: $spacing-sm;
       }
 
       p {
-        color: $gray-600;
+        color: var(--color-text-secondary);
         font-size: $text-base;
       }
     }
@@ -50,7 +50,7 @@
           align-items: center;
           gap: $spacing-sm;
           font-weight: $font-medium;
-          color: $gray-700;
+          color: var(--color-text-secondary);
           font-size: $text-sm;
         }
 
@@ -67,16 +67,16 @@
             align-items: center;
             justify-content: center;
             padding: $spacing-md;
-            background-color: $gray-100;
-            color: $gray-700;
-            border: 1px solid $gray-300;
+            background-color: var(--color-surface-muted);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border);
             border-radius: $radius-md;
             cursor: pointer;
             transition: all $transition-base;
 
             &:hover {
-              background-color: $gray-200;
-              color: $gray-800;
+              background-color: var(--color-surface-muted-strong);
+              color: var(--color-text-primary);
             }
           }
         }
@@ -89,8 +89,8 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
-            border: 1px solid $gray-300;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
             border-radius: $radius-md;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             z-index: 10;
@@ -100,7 +100,7 @@
             .historyItem {
               padding: $spacing-md;
               cursor: pointer;
-              border-bottom: 1px solid $gray-100;
+              border-bottom: 1px solid var(--color-border);
               font-size: $text-sm;
               transition: background-color $transition-base;
 
@@ -109,7 +109,7 @@
               }
 
               &:hover {
-                background-color: $gray-50;
+                background-color: var(--color-surface-muted);
               }
             }
           }
@@ -135,13 +135,13 @@
         &.generalError {
           background-color: #fef2f2;
           border-color: #fecaca;
-          color: $error;
+          color: var(--color-error);
         }
 
         &.serverError {
           background-color: #fffbeb;
           border-color: #fcd34d;
-          color: $warning;
+          color: var(--color-warning);
         }
 
         .errorIcon {
@@ -165,7 +165,7 @@
           .retryButton {
             margin-top: $spacing-md;
             padding: $spacing-sm $spacing-lg;
-            background-color: $warning;
+            background-color: var(--color-warning);
             color: white;
             border: none;
             border-radius: $radius-sm;
@@ -191,47 +191,3 @@
     }
   }
 }
-
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .container {
-    .card {
-      background-color: $dark-bg;
-
-      .header {
-        h1 {
-          color: $dark-text;
-        }
-
-        p {
-          color: $dark-text-secondary;
-        }
-      }
-
-      .form {
-        .inputGroup {
-          label {
-            color: $dark-text;
-          }
-
-          .inputWithDropdown {
-            .historyDropdown {
-              background-color: $dark-surface;
-              border-color: $dark-border;
-
-              .historyItem {
-                border-bottom-color: $dark-border;
-                color: $dark-text;
-
-                &:hover {
-                  background-color: $dark-border;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-

@@ -13,7 +13,7 @@
 }
 
 .dialog {
-  background: white;
+  background: var(--color-surface);
   border-radius: 0.75rem;
   width: 100%;
   max-width: 420px;
@@ -31,14 +31,14 @@
 .title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .closeButton {
   background: none;
   border: none;
-  color: #6b7280;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   padding: 0.25rem;
   border-radius: 0.25rem;
@@ -46,8 +46,8 @@
   display: flex;
 
   &:hover {
-    background-color: #f3f4f6;
-    color: #374151;
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-secondary);
   }
 }
 
@@ -70,7 +70,7 @@
   p {
     margin: 0;
     font-size: 0.9375rem;
-    color: #374151;
+    color: var(--color-text-secondary);
     line-height: 1.5;
   }
 }
@@ -97,15 +97,15 @@
   }
 
   &:disabled {
-    background-color: #9ca3af;
+    background-color: var(--color-disabled-bg);
     cursor: not-allowed;
   }
 }
 
 .cancelButton {
-  background-color: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
@@ -114,12 +114,12 @@
   transition: all 0.2s;
 
   &:hover:not(:disabled) {
-    background-color: #f9fafb;
-    border-color: #9ca3af;
+    background-color: var(--color-surface-muted);
+    border-color: var(--color-border-strong);
   }
 
   &:disabled {
-    color: #9ca3af;
+    color: var(--color-text-tertiary);
     cursor: not-allowed;
   }
 }

@@ -45,8 +45,8 @@ $offer-accepted-bg: rgba(5, 150, 105, 0.2);
   gap: $spacing-sm;
   padding: $spacing-md $spacing-lg;
   background: transparent;
-  color: $gray-700;
-  border: 1px solid $gray-300;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
@@ -54,8 +54,8 @@ $offer-accepted-bg: rgba(5, 150, 105, 0.2);
   transition: all $transition-base;
 
   &:hover:not(:disabled) {
-    background: $gray-50;
-    border-color: $gray-400;
+    background: var(--color-surface-muted);
+    border-color: var(--color-border-strong);
   }
 
   &:disabled {
@@ -75,10 +75,10 @@ $offer-accepted-bg: rgba(5, 150, 105, 0.2);
   align-items: flex-start;
   gap: $spacing-md;
   padding: $spacing-lg;
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   box-shadow: $shadow-base;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   transition: all $transition-base;
 
   &.accepted {
@@ -114,13 +114,13 @@ $offer-accepted-bg: rgba(5, 150, 105, 0.2);
     margin: 0 0 $spacing-xs 0;
     font-size: $text-sm;
     font-weight: $font-medium;
-    color: $gray-500;
+    color: var(--color-text-tertiary);
   }
 
   .cardDesc {
     margin: 0;
     font-size: $text-base;
-    color: $gray-800;
+    color: var(--color-text-primary);
     line-height: 1.5;
   }
 
@@ -166,9 +166,9 @@ $offer-accepted-bg: rgba(5, 150, 105, 0.2);
 .placeholderOverlay {
   padding: $spacing-xl;
   text-align: center;
-  background: $gray-50;
+  background: var(--color-surface-muted);
   border-radius: $radius-md;
-  border: 1px dashed $gray-300;
-  color: $gray-600;
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-secondary);
   font-size: $text-sm;
 }

@@ -18,12 +18,12 @@
   height: 72px;
   border-radius: $radius-full;
   background: rgba(59, 130, 246, 0.1);
-  color: $primary;
+  color: var(--color-primary);
 }
 
 .emptyText {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: 0;
 }
 
@@ -44,7 +44,7 @@
 }
 
 .dialog {
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   box-shadow: $shadow-lg;
   width: 90%;
@@ -60,13 +60,13 @@
   justify-content: space-between;
   align-items: center;
   padding: $spacing-xl;
-  border-bottom: 1px solid $gray-200;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .dialogTitle {
   font-size: $text-lg;
   font-weight: $font-semibold;
-  color: $gray-800;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -75,13 +75,13 @@
   border: none;
   font-size: 1.5rem;
   line-height: 1;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   padding: 0 $spacing-xs;
   border-radius: $radius-sm;
   transition: all $transition-base;
 
-  &:hover { background: $gray-100; color: $gray-800; }
+  &:hover { background: var(--color-surface-muted); color: var(--color-text-primary); }
 }
 
 .dialogContent {
@@ -96,8 +96,8 @@
   gap: $spacing-md;
   justify-content: flex-end;
   padding: $spacing-lg $spacing-xl;
-  border-top: 1px solid $gray-200;
-  background: $gray-50;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
   border-radius: 0 0 $radius-lg $radius-lg;
 }
 
@@ -106,7 +106,7 @@
   align-items: center;
   gap: $spacing-xs;
   padding: $spacing-md $spacing-xl;
-  background: $primary;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: $radius-md;
@@ -115,21 +115,21 @@
   cursor: pointer;
   transition: background $transition-base;
 
-  &:hover { background: $primary-dark; }
+  &:hover { background: var(--color-primary-dark); }
 }
 
 .btnCancel {
   padding: $spacing-md $spacing-xl;
-  background: white;
-  color: $gray-700;
-  border: 1px solid $gray-300;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
   cursor: pointer;
   transition: all $transition-base;
 
-  &:hover { background: $gray-50; }
+  &:hover { background: var(--color-surface-muted); }
 }
 
 // ─── Shared form elements ──────────────────────────────────────────────────────
@@ -152,29 +152,29 @@
 .label {
   font-size: $text-sm;
   font-weight: $font-semibold;
-  color: $gray-700;
+  color: var(--color-text-secondary);
 }
 
 .optional {
   font-weight: $font-normal;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
 }
 
 .input {
   width: 100%;
   padding: $spacing-md $spacing-lg;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-sm;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   box-sizing: border-box;
   transition: border-color $transition-base;
-  background: white;
+  background: var(--color-surface);
   font-family: inherit;
 
-  &:focus { border-color: $primary; }
-  &::placeholder { color: $gray-400; }
+  &:focus { border-color: var(--color-primary); }
+  &::placeholder { color: var(--color-text-tertiary); }
 }
 
 .textarea {
@@ -184,7 +184,7 @@
 }
 
 .errorMsg {
-  color: $error;
+  color: var(--color-error);
   font-size: $text-sm;
   margin: 0;
   align-self: flex-start;
@@ -195,7 +195,7 @@
   align-items: center;
   gap: $spacing-xs;
   padding: $spacing-md $spacing-xl;
-  background: $primary;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: $radius-md;
@@ -204,7 +204,7 @@
   cursor: pointer;
   transition: background $transition-base;
 
-  &:hover { background: $primary-dark; }
+  &:hover { background: var(--color-primary-dark); }
 }
 
 // ─── Main container ────────────────────────────────────────────────────────────
@@ -220,7 +220,7 @@
   align-items: flex-start;
   gap: $spacing-md;
   padding-bottom: $spacing-lg;
-  border-bottom: 1.5px solid $gray-100;
+  border-bottom: 1.5px solid var(--color-border);
 }
 
 .eventHeaderText {
@@ -228,7 +228,7 @@
 }
 
 .eventIcon {
-  color: $primary;
+  color: var(--color-primary);
   flex-shrink: 0;
   margin-top: 3px;
 }
@@ -236,20 +236,20 @@
 .eventTitle {
   font-size: $text-xl;
   font-weight: $font-bold;
-  color: $gray-900;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .eventDesc {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: $spacing-xs 0 0;
   line-height: 1.5;
 }
 
 .hint {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: 0;
   line-height: 1.5;
 }
@@ -259,23 +259,23 @@
 .gridWrapper {
   overflow-x: auto;
   border-radius: $radius-lg;
-  border: 1.5px solid $gray-200;
+  border: 1.5px solid var(--color-border);
   box-shadow: $shadow-sm;
   user-select: none;
 }
 
 .grid {
   border-collapse: collapse;
-  background: white;
+  background: var(--color-surface);
   table-layout: fixed;
 }
 
 .cornerCell {
   min-width: 90px;
   padding: $spacing-sm $spacing-md;
-  background: $gray-50;
-  border-bottom: 1.5px solid $gray-200;
-  border-right: 1.5px solid $gray-200;
+  background: var(--color-surface-muted);
+  border-bottom: 1.5px solid var(--color-border);
+  border-right: 1.5px solid var(--color-border);
 }
 
 .timeHeader {
@@ -284,10 +284,10 @@
   text-align: left;
   font-size: 10px;
   font-weight: $font-semibold;
-  color: $gray-400;
-  background: $gray-50;
-  border-bottom: 1.5px solid $gray-200;
-  border-right: 1px solid $gray-100;
+  color: var(--color-text-tertiary);
+  background: var(--color-surface-muted);
+  border-bottom: 1.5px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
   white-space: nowrap;
   overflow: visible;
 
@@ -296,20 +296,20 @@
 
 .dayLabel {
   padding: $spacing-xs $spacing-md;
-  background: $gray-50;
-  border-bottom: 1px solid $gray-100;
-  border-right: 1.5px solid $gray-200;
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1.5px solid var(--color-border);
   font-size: $text-xs;
   font-weight: $font-semibold;
-  color: $gray-600;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .slot {
   width: 28px;
   height: 32px;
-  border-bottom: 1px solid $gray-100;
-  border-right: 1px solid $gray-100;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
   cursor: crosshair;
   position: relative;
   text-align: center;

@@ -36,13 +36,13 @@
 
 // The + Add button — styled like a navItem but dashed/muted
 .addTabBtn {
-  color: $gray-400 !important;
-  border: 2px dashed $gray-300 !important;
+  color: var(--color-text-tertiary) !important;
+  border: 2px dashed var(--color-border) !important;
   background: transparent !important;
 
   &:hover {
-    color: $primary !important;
-    border-color: $primary !important;
+    color: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
     background: transparent !important;
     transform: none !important;
   }
@@ -54,8 +54,8 @@
   top: calc(100% + $spacing-xs);
   right: 0;
   min-width: 180px;
-  background: white;
-  border: 1px solid $gray-200;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-md;
   z-index: 100;
@@ -72,13 +72,13 @@
   border: none;
   cursor: pointer;
   font-size: $text-sm;
-  color: $gray-700;
+  color: var(--color-text-secondary);
   text-align: left;
   transition: background $transition-base;
 
   &:hover {
-    background: $gray-50;
-    color: $primary;
+    background: var(--color-surface-muted);
+    color: var(--color-primary);
   }
 }
 
@@ -86,10 +86,10 @@
   padding: $spacing-sm $spacing-lg $spacing-xs;
   font-size: $text-xs;
   font-weight: $font-semibold;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  border-top: 1px solid $gray-100;
+  border-top: 1px solid var(--color-border);
   pointer-events: none;
   user-select: none;
 }
@@ -104,7 +104,7 @@
 
   &:hover {
     background: none;
-    color: $gray-700;
+    color: var(--color-text-secondary);
   }
 }
 
@@ -133,7 +133,7 @@
   justify-content: center;
   min-height: 300px;
   gap: $spacing-md;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   text-align: center;
 
   p {

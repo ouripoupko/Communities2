@@ -11,9 +11,11 @@
   line-height: 1.5;
   font-weight: 400;
 
+  // Tells the browser both themes are supported (affects native form
+  // control/scrollbar styling). The actual page colors are set on `body`
+  // below via the --color-* tokens, which already flip with the theme -
+  // no separate light/dark override is needed here.
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -40,8 +42,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8fafc;
-  color: #1e293b;
+  background-color: var(--color-surface-muted);
+  color: var(--color-text-primary);
   line-height: 1.6;
   margin: 0;
   display: flex;
@@ -78,7 +80,8 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--color-surface-muted-strong);
+  color: var(--color-text-primary);
   cursor: pointer;
   transition: border-color 0.25s;
 
@@ -89,22 +92,6 @@ button {
   &:focus,
   &:focus-visible {
     outline: 4px auto -webkit-focus-ring-color;
-  }
-}
-
-// Light mode overrides
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-
-  a:hover {
-    color: #747bff;
-  }
-
-  button {
-    background-color: #f9f9f9;
   }
 }
 

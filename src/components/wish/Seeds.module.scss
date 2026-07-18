@@ -50,10 +50,10 @@ $seed-launched-bg: rgba(124, 58, 237, 0.2);
   align-items: flex-start;
   gap: $spacing-md;
   padding: $spacing-lg;
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   box-shadow: $shadow-base;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   transition: all $transition-base;
   text-decoration: none;
   color: inherit;
@@ -101,7 +101,7 @@ $seed-launched-bg: rgba(124, 58, 237, 0.2);
   .cardDesc {
     margin: 0 0 $spacing-md 0;
     font-size: $text-base;
-    color: $gray-800;
+    color: var(--color-text-primary);
     line-height: 1.5;
   }
 

@@ -1,32 +1,96 @@
 // variables.scss
-// SCSS Variables for colors, spacing, and design tokens
+// SCSS variables for non-theme-dependent design tokens (spacing, radius,
+// type scale, etc), plus the fixed accent palette.
+//
+// Theme-dependent COLORS (text, surfaces, borders) are NOT SCSS variables -
+// they're CSS custom properties defined once below, in :root and its dark
+// override. Components must read them via var(--color-*), never via a
+// hardcoded hex/gray value, so they stay correct under both
+// prefers-color-scheme: light and prefers-color-scheme: dark automatically.
+// Do NOT add a per-component `@media (prefers-color-scheme: dark)` block to
+// re-derive a color that already has a token below - that's the exact
+// scattered-bypass pattern that caused invisible text before (a component
+// forgets its override and the color never flips). If an existing rule
+// needs a color that isn't covered by a token yet, add the token here
+// instead of hardcoding it locally.
 
-// Colors
-$primary: #3b82f6;
-$primary-dark: #2563eb;
-$secondary: #64748b;
-$success: #10b981;
-$warning: #f59e0b;
-$error: #dc2626;
+// ---------------------------------------------------------------------------
+// Color tokens (theme-reactive CSS custom properties)
+// ---------------------------------------------------------------------------
+:root {
+  // Text
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #64748b;
+  --color-text-inverse: #ffffff;
 
-// Grays (Light mode)
-$gray-50: #f8fafc;
-$gray-100: #f1f5f9;
-$gray-200: #e2e8f0;
-$gray-300: #d1d5db;
-$gray-400: #9ca3af;
-$gray-500: #6b7280;
-$gray-600: #64748b;
-$gray-700: #374151;
-$gray-800: #1e293b;
+  // Surfaces
+  --color-bg-page: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-surface-muted-strong: #e2e8f0;
+  --color-disabled-bg: #94a3b8;
+
+  // Borders
+  --color-border: #e2e8f0;
+  --color-border-strong: #94a3b8;
+
+  // Brand / accent
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-secondary: #64748b;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #dc2626;
+
+  // RGB triplets, for use inside rgba(var(--color-x-rgb), alpha) - a plain
+  // var() can't be passed as rgba()'s color argument.
+  --color-primary-rgb: 59, 130, 246;
+  --color-warning-rgb: 245, 158, 11;
+
+  // Destructive action (e.g. logout)
+  --color-danger: #fb7185;
+  --color-danger-hover: #e11d48;
+  --color-danger-border: #f43f5e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary: #94a3b8;
+    --color-text-tertiary: #64748b;
+    --color-text-inverse: #ffffff;
+
+    --color-bg-page: #0f172a;
+    --color-surface: #1e293b;
+    --color-surface-muted: #334155;
+    --color-surface-muted-strong: #475569;
+    --color-disabled-bg: #475569;
+
+    --color-border: #475569;
+    --color-border-strong: #64748b;
+
+    --color-primary: #3b82f6;
+    --color-primary-dark: #2563eb;
+    --color-secondary: #94a3b8;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-error: #f87171;
+
+    --color-danger: #be185d;
+    --color-danger-hover: #e11d48;
+    --color-danger-border: #9d174d;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fixed palette - values that are always the same regardless of theme (e.g.
+// a tooltip that's intentionally a dark chip in both light and dark mode).
+// Prefer a --color-* token above for anything that should adapt to the
+// theme; only use these for genuinely theme-invariant cases.
+// ---------------------------------------------------------------------------
 $gray-900: #0f172a;
-
-// Dark mode grays
-$dark-bg: #1e293b;
-$dark-surface: #0f172a;
-$dark-border: #475569;
-$dark-text: #f1f5f9;
-$dark-text-secondary: #94a3b8;
+$gray-800: #1e293b;
 
 // Spacing
 $spacing-xs: 0.25rem;
@@ -75,4 +139,3 @@ $breakpoint-sm: 640px;
 $breakpoint-md: 768px;
 $breakpoint-lg: 1024px;
 $breakpoint-xl: 1280px;
-

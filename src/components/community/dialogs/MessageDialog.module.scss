@@ -14,7 +14,7 @@
   padding: $spacing-md;
 
   .dialog {
-    background: $gray-50;
+    background: var(--color-surface-muted);
     border-radius: $radius-lg;
     box-shadow: $shadow-lg;
     max-width: 500px;
@@ -34,7 +34,7 @@
         .message {
           font-size: $text-lg;
           line-height: 1.6;
-          color: $gray-800;
+          color: var(--color-text-primary);
           margin: 0;
           word-wrap: break-word;
         }
@@ -54,33 +54,15 @@
           transition: all 0.2s ease;
           border: none;
           min-width: 120px;
-          background: $primary;
+          background: var(--color-primary);
           color: white;
           
           &:hover {
-            background: $primary-dark;
+            background: var(--color-primary-dark);
           }
           
           &:active {
             transform: translateY(1px);
-          }
-        }
-      }
-    }
-  }
-}
-
-// Dark mode styles
-@media (prefers-color-scheme: dark) {
-  .overlay {
-    .dialog {
-      background: $dark-bg;
-      border: 1px solid $dark-border;
-
-      .content {
-        .messageSection {
-          .message {
-            color: $dark-text;
           }
         }
       }

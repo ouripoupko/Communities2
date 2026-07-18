@@ -11,7 +11,7 @@
 }
 
 .dialog {
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   box-shadow: $shadow-lg;
   max-width: 480px;
@@ -23,24 +23,24 @@
   justify-content: space-between;
   align-items: center;
   padding: $spacing-lg $spacing-xl;
-  border-bottom: 1px solid $gray-200;
+  border-bottom: 1px solid var(--color-border);
 
   h3 {
     margin: 0;
     font-size: $text-lg;
     font-weight: $font-semibold;
-    color: $gray-800;
+    color: var(--color-text-primary);
   }
 
   .closeBtn {
     background: none;
     border: none;
     cursor: pointer;
-    color: $gray-500;
+    color: var(--color-text-tertiary);
     padding: $spacing-xs;
 
     &:hover {
-      color: $gray-800;
+      color: var(--color-text-primary);
     }
   }
 }
@@ -52,7 +52,7 @@
     display: block;
     font-size: $text-sm;
     font-weight: $font-medium;
-    color: $gray-700;
+    color: var(--color-text-secondary);
     margin-bottom: $spacing-sm;
   }
 
@@ -60,15 +60,15 @@
   textarea {
     width: 100%;
     padding: $spacing-md;
-    border: 1px solid $gray-300;
+    border: 1px solid var(--color-border);
     border-radius: $radius-md;
     font-size: $text-base;
     font-family: inherit;
 
     &:focus {
       outline: none;
-      border-color: $primary;
-      box-shadow: 0 0 0 2px rgba($primary, 0.2);
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
     }
   }
 
@@ -79,7 +79,7 @@
   .error {
     margin-top: $spacing-sm;
     font-size: $text-sm;
-    color: $error;
+    color: var(--color-error);
   }
 }
 
@@ -88,11 +88,11 @@
   gap: $spacing-md;
   justify-content: flex-end;
   padding: $spacing-lg $spacing-xl;
-  border-top: 1px solid $gray-200;
+  border-top: 1px solid var(--color-border);
 
   .submitBtn {
     padding: $spacing-sm $spacing-xl;
-    background: $primary;
+    background: var(--color-primary);
     color: white;
     border: none;
     border-radius: $radius-md;
@@ -100,7 +100,7 @@
     cursor: pointer;
 
     &:hover:not(:disabled) {
-      background: $primary-dark;
+      background: var(--color-primary-dark);
     }
 
     &:disabled {
@@ -111,14 +111,14 @@
 
   .cancelBtn {
     padding: $spacing-sm $spacing-xl;
-    background: $gray-100;
-    color: $gray-700;
+    background: var(--color-surface-muted);
+    color: var(--color-text-secondary);
     border: none;
     border-radius: $radius-md;
     cursor: pointer;
 
     &:hover:not(:disabled) {
-      background: $gray-200;
+      background: var(--color-surface-muted-strong);
     }
   }
 }

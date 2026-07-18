@@ -18,7 +18,7 @@
   z-index: 1000;
 
   .dialog {
-    background: $gray-50;
+    background: var(--color-surface-muted);
     border-radius: $radius-lg;
     box-shadow: $shadow-lg;
     max-width: 500px;
@@ -31,12 +31,12 @@
       justify-content: space-between;
       align-items: center;
       padding: $spacing-xl;
-      border-bottom: 1px solid $gray-200;
+      border-bottom: 1px solid var(--color-border);
 
       h2 {
         font-size: $text-xl;
         font-weight: $font-bold;
-        color: $gray-800;
+        color: var(--color-text-primary);
         margin: 0;
       }
 
@@ -49,13 +49,13 @@
         background: transparent;
         border: none;
         border-radius: $radius-md;
-        color: $gray-500;
+        color: var(--color-text-tertiary);
         cursor: pointer;
         transition: all 0.2s ease;
 
         &:hover {
-          background: $gray-100;
-          color: $gray-700;
+          background: var(--color-surface-muted);
+          color: var(--color-text-secondary);
         }
       }
     }
@@ -73,12 +73,12 @@
       .instructions {
         text-align: center;
         padding: $spacing-md;
-        background: $gray-100;
+        background: var(--color-surface-muted);
         border-radius: $radius-md;
         margin-bottom: $spacing-lg;
 
         p {
-          color: $gray-600;
+          color: var(--color-text-secondary);
           margin: 0;
           font-size: $text-sm;
           line-height: 1.5;
@@ -92,15 +92,15 @@
         .spinner {
           width: 40px;
           height: 40px;
-          border: 4px solid $gray-200;
-          border-top: 4px solid $primary;
+          border: 4px solid var(--color-border);
+          border-top: 4px solid var(--color-primary);
           border-radius: 50%;
           animation: spin 1s linear infinite;
           margin: 0 auto $spacing-lg;
         }
 
         p {
-          color: $gray-600;
+          color: var(--color-text-secondary);
           font-size: $text-base;
         }
       }
@@ -112,14 +112,14 @@
 
       .successResult {
         .successIcon {
-          color: $success;
+          color: var(--color-success);
           margin-bottom: $spacing-lg;
         }
 
         h3 {
           font-size: $text-lg;
           font-weight: $font-semibold;
-          color: $gray-800;
+          color: var(--color-text-primary);
           margin: 0 0 $spacing-lg 0;
         }
 
@@ -127,7 +127,7 @@
           display: flex;
           align-items: center;
           gap: $spacing-md;
-          background: $gray-50;
+          background: var(--color-surface-muted);
           border-radius: $radius-md;
           padding: $spacing-lg;
           margin-bottom: $spacing-lg;
@@ -138,7 +138,7 @@
             height: 60px;
             border-radius: 50%;
             object-fit: cover;
-            border: 2px solid $success;
+            border: 2px solid var(--color-success);
           }
 
           .memberDetails {
@@ -147,13 +147,13 @@
             h4 {
               font-size: $text-base;
               font-weight: $font-semibold;
-              color: $gray-800;
+              color: var(--color-text-primary);
               margin: 0 0 $spacing-xs 0;
             }
 
             .agentKey {
               font-size: $text-sm;
-              color: $gray-600;
+              color: var(--color-text-secondary);
               margin: 0;
               font-family: monospace;
               word-break: break-all;
@@ -164,25 +164,25 @@
 
       .errorResult {
         .errorIcon {
-          color: $error;
+          color: var(--color-error);
           margin-bottom: $spacing-lg;
         }
 
         h3 {
           font-size: $text-lg;
           font-weight: $font-semibold;
-          color: $gray-800;
+          color: var(--color-text-primary);
           margin: 0 0 $spacing-md 0;
         }
 
         p {
-          color: $gray-600;
+          color: var(--color-text-secondary);
           margin: 0 0 $spacing-lg 0;
           line-height: 1.5;
         }
 
         .details {
-          background: $gray-50;
+          background: var(--color-surface-muted);
           border-radius: $radius-md;
           padding: $spacing-md;
           margin-bottom: $spacing-lg;
@@ -190,7 +190,7 @@
 
           p {
             font-size: $text-sm;
-            color: $gray-600;
+            color: var(--color-text-secondary);
             margin: 0 0 $spacing-xs 0;
             font-family: monospace;
             word-break: break-all;
@@ -209,7 +209,7 @@
 
         .scanAgainButton {
           padding: $spacing-md $spacing-xl;
-          background: $primary;
+          background: var(--color-primary);
           color: white;
           border: none;
           border-radius: $radius-md;
@@ -219,14 +219,14 @@
           transition: all 0.2s ease;
 
           &:hover {
-            background: $primary-dark;
+            background: var(--color-primary-dark);
           }
         }
 
         .closeButton {
           padding: $spacing-md $spacing-xl;
-          background: $gray-200;
-          color: $gray-700;
+          background: var(--color-surface-muted-strong);
+          color: var(--color-text-secondary);
           border: none;
           border-radius: $radius-md;
           font-size: $text-base;
@@ -235,8 +235,8 @@
           transition: all 0.2s ease;
 
           &:hover {
-            background: $gray-300;
-            color: $gray-800;
+            background: var(--color-surface-muted-strong);
+            color: var(--color-text-primary);
           }
         }
       }
@@ -244,100 +244,15 @@
   }
 }
 
-// Dark mode styles
+// Dark mode: this specific close button reads brighter and its hover fill is
+// stronger than the light-mode tokens give it, by original design - kept as
+// a deliberate, scoped exception rather than folded into the tokens above.
 @media (prefers-color-scheme: dark) {
-  .overlay {
-    .dialog {
-      background: $dark-bg;
-      border: 1px solid $dark-border;
+  .overlay .dialog .content .actions .closeButton {
+    color: var(--color-text-primary);
 
-      .header {
-        border-bottom-color: $dark-border;
-
-        h2 {
-          color: $dark-text;
-        }
-
-        .closeButton {
-          color: $dark-text-secondary;
-
-          &:hover {
-            background: $dark-surface;
-            color: $dark-text;
-          }
-        }
-      }
-
-      .content {
-        .instructions {
-          background: $dark-surface;
-
-          p {
-            color: $dark-text-secondary;
-          }
-        }
-
-        .validating p {
-          color: $dark-text-secondary;
-        }
-
-        .successResult {
-          h3 {
-            color: $dark-text;
-          }
-
-          .memberInfo {
-            background: $dark-surface;
-
-            h4 {
-              color: $dark-text;
-            }
-
-            .agentKey {
-              color: $dark-text-secondary;
-            }
-          }
-        }
-
-        .errorResult {
-          h3 {
-            color: $dark-text;
-          }
-
-          p {
-            color: $dark-text-secondary;
-          }
-
-          .details {
-            background: $dark-surface;
-
-            p {
-              color: $dark-text-secondary;
-            }
-          }
-        }
-
-        .actions {
-          .scanAgainButton {
-            background: $primary;
-            color: white;
-
-            &:hover {
-              background: $primary-dark;
-            }
-          }
-
-          .closeButton {
-            background: $dark-border;
-            color: $dark-text;
-
-            &:hover {
-              background: $dark-text-secondary;
-              color: $dark-text;
-            }
-          }
-        }
-      }
+    &:hover {
+      background: var(--color-border-strong);
     }
   }
 }

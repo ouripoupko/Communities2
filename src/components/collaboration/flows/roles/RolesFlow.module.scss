@@ -15,11 +15,11 @@
   gap: $spacing-sm;
   font-size: $text-base;
   font-weight: $font-semibold;
-  color: $gray-700;
+  color: var(--color-text-secondary);
 }
 
 .headerIcon {
-  color: $warning;
+  color: var(--color-warning);
   flex-shrink: 0;
 }
 
@@ -30,17 +30,17 @@
   gap: $spacing-xs;
   padding: $spacing-sm $spacing-md;
   background: none;
-  border: 1.5px dashed $gray-300;
+  border: 1.5px dashed var(--color-border);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: all $transition-base;
 
   &:hover {
-    border-color: $warning;
-    color: $warning;
+    border-color: var(--color-warning);
+    color: var(--color-warning);
     background: rgba(245, 158, 11, 0.04);
   }
 }
@@ -51,8 +51,8 @@
   flex-direction: column;
   gap: $spacing-xs;
   padding: $spacing-sm;
-  background: white;
-  border: 1.5px solid $warning;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-warning);
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
 }
@@ -61,26 +61,26 @@
 .descInput {
   width: 100%;
   padding: $spacing-xs $spacing-sm;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   border-radius: $radius-sm;
   font-size: $text-sm;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   box-sizing: border-box;
   transition: border-color $transition-base;
 
-  &:focus { border-color: $warning; }
-  &::placeholder { color: $gray-400; }
+  &:focus { border-color: var(--color-warning); }
+  &::placeholder { color: var(--color-text-tertiary); }
 }
 
 .descInput {
   font-size: $text-xs;
-  color: $gray-600;
+  color: var(--color-text-secondary);
 }
 
 .errorMsg {
   font-size: $text-xs;
-  color: $error;
+  color: var(--color-error);
   margin: 0;
 }
 
@@ -91,7 +91,7 @@
 
 .btnConfirm {
   padding: $spacing-xs $spacing-md;
-  background: $warning;
+  background: var(--color-warning);
   color: white;
   border: none;
   border-radius: $radius-sm;
@@ -105,13 +105,13 @@
 .btnCancel {
   padding: $spacing-xs $spacing-md;
   background: none;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   border-radius: $radius-sm;
   font-size: $text-xs;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: all $transition-base;
-  &:hover { border-color: $gray-400; color: $gray-700; }
+  &:hover { border-color: var(--color-border-strong); color: var(--color-text-secondary); }
 }
 
 // ─── Role list ────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@
 
 .noData {
   font-size: $text-sm;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   font-style: italic;
   margin: 0;
   padding: $spacing-lg 0;
@@ -135,8 +135,8 @@
   flex-direction: column;
   gap: $spacing-sm;
   padding: $spacing-md;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
   transition: box-shadow $transition-base;
@@ -163,18 +163,18 @@
   padding: 2px;
   background: none;
   border: none;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   flex-shrink: 0;
   transition: color $transition-base;
-  &:hover { color: $gray-700; }
+  &:hover { color: var(--color-text-secondary); }
 }
 
 .roleName {
   flex: 1;
   font-size: $text-base;
   font-weight: $font-semibold;
-  color: $gray-800;
+  color: var(--color-text-primary);
   word-break: break-word;
 }
 
@@ -199,22 +199,22 @@
 }
 
 .assignBtnJoin {
-  color: $warning;
+  color: var(--color-warning);
   border-color: rgba(245, 158, 11, 0.35);
   background: rgba(245, 158, 11, 0.06);
 
   &:hover {
     background: rgba(245, 158, 11, 0.14);
-    border-color: $warning;
+    border-color: var(--color-warning);
   }
 }
 
 .assignBtnLeave {
-  color: $gray-500;
-  border-color: $gray-200;
+  color: var(--color-text-tertiary);
+  border-color: var(--color-border);
   background: none;
 
-  &:hover { color: $error; border-color: rgba(220, 38, 38, 0.4); }
+  &:hover { color: var(--color-error); border-color: rgba(220, 38, 38, 0.4); }
 }
 
 .deleteBtn {
@@ -223,18 +223,18 @@
   justify-content: center;
   padding: $spacing-xs;
   background: none;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   border-radius: $radius-sm;
-  color: $gray-300;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: all $transition-base;
-  &:hover { color: $error; border-color: rgba(220, 38, 38, 0.4); }
+  &:hover { color: var(--color-error); border-color: rgba(220, 38, 38, 0.4); }
 }
 
 // ─── Description ──────────────────────────────────────────────────────────────
 .roleDesc {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: 0;
   line-height: 1.5;
 }
@@ -250,7 +250,7 @@
 
 .noAssignees {
   font-size: $text-xs;
-  color: $gray-300;
+  color: var(--color-text-tertiary);
   font-style: italic;
 }
 
@@ -264,8 +264,8 @@
   display: inline-flex;
   align-items: center;
   padding: 2px $spacing-sm;
-  background: $gray-100;
-  color: $gray-600;
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
   border-radius: $radius-full;
   font-size: $text-xs;
   font-weight: $font-medium;
@@ -282,7 +282,7 @@
   flex-direction: column;
   gap: $spacing-md;
   padding-top: $spacing-sm;
-  border-top: 1px solid $gray-100;
+  border-top: 1px solid var(--color-border);
   margin-top: $spacing-xs;
 }
 
@@ -303,7 +303,7 @@
   flex: 1;
   font-size: $text-sm;
   font-weight: $font-semibold;
-  color: $gray-700;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 10px;
@@ -316,16 +316,16 @@
   justify-content: center;
   padding: 3px;
   background: none;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   border-radius: $radius-sm;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: all $transition-base;
-  &:hover { color: $gray-700; border-color: $gray-400; }
+  &:hover { color: var(--color-text-secondary); border-color: var(--color-border-strong); }
 }
 
 .iconBtnDelete {
-  &:hover { color: $error; border-color: rgba(220, 38, 38, 0.4); }
+  &:hover { color: var(--color-error); border-color: rgba(220, 38, 38, 0.4); }
 }
 
 .iconBtnConfirm {
@@ -348,12 +348,12 @@
   justify-content: center;
   padding: 3px 6px;
   background: none;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   border-radius: $radius-sm;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: all $transition-base;
-  &:hover { color: $gray-600; border-color: $gray-400; }
+  &:hover { color: var(--color-text-secondary); border-color: var(--color-border-strong); }
 }
 
 // ─── Purpose section ──────────────────────────────────────────────────────────
@@ -366,14 +366,14 @@
 .purposeText {
   flex: 1;
   font-size: $text-sm;
-  color: $gray-700;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 
 .emptyField {
-  color: $gray-300;
+  color: var(--color-text-tertiary);
   font-style: italic;
 }
 
@@ -386,16 +386,16 @@
 .purposeInput {
   width: 100%;
   padding: $spacing-xs $spacing-sm;
-  border: 1px solid $warning;
+  border: 1px solid var(--color-warning);
   border-radius: $radius-sm;
   font-size: $text-sm;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   resize: vertical;
   box-sizing: border-box;
   font-family: inherit;
   line-height: 1.5;
-  &::placeholder { color: $gray-400; }
+  &::placeholder { color: var(--color-text-tertiary); }
 }
 
 .editActions {
@@ -425,13 +425,13 @@
   gap: 4px;
   padding: $spacing-xs $spacing-md;
   background: none;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--color-border);
   border-radius: $radius-sm;
   font-size: $text-xs;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: all $transition-base;
-  &:hover { border-color: $gray-400; color: $gray-700; }
+  &:hover { border-color: var(--color-border-strong); color: var(--color-text-secondary); }
 }
 
 // ─── List section ─────────────────────────────────────────────────────────────
@@ -444,13 +444,13 @@
 .itemInput {
   flex: 1;
   padding: $spacing-xs $spacing-sm;
-  border: 1px solid $warning;
+  border: 1px solid var(--color-warning);
   border-radius: $radius-sm;
   font-size: $text-sm;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   transition: border-color $transition-base;
-  &::placeholder { color: $gray-400; }
+  &::placeholder { color: var(--color-text-tertiary); }
 }
 
 .itemList {
@@ -467,7 +467,7 @@
   align-items: center;
   gap: $spacing-xs;
   padding: $spacing-xs $spacing-sm;
-  background: $gray-100;
+  background: var(--color-surface-muted);
   border-radius: $radius-sm;
   min-height: 30px;
 
@@ -477,7 +477,7 @@
 .itemText {
   flex: 1;
   font-size: $text-sm;
-  color: $gray-700;
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
@@ -526,7 +526,7 @@
 }
 
 .voteBtnDisapprove {
-  color: $error;
+  color: var(--color-error);
   border-color: rgba(220, 38, 38, 0.25);
   background: rgba(220, 38, 38, 0.06);
 
@@ -537,7 +537,7 @@
 
   &.voteBtnActive {
     background: rgba(220, 38, 38, 0.16);
-    border-color: $error;
+    border-color: var(--color-error);
   }
 }
 

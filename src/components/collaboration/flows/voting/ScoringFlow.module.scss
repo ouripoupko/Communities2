@@ -15,7 +15,7 @@
 .tabBar {
   display: flex;
   gap: $spacing-sm;
-  border-bottom: 2px solid $gray-200;
+  border-bottom: 2px solid var(--color-border);
 }
 
 .tab {
@@ -29,18 +29,18 @@
   margin-bottom: -2px;
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: color $transition-base, border-color $transition-base;
 
   &:hover {
-    color: $primary;
+    color: var(--color-primary);
   }
 }
 
 .activeTab {
-  color: $primary;
-  border-bottom-color: $primary;
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 // ---------------------------------------------------------------------------
@@ -63,19 +63,19 @@
 .addInput {
   flex: 1;
   padding: $spacing-md $spacing-lg;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   transition: border-color $transition-base;
 
   &:focus {
-    border-color: $primary;
+    border-color: var(--color-primary);
   }
 
   &::placeholder {
-    color: $gray-400;
+    color: var(--color-text-tertiary);
   }
 }
 
@@ -84,7 +84,7 @@
   align-items: center;
   gap: $spacing-xs;
   padding: $spacing-md $spacing-lg;
-  background: $primary;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: $radius-md;
@@ -95,18 +95,18 @@
   transition: background $transition-base;
 
   &:hover {
-    background: $primary-dark;
+    background: var(--color-primary-dark);
   }
 }
 
 .hint {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: 0;
 }
 
 .noData {
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   font-size: $text-sm;
   text-align: center;
   padding: $spacing-3xl 0;
@@ -126,8 +126,8 @@
   align-items: center;
   gap: $spacing-lg;
   padding: $spacing-md $spacing-lg;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
 }
@@ -135,7 +135,7 @@
 .optionText {
   flex: 1;
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
   min-width: 0;
 }
 
@@ -149,11 +149,11 @@
 .scoreInput {
   width: 56px;
   padding: $spacing-xs $spacing-sm;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-sm;
   font-size: $text-base;
   font-weight: $font-semibold;
-  color: $primary;
+  color: var(--color-primary);
   text-align: center;
   outline: none;
   transition: border-color $transition-base;
@@ -167,7 +167,7 @@
   appearance: textfield;
 
   &:focus {
-    border-color: $primary;
+    border-color: var(--color-primary);
   }
 }
 
@@ -176,7 +176,7 @@
 
   input[type='range'] {
     width: 100%;
-    accent-color: $primary;
+    accent-color: var(--color-primary);
     cursor: pointer;
   }
 
@@ -200,13 +200,13 @@
 .aggregatedTitle {
   font-size: $text-xl;
   font-weight: $font-semibold;
-  color: $gray-800;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .aggregatedSubtitle {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   margin: 0;
 }
 
@@ -221,8 +221,8 @@
   align-items: center;
   gap: $spacing-lg;
   padding: $spacing-md $spacing-lg;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
 }
@@ -230,7 +230,7 @@
 .rank {
   font-size: $text-sm;
   font-weight: $font-bold;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   min-width: 28px;
   flex-shrink: 0;
 }
@@ -245,7 +245,7 @@
 
 .rankedText {
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -254,14 +254,14 @@
 .barTrack {
   width: 100%;
   height: 6px;
-  background: $gray-100;
+  background: var(--color-surface-muted);
   border-radius: $radius-full;
   overflow: hidden;
 }
 
 .barFill {
   height: 100%;
-  background: linear-gradient(90deg, $primary 0%, $primary-dark 100%);
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   border-radius: $radius-full;
   transition: width $transition-slow;
   min-width: 4px;
@@ -278,16 +278,16 @@
 .scoreValue {
   font-size: $text-lg;
   font-weight: $font-bold;
-  color: $primary;
+  color: var(--color-primary);
 }
 
 .scoreVoters {
   font-size: $text-xs;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
 }
 
 .noVotes {
   font-size: $text-xs;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   font-style: italic;
 }

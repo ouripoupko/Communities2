@@ -14,7 +14,7 @@
 }
 
 .dialog {
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   box-shadow: $shadow-lg;
   width: 90%;
@@ -30,13 +30,13 @@
   justify-content: space-between;
   align-items: center;
   padding: $spacing-xl;
-  border-bottom: 1px solid $gray-200;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .dialogTitle {
   font-size: $text-lg;
   font-weight: $font-semibold;
-  color: $gray-800;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -46,12 +46,12 @@
   justify-content: center;
   background: none;
   border: none;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   padding: $spacing-xs;
   border-radius: $radius-sm;
   transition: all $transition-base;
-  &:hover { background: $gray-100; color: $gray-800; }
+  &:hover { background: var(--color-surface-muted); color: var(--color-text-primary); }
 }
 
 .dialogContent {
@@ -66,22 +66,22 @@
   gap: $spacing-md;
   justify-content: flex-end;
   padding: $spacing-lg $spacing-xl;
-  border-top: 1px solid $gray-200;
-  background: $gray-50;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
   border-radius: 0 0 $radius-lg $radius-lg;
 }
 
 .btnSecondary {
   padding: $spacing-md $spacing-xl;
   background: none;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-600;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all $transition-base;
-  &:hover { border-color: $gray-400; color: $gray-800; }
+  &:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
 }
 
 // ─── Shared form elements ──────────────────────────────────────────────────────
@@ -95,45 +95,45 @@
 .label {
   font-size: $text-sm;
   font-weight: $font-semibold;
-  color: $gray-700;
+  color: var(--color-text-secondary);
 }
 
 .optional {
   font-weight: $font-normal;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
 }
 
 .textarea {
   width: 100%;
   padding: $spacing-md $spacing-lg;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-base;
   font-family: inherit;
-  color: $gray-800;
+  color: var(--color-text-primary);
   resize: vertical;
   outline: none;
   line-height: 1.5;
   box-sizing: border-box;
   transition: border-color $transition-base;
 
-  &:focus { border-color: $primary; }
-  &::placeholder { color: $gray-400; }
+  &:focus { border-color: var(--color-primary); }
+  &::placeholder { color: var(--color-text-tertiary); }
 }
 
 .input {
   width: 100%;
   padding: $spacing-md $spacing-lg;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   box-sizing: border-box;
   transition: border-color $transition-base;
 
-  &:focus { border-color: $primary; }
-  &::placeholder { color: $gray-400; }
+  &:focus { border-color: var(--color-primary); }
+  &::placeholder { color: var(--color-text-tertiary); }
 
   &::-webkit-outer-spin-button,
   &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -160,13 +160,13 @@
 }
 
 .errorMsg {
-  color: $error;
+  color: var(--color-error);
   font-size: $text-sm;
   margin: 0;
 }
 
 .successMsg {
-  color: $success;
+  color: var(--color-success);
   font-size: $text-sm;
   font-weight: $font-medium;
   margin: 0;
@@ -198,7 +198,7 @@
 
 .description {
   font-size: $text-base;
-  color: $gray-800;
+  color: var(--color-text-primary);
   margin: 0;
   line-height: 1.6;
 }
@@ -218,8 +218,8 @@
   align-items: center;
   gap: $spacing-xs;
   padding: $spacing-lg $spacing-md;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-lg;
   box-shadow: $shadow-sm;
   text-align: center;
@@ -237,12 +237,12 @@
 .statValue {
   font-size: $text-xl;
   font-weight: $font-bold;
-  color: $gray-900;
+  color: var(--color-text-primary);
 }
 
 .statLabel {
   font-size: $text-xs;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
@@ -263,24 +263,24 @@
 .raised {
   font-size: $text-2xl;
   font-weight: $font-bold;
-  color: $gray-900;
+  color: var(--color-text-primary);
 }
 
 .goal {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 }
 
 .symbol {
   font-size: 0.75em;
   font-weight: $font-normal;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 }
 
 .track {
   width: 100%;
   height: 10px;
-  background: $gray-100;
+  background: var(--color-surface-muted);
   border-radius: $radius-full;
   overflow: hidden;
 }
@@ -295,7 +295,7 @@
 
 .pct {
   font-size: $text-xs;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   text-align: right;
 }
 
@@ -305,8 +305,8 @@
   flex-direction: column;
   gap: $spacing-md;
   padding: $spacing-xl;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-lg;
   box-shadow: $shadow-sm;
 }
@@ -314,7 +314,7 @@
 .cardTitle {
   font-size: $text-lg;
   font-weight: $font-semibold;
-  color: $gray-800;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -338,7 +338,7 @@
 
 .noData {
   font-size: $text-sm;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   text-align: center;
   padding: $spacing-2xl 0;
   margin: 0;
@@ -355,8 +355,8 @@
   align-items: center;
   justify-content: space-between;
   padding: $spacing-md $spacing-lg;
-  background: white;
-  border: 1.5px solid $gray-100;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
 }
@@ -374,8 +374,8 @@
   width: 32px;
   height: 32px;
   border-radius: $radius-full;
-  background: $gray-200;
-  color: $gray-600;
+  background: var(--color-surface-muted-strong);
+  color: var(--color-text-secondary);
   font-size: $text-sm;
   font-weight: $font-bold;
   flex-shrink: 0;
@@ -390,19 +390,19 @@
   display: block;
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-800;
+  color: var(--color-text-primary);
 }
 
 .contributionTime {
   display: block;
   font-size: $text-xs;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
 }
 
 .contributionAmount {
   font-size: $text-base;
   font-weight: $font-bold;
-  color: $success;
+  color: var(--color-success);
   white-space: nowrap;
 }
 
@@ -419,13 +419,13 @@
 .sectionDividerLine {
   flex: 1;
   height: 1px;
-  background: $gray-200;
+  background: var(--color-surface-muted-strong);
 }
 
 .sectionDividerLabel {
   font-size: $text-sm;
   font-weight: $font-semibold;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -444,7 +444,7 @@
 .tabBar {
   display: flex;
   gap: $spacing-sm;
-  border-bottom: 2px solid $gray-200;
+  border-bottom: 2px solid var(--color-border);
 }
 
 .tab {
@@ -458,7 +458,7 @@
   margin-bottom: -2px;
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   transition: color $transition-base, border-color $transition-base;
 
@@ -476,45 +476,45 @@
   align-items: baseline;
   gap: $spacing-sm;
   padding: $spacing-md $spacing-lg;
-  background: $gray-50;
+  background: var(--color-surface-muted);
   border-radius: $radius-md;
-  border: 1.5px solid $gray-200;
+  border: 1.5px solid var(--color-border);
   font-size: $text-sm;
   flex-wrap: wrap;
 }
 
 .overBudget {
-  border-color: $error;
+  border-color: var(--color-error);
   background: rgba(220, 38, 38, 0.04);
 }
 
 .exact {
-  border-color: $success;
+  border-color: var(--color-success);
   background: rgba(16, 185, 129, 0.04);
 }
 
 .pointsUsed {
   font-size: $text-xl;
   font-weight: $font-bold;
-  color: $gray-900;
+  color: var(--color-text-primary);
 }
 
 .pointsSep {
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 }
 
 .pointsRemaining {
-  color: $gray-500;
+  color: var(--color-text-tertiary);
   font-style: italic;
 }
 
 .pointsDone {
-  color: $success;
+  color: var(--color-success);
   font-weight: $font-semibold;
 }
 
 .pointsOver {
-  color: $error;
+  color: var(--color-error);
   font-weight: $font-semibold;
 }
 
@@ -533,15 +533,15 @@
 .addInput {
   flex: 1;
   padding: $spacing-md $spacing-lg;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   font-size: $text-sm;
-  color: $gray-800;
+  color: var(--color-text-primary);
   outline: none;
   transition: border-color $transition-base;
 
   &:focus { border-color: #6366f1; }
-  &::placeholder { color: $gray-400; }
+  &::placeholder { color: var(--color-text-tertiary); }
 }
 
 .addBtn {
@@ -581,8 +581,8 @@
   align-items: center;
   gap: $spacing-lg;
   padding: $spacing-md $spacing-lg;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
 }
@@ -598,7 +598,7 @@
 .itemName {
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-800;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -606,7 +606,7 @@
 
 .itemBarTrack {
   height: 4px;
-  background: $gray-100;
+  background: var(--color-surface-muted);
   border-radius: $radius-full;
   overflow: hidden;
 }
@@ -629,7 +629,7 @@
 .ptsField {
   width: 72px;
   padding: $spacing-xs $spacing-sm;
-  border: 1.5px solid $gray-300;
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-sm;
   font-size: $text-sm;
   font-weight: $font-semibold;
@@ -647,7 +647,7 @@
 
 .ptsLabel {
   font-size: $text-xs;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   white-space: nowrap;
 }
 
@@ -669,8 +669,8 @@
   align-items: center;
   gap: $spacing-md;
   padding: $spacing-md $spacing-lg;
-  background: white;
-  border: 1.5px solid $gray-200;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
 }
@@ -678,7 +678,7 @@
 .resultRank {
   font-size: $text-xs;
   font-weight: $font-bold;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   min-width: 24px;
   flex-shrink: 0;
 }
@@ -700,7 +700,7 @@
 .resultName {
   font-size: $text-sm;
   font-weight: $font-medium;
-  color: $gray-800;
+  color: var(--color-text-primary);
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -717,7 +717,7 @@
 
 .resultBarTrack {
   height: 6px;
-  background: $gray-100;
+  background: var(--color-surface-muted);
   border-radius: $radius-full;
   overflow: hidden;
 }
@@ -740,17 +740,17 @@
 .resultAmountValue {
   font-size: $text-lg;
   font-weight: $font-bold;
-  color: $gray-900;
+  color: var(--color-text-primary);
 }
 
 .resultAmountSymbol {
   font-size: $text-xs;
-  color: $gray-500;
+  color: var(--color-text-tertiary);
 }
 
 .resultsNote {
   font-size: $text-xs;
-  color: $gray-400;
+  color: var(--color-text-tertiary);
   text-align: center;
   margin: 0;
 }

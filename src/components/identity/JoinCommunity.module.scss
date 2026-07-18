@@ -18,11 +18,11 @@
 .introLine {
   margin: 0 0 $spacing-xs 0;
   font-size: $text-sm;
-  color: $gray-600;
+  color: var(--color-text-secondary);
 }
 
 .scanSection {
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   padding: $spacing-lg;
   box-shadow: $shadow-base;
@@ -33,9 +33,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px dashed $gray-300;
+    border: 2px dashed var(--color-border);
     border-radius: $radius-md;
-    background-color: $gray-50;
+    background-color: var(--color-surface-muted);
 
     .scannerModal {
       display: flex;
@@ -49,7 +49,7 @@
       flex-direction: column;
       align-items: center;
       gap: $spacing-lg;
-      color: $gray-500;
+      color: var(--color-text-tertiary);
 
       .scanningAnimation {
         animation: pulse 2s infinite;
@@ -61,7 +61,7 @@
       flex-direction: column;
       align-items: center;
       gap: $spacing-lg;
-      color: $gray-500;
+      color: var(--color-text-tertiary);
       text-align: center;
     }
 
@@ -70,7 +70,7 @@
       align-items: center;
       gap: $spacing-sm;
       padding: $spacing-md $spacing-xl;
-      background-color: $primary;
+      background-color: var(--color-primary);
       color: white;
       border: none;
       border-radius: $radius-md;
@@ -80,7 +80,7 @@
       transition: background-color $transition-base;
 
       &:hover {
-        background-color: $primary-dark;
+        background-color: var(--color-primary-dark);
       }
     }
   }
@@ -95,7 +95,7 @@
     align-items: center;
     gap: $spacing-sm;
     padding: $spacing-md $spacing-xl;
-    background-color: $success;
+    background-color: var(--color-success);
     color: white;
     border: none;
     border-radius: $radius-md;
@@ -109,8 +109,8 @@
     }
 
     &:disabled {
-      background-color: $gray-400;
-      color: $gray-600;
+      background-color: var(--color-disabled-bg);
+      color: var(--color-text-secondary);
       cursor: not-allowed;
     }
   }
@@ -126,7 +126,7 @@
 }
 
 .manualInputSection {
-  background: white;
+  background: var(--color-surface);
   border-radius: $radius-lg;
   padding: $spacing-2xl;
   box-shadow: $shadow-base;
@@ -134,7 +134,7 @@
   h3 {
     font-size: $text-xl;
     font-weight: $font-semibold;
-    color: $gray-800;
+    color: var(--color-text-primary);
     margin-bottom: $spacing-xl;
   }
 
@@ -204,35 +204,18 @@
   }
 }
 
-// Dark mode support
+// Dark mode: these status chips use a distinct dark-tuned pastel treatment
+// rather than the light-mode pastel, same as the light-mode pair below.
 @media (prefers-color-scheme: dark) {
-  .introLine {
-    color: $dark-text-secondary;
-  }
-
-  .scanSection,
-  .manualInputSection {
-    background-color: $dark-bg;
-
-    h3 {
-      color: $dark-text;
-    }
-  }
-
-  .scanSection .scanArea {
-    background-color: $dark-surface;
-    border-color: $dark-border;
-  }
-
   .successMessage {
     background-color: rgba(16, 185, 129, 0.15);
-    border-color: $success;
+    border-color: var(--color-success);
     color: #6ee7b7;
   }
 
   .errorMessage {
     background-color: rgba(220, 38, 38, 0.15);
-    border-color: $error;
+    border-color: var(--color-error);
     color: #fca5a5;
   }
 }
