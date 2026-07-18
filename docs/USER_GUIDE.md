@@ -343,14 +343,13 @@ Every community has its own internal currency, governed jointly by its members t
 </td>
 <td valign="top">
 
-A policy is a rule that moves currency automatically, on a repeating basis (a "tick"). Every policy has:
+A policy is a rule that moves currency automatically, on a repeating basis (a "tick"). Every policy you create from this tab has:
 
 - A **source** — where the money comes from: nowhere (minted from thin air), a specific account, every member's personal account, or every account in the community
 - A **destination** — where it goes: burned (destroyed), a specific account, every member's personal account, or every account
 - A **mode** — either a fixed number of **units** per tick, or a **percentage** of the source's balance per tick
-- A **rate** — how much actually moves, set one of two ways:
-  - **Community-governed** — there's no fixed number. Every member sets their own personal preference for the rate, and the policy actually runs on the **live median** of everyone's input. Change your preference any time from the policy's own page; the group rate updates automatically as people weigh in. A policy can't be deleted while its median rate is still above zero.
-  - **Self-set (a "Commitment")** — a personal, standing payment you set up yourself between two accounts (for example, "pay 10 units/week from my account to the community fund"). Only you can change or cancel your own commitments.
+
+You don't set a rate when creating a policy. Every policy created here is **community-governed** — its actual rate comes from the members, not from a number you type in (see below for how).
 
 Two starter policies are commonly used: **Personal Minting** (issues new currency into every member's account) and **Demurrage** (gradually reclaims a share of every balance, encouraging money to keep moving rather than sit idle).
 
@@ -362,12 +361,16 @@ Two starter policies are commonly used: **Personal Minting** (issues new currenc
 <tr>
 <td width="240" valign="top">
 
-<img src="screenshots/policy-detail-page.png" width="220" alt="A policy detail page for a community-governed policy, showing the live median rate, an input for the current member's own preference, and a signers/threshold panel">
+<img src="screenshots/policy-detail-page.png" width="220" alt="A policy detail page, showing the live median rate at the top and an input below it for the current member's own preference">
 
 </td>
 <td valign="top">
 
-Some destinations are **public accounts** — shared accounts with one or more **signers** and an approval **threshold** (e.g. "any 2 of these 3 signers must approve a payment"). You manage a public account's signers from its policy detail page.
+Open any policy to see its detail page. This is where you set **your own preference** for its rate — a standing input, not a one-time vote, which you can change any time.
+
+The policy doesn't run on your number alone: it runs on the **live median** of every member's preference. As people set or update their own preference, the median — and so the policy's actual rate — updates automatically. This median is always visible in two places: on the policy's card in the **Policies** tab, and at the top of its own detail page. A policy can't be deleted while its median rate is still above zero.
+
+Personal commitments work differently — you set a fixed rate yourself, and it isn't governed by a median. They're created and managed from the **Wallet** tab, not from here (see below).
 
 </td>
 </tr>
@@ -386,8 +389,8 @@ Some destinations are **public accounts** — shared accounts with one or more *
 
 The **Wallet** tab is where you handle your own money:
 
-- **My Account** shows your personal balance and a **Send** button for paying anyone — another member, or a public account — instantly.
-- **My Commitments** lists the personal, self-set payments you've created (see above), with a button to create a new one.
+- **My Account** shows your personal balance and a **Send** button for paying anyone — another member, or an account tied to a policy — instantly.
+- **My Commitments** lists the personal, self-set payments you've created — this is where you set a fixed rate yourself (see above), with a button to create a new one.
 
 </td>
 </tr>
@@ -402,7 +405,7 @@ The **Wallet** tab is where you handle your own money:
 </td>
 <td valign="top">
 
-Payments to a public account may need multiple signers to approve before they complete, depending on that account's threshold — you'll see the payment's status (completed / pending / failed) after sending it.
+You'll see right away whether the payment completed or failed.
 
 </td>
 </tr>
@@ -420,14 +423,14 @@ You never need to manually refresh the app. Whenever anyone in your community wr
 
 | I want to... | Go to... |
 |---|---|
-| Log in for the first time | Login screen → generate a key, enter a server |
-| Update my name or photo | My Identity → Profile |
-| See or start a community | My Identity → Communities |
-| Join a community I was invited to | My Identity → Join Community (scan/paste), then that community's Members tab |
-| Invite someone to my community | Community → Share |
-| Show or check someone's identity | Community header → ID Card / Scan |
-| See who's in a community, or approve a pending member | Community → Members |
-| Start a project, idea, or rule | Community → Collaborations → Start Initiative / Make a Wish / Propose Agreement |
-| Vote, schedule, track tasks, discuss, etc. on a collaboration | Open the collaboration → **+ Add** |
-| Set or vote on a community-wide monetary rate | Community → Policies |
-| Send money or set up a personal recurring payment | Community → Wallet |
+| Log in for the first time | [Login screen → generate a key, enter a server](#2-logging-in) |
+| Update my name or photo | [My Identity → Profile](#3-your-profile) |
+| See or start a community | [My Identity → Communities](#4-communities) |
+| Join a community I was invited to | [My Identity → Join Community (scan/paste), then that community's Members tab](#5-joining-a-community) |
+| Invite someone to my community | [Community → Share](#6-inside-a-community) |
+| Show or check someone's identity | [Community header → ID Card / Scan](#6-inside-a-community) |
+| See who's in a community, or approve a pending member | [Community → Members](#5-joining-a-community) |
+| Start a project, idea, or rule | [Community → Collaborations → Start Initiative / Make a Wish / Propose Agreement](#7-collaborations-initiatives-wishes-and-agreements) |
+| Vote, schedule, track tasks, discuss, etc. on a collaboration | [Open the collaboration → **+ Add**](#8-collaboration-tools) |
+| Set or vote on a community-wide monetary rate | [Community → Policies](#9-money-policies-and-wallet) |
+| Send money or set up a personal recurring payment | [Community → Wallet](#9-money-policies-and-wallet) |
