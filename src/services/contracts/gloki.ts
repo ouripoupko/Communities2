@@ -32,7 +32,6 @@ export async function setValues(
   firstName: string,
   lastName: string,
   imageData: string | null,
-  openaiApiKey?: string | null,
 ) {
   await contractWrite({
     serverUrl,
@@ -45,11 +44,6 @@ export async function setValues(
           firstName,
           lastName,
           userPhoto: imageData,
-          // Store the API key as a simple key-value on the profile contract.
-          // If no key is provided, we omit the property so existing data is untouched.
-          ...(openaiApiKey != null && openaiApiKey !== ''
-            ? { openaiApiKey }
-            : {}),
         },
       },
     } as IMethod

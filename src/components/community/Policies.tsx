@@ -6,7 +6,6 @@ import { useEventStream } from '../../hooks/useEventStream';
 import { fetchPolicies } from '../../store/slices/policiesSlice';
 import {
   createPolicy,
-  createPublicAccount,
   getAccountDetails,
   type Policy,
 } from '../../services/contracts/community';
@@ -49,7 +48,7 @@ const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
     const details = await getAccountDetails(serverUrl, publicKey, communityId);
     const names: Record<string, string> = {};
     for (const [id, info] of Object.entries(details)) {
-      if (info.type === 'public') names[id] = info.name || id;
+      if (info.type === 'public' || info.type === 'fund') names[id] = info.name || id;
     }
     setAccountNames(names);
   }, [communityId, serverUrl, publicKey]);
@@ -83,20 +82,10 @@ const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
   const handleCreatePolicy = async (data: CreatePolicyFormData) => {
     if (!serverUrl || !publicKey) return;
 
-    let destination: Policy['destination'];
-    if (data.destinationKind === 'account') {
-      let accountId = data.destinationAccountId;
-      if (!accountId && data.newAccountName) {
-        const created = await createPublicAccount(serverUrl, publicKey, communityId, data.newAccountName);
-        if (!created) {
-          throw new Error('An account with that name already exists');
-        }
-        accountId = created;
-      }
-      destination = { kind: 'account', account: accountId };
-    } else {
-      destination = { kind: data.destinationKind };
-    }
+    const destination: Policy['destination'] =
+      data.destinationKind === 'account'
+        ? { kind: 'account', account: data.destinationAccountId }
+        : { kind: data.destinationKind };
 
     await createPolicy(serverUrl, publicKey, communityId, {
       id: crypto.randomUUID(),
@@ -108,8 +97,8 @@ const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
       rateType: 'community-governed',
     });
 
-    loadPolicies();
-    void loadAccountNames();
+    // No refetch here - the contract_write SSE listener above picks this
+    // up once the server confirms it.
   };
 
   const handleCardClick = (policy: Policy) => {

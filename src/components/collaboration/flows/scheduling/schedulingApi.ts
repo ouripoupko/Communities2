@@ -1,6 +1,15 @@
 import { contractRead, contractWrite } from '../../../../services/api';
 import type { IMethod } from '../../../../services/interfaces';
 
+/** Logs every call this file makes to the scheduling flow contract, and the
+ * raw reply, so a stuck/broken flow can be diagnosed from the console. */
+function logSchedulingCall(tsFunction: string, contractMethod: string, params: unknown): void {
+  console.log(`[schedulingApi.ts] ${tsFunction} -> SchedulingFlow.${contractMethod}`, params);
+}
+function logSchedulingResult(tsFunction: string, contractMethod: string, result: unknown): void {
+  console.log(`[schedulingApi.ts] ${tsFunction} <- SchedulingFlow.${contractMethod}`, result);
+}
+
 // ---------------------------------------------------------------------------
 // Data model
 // ---------------------------------------------------------------------------
@@ -60,10 +69,14 @@ export async function loadSchedulingState(
   agent: string,
   contractId: string,
 ): Promise<SchedulingState> {
+  logSchedulingCall('loadSchedulingState', 'get_config', {});
+  logSchedulingCall('loadSchedulingState', 'get_all_selections', {});
   const [rawConfig, rawSelections] = await Promise.all([
     contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_config',         values: {} } as IMethod }),
     contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_all_selections', values: {} } as IMethod }),
   ]);
+  logSchedulingResult('loadSchedulingState', 'get_config', rawConfig);
+  logSchedulingResult('loadSchedulingState', 'get_all_selections', rawSelections);
 
   let config: RangeConfig | null = null;
   if (rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig)) {
@@ -77,6 +90,7 @@ export async function loadSchedulingState(
         .filter(s => s.participantId !== '')
     : [];
 
+  console.log('[schedulingApi.ts] loadSchedulingState normalized ->', { config, selections });
   return { config, selections };
 }
 
@@ -87,10 +101,13 @@ export async function setupRange(
   fields: Omit<RangeConfig, 'organizerId'>,
   currentUser: string,
 ): Promise<void> {
-  await contractWrite({
+  const values = { config: { ...fields, organizerId: currentUser } };
+  logSchedulingCall('setupRange', 'set_config', values);
+  const result = await contractWrite({
     serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_config', values: { config: { ...fields, organizerId: currentUser } } } as IMethod,
+    method: { name: 'set_config', values } as IMethod,
   });
+  logSchedulingResult('setupRange', 'set_config', result);
 }
 
 export async function setMySelection(
@@ -100,10 +117,13 @@ export async function setMySelection(
   currentUser: string,
   slots: number[],
 ): Promise<void> {
-  await contractWrite({
+  const values = { participant_id: currentUser, slots };
+  logSchedulingCall('setMySelection', 'set_my_selection', values);
+  const result = await contractWrite({
     serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_my_selection', values: { participant_id: currentUser, slots } } as IMethod,
+    method: { name: 'set_my_selection', values } as IMethod,
   });
+  logSchedulingResult('setMySelection', 'set_my_selection', result);
 }
 
 // ---------------------------------------------------------------------------

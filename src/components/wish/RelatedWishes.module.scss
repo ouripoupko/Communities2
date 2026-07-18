@@ -38,31 +38,6 @@ $wish-bg: rgba(192, 38, 211, 0.12);
   }
 }
 
-.aiButton {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  padding: $spacing-md $spacing-lg;
-  background: transparent;
-  color: $gray-700;
-  border: 1px solid $gray-300;
-  border-radius: $radius-md;
-  font-size: $text-sm;
-  font-weight: $font-medium;
-  cursor: pointer;
-  transition: all $transition-base;
-
-  &:hover:not(:disabled) {
-    background: $gray-50;
-    border-color: $gray-400;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
-
 .cardList {
   display: flex;
   flex-direction: column;

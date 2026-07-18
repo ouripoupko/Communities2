@@ -79,12 +79,10 @@ const Offers: React.FC<OffersProps> = ({ wishId, communityId }) => {
     return () => eventStreamService.removeEventListener('contract_write', handleContractWrite);
   }, [handleContractWrite]);
 
-  const refetchOffers = useCallback(() => {
-    if (serverUrl && publicKey && wishId) {
-      dispatch(fetchOffers({ serverUrl, publicKey, wishContractId: wishId }));
-    }
-  }, [serverUrl, publicKey, wishId, dispatch]);
-
+  // None of these handlers refetch after their write - the contract_write
+  // SSE listener above (handleContractWrite) already re-dispatches
+  // fetchOffers whenever anything writes to this wish contract, which
+  // includes all three writes below.
   const handleAddHelp = async (description: string) => {
     if (!serverUrl || !publicKey) return;
     setAddSubmitting(true);
@@ -98,7 +96,6 @@ const Offers: React.FC<OffersProps> = ({ wishId, communityId }) => {
         }),
       ).unwrap();
       setShowAddHelp(false);
-      refetchOffers();
     } finally {
       setAddSubmitting(false);
     }
@@ -114,7 +111,6 @@ const Offers: React.FC<OffersProps> = ({ wishId, communityId }) => {
         offerId: offer.id,
       }),
     ).unwrap();
-    refetchOffers();
   };
 
   const handleCompensateClick = (offer: WishOffer) => {
@@ -137,8 +133,6 @@ const Offers: React.FC<OffersProps> = ({ wishId, communityId }) => {
         }),
       ).unwrap();
       setShowCompensate(null);
-      refetchOffers();
-      handleFetchBalance();
     } finally {
       setCompensateSubmitting(false);
     }

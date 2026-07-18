@@ -15,10 +15,18 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
   const [initialBalance, setInitialBalance] = useState('1000');
   const [joinPolicy, setJoinPolicy] = useState<'trust' | 'open'>('trust');
   const [includeStarterPolicies, setIncludeStarterPolicies] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCreateCommunity = async () => {
+  const resetForm = () => {
+    setNewCommunityName('');
+    setNewCommunityDescription('');
+    setInitialBalance('1000');
+    setJoinPolicy('trust');
+    setIncludeStarterPolicies(true);
+    setError(null);
+  };
+
+  const handleCreateCommunity = () => {
     if (!newCommunityName.trim() || !user.publicKey || !user.serverUrl) {
       setError('Please fill in all required fields');
       return;
@@ -29,69 +37,59 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
       return;
     }
 
-    setIsSubmitting(true);
-    setError(null);
+    const { serverUrl, publicKey, profileContractId } = user;
+    const name = newCommunityName.trim();
+    const description = newCommunityDescription;
+    const openJoin = joinPolicy === 'open';
+    const withStarterPolicies = includeStarterPolicies;
 
-    try {
-      const contractId = await createCommunity(
-        user.serverUrl,
-        user.publicKey,
-        newCommunityName,
-        newCommunityDescription,
-        user.profileContractId,
-        initialBalanceValue,
-        joinPolicy === 'open',
-      );
+    // Close right away - creation continues in the background. The new
+    // community shows up in the list on its own once the server confirms
+    // the deploy (Communities.tsx's existing deploy_contract SSE listener);
+    // we don't fetch anything ourselves and we don't block the dialog on it.
+    onClose();
+    resetForm();
 
-      if (contractId && includeStarterPolicies) {
-        await createPolicy(user.serverUrl, user.publicKey, contractId, {
-          id: crypto.randomUUID(),
-          name: 'Personal Minting',
-          description: "Mints currency directly into every member's personal account.",
-          source: { kind: 'void' },
-          destination: { kind: 'everyPersonal' },
-          mode: 'units',
-          rateType: 'community-governed',
-        });
-        await createPolicy(user.serverUrl, user.publicKey, contractId, {
-          id: crypto.randomUUID(),
-          name: 'Demurrage',
-          description: 'Gradually burns a share of every account balance.',
-          source: { kind: 'everyAccount' },
-          destination: { kind: 'void' },
-          mode: 'percent',
-          rateType: 'community-governed',
-        });
+    void (async () => {
+      try {
+        const contractId = await createCommunity(
+          serverUrl,
+          publicKey,
+          name,
+          description,
+          profileContractId,
+          initialBalanceValue,
+          openJoin,
+        );
+
+        if (contractId && withStarterPolicies) {
+          await createPolicy(serverUrl, publicKey, contractId, {
+            id: crypto.randomUUID(),
+            name: 'Personal Minting',
+            description: "Mints currency directly into every member's personal account.",
+            source: { kind: 'void' },
+            destination: { kind: 'everyPersonal' },
+            mode: 'units',
+            rateType: 'community-governed',
+          });
+          await createPolicy(serverUrl, publicKey, contractId, {
+            id: crypto.randomUUID(),
+            name: 'Demurrage',
+            description: 'Gradually burns a share of every account balance.',
+            source: { kind: 'everyAccount' },
+            destination: { kind: 'void' },
+            mode: 'percent',
+            rateType: 'community-governed',
+          });
+        }
+      } catch (err) {
+        console.error('Failed to create community:', err);
       }
-
-      // Close dialog first, before resetting form
-      onClose();
-
-      // Reset form after closing
-      setNewCommunityName('');
-      setNewCommunityDescription('');
-      setInitialBalance('1000');
-      setJoinPolicy('trust');
-      setIncludeStarterPolicies(true);
-      setError(null);
-      setIsSubmitting(false);
-
-    } catch (error) {
-      console.error('Failed to create community:', error);
-      setError('Failed to create community. Please try again.');
-      setIsSubmitting(false);
-    }
+    })();
   };
 
   const handleClose = () => {
-    if (isSubmitting) return; // Prevent closing during submission
-
-    setNewCommunityName('');
-    setNewCommunityDescription('');
-    setInitialBalance('1000');
-    setJoinPolicy('trust');
-    setIncludeStarterPolicies(true);
-    setError(null);
+    resetForm();
     onClose();
   };
 
@@ -112,7 +110,7 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
             ×
           </button>
         </div>
-        
+
         <div className={styles.content}>
           <div className={styles.formGroup}>
             <label htmlFor="communityName" className={styles.label}>Community Name *</label>
@@ -123,10 +121,9 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
               onChange={(e) => setNewCommunityName(e.target.value)}
               placeholder="Enter community name"
               className={styles.inputField}
-              disabled={isSubmitting}
             />
           </div>
-          
+
           <div className={styles.formGroup}>
             <label htmlFor="communityDescription" className={styles.label}>Description</label>
             <textarea
@@ -136,7 +133,6 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
               placeholder="Describe your community"
               className={`${styles.inputField} ${styles.textarea}`}
               rows={3}
-              disabled={isSubmitting}
             />
           </div>
 
@@ -149,7 +145,6 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
               onChange={(e) => setInitialBalance(e.target.value)}
               placeholder="1000"
               className={styles.inputField}
-              disabled={isSubmitting}
               min="0"
               step="any"
             />
@@ -162,7 +157,6 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
               value={joinPolicy}
               onChange={(e) => setJoinPolicy(e.target.value as 'trust' | 'open')}
               className={styles.inputField}
-              disabled={isSubmitting}
             >
               <option value="trust">Web of trust — existing members approve new joiners</option>
               <option value="open">Open — anyone can join immediately, no approval needed</option>
@@ -175,7 +169,6 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
                 type="checkbox"
                 checked={includeStarterPolicies}
                 onChange={(e) => setIncludeStarterPolicies(e.target.checked)}
-                disabled={isSubmitting}
               />
               {' '}Include starter policies: Personal Minting + Demurrage
             </label>
@@ -187,19 +180,18 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
             </div>
           )}
         </div>
-        
+
         <div className={styles.actions}>
-          <button 
-            onClick={handleCreateCommunity} 
-            className={styles.createButton} 
-            disabled={isSubmitting || !newCommunityName.trim()}
+          <button
+            onClick={handleCreateCommunity}
+            className={styles.createButton}
+            disabled={!newCommunityName.trim()}
           >
-            {isSubmitting ? 'Creating...' : 'Create Community'}
+            Create Community
           </button>
           <button
             onClick={handleClose}
             className={styles.cancelButton}
-            disabled={isSubmitting}
           >
             Cancel
           </button>

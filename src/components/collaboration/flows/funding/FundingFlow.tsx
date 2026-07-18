@@ -384,9 +384,19 @@ const ResultsTab: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
+
+// A freshly-created fund's set_config write may not be visible to a read yet
+// (contracts deploy with BFT consensus - no read-your-write guarantee), and
+// this component mounts (and starts listening for the contract_write SSE
+// event) only after that write was already submitted. Without a bounded
+// retry here, a config that's still propagating looks identical to "never
+// going to arrive" and the spinner below would never resolve.
+const CONFIG_RETRY_DELAYS_MS = [800, 1500, 3000];
+
 const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
   const [fund,          setFund]          = useState<api.FundState | null>(null);
   const [communityInfo, setCommunityInfo] = useState<api.CommunityInfo | null>(null);
+  const [fundBalance,   setFundBalance]   = useState<number | null>(null);
   const [budgetState,   setBudgetState]   = useState<api.BudgetState | null>(null);
   const [myAllocation,  setMyAllocation]  = useState<Record<string, number>>({});
   const [budgetTab,     setBudgetTab]     = useState<'allocation' | 'results'>('allocation');
@@ -402,22 +412,37 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
   const myAllocationRef = useRef(myAllocation);
   myAllocationRef.current = myAllocation;
 
+  // Always-current ref so the SSE listener below can also catch writes to
+  // the community contract (e.g. a wallet-tab transfer into the fund
+  // account) without re-subscribing every time communityInfo changes.
+  const communityIdRef = useRef<string | null>(null);
+  communityIdRef.current = communityInfo?.communityId ?? null;
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [fundState, info, budget] = await Promise.all([
+      let [fundState, info, budget] = await Promise.all([
         api.loadFund(flowServer, flowAgent, instanceId),
         api.loadCommunityInfo(flowServer, flowAgent, instanceId),
         api.loadBudget(flowServer, flowAgent, instanceId),
       ]);
+      for (const delay of CONFIG_RETRY_DELAYS_MS) {
+        if (fundState.config) break;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        fundState = await api.loadFund(flowServer, flowAgent, instanceId);
+      }
       setFund(fundState);
       setCommunityInfo(info);
+      setFundBalance(info ? await api.loadFundBalance(currentUser, info) : null);
       setBudgetState(budget);
       if (!myAllocationInitialized.current) {
         const mine = budget.allocations.find(a => a.participantId === currentUser)?.allocation ?? {};
         setMyAllocation(mine);
         myAllocationInitialized.current = true;
+      }
+      if (!fundState.config) {
+        setError("This fund hasn't finished setting up yet. Please try again in a moment.");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load funding data.');
@@ -429,7 +454,7 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
   useEffect(() => { load(); }, [load]);
 
   useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
+    if (event.contract === instanceId || event.contract === communityIdRef.current) void load();
   }, [instanceId, load]));
 
   const handleSaveAllocation = useCallback(async () => {
@@ -440,7 +465,11 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
   if (error)   return <FlowError message={error} onRetry={load} />;
   if (!fund || fund.config === null || !budgetState) return <FlowLoading />;
 
-  const raised      = api.totalRaised(fund.contributions);
+  // The account's real balance (from the community ledger) is authoritative -
+  // it reflects wallet-tab transfers into the fund account too, which this
+  // contract's own contribution records don't see. Fall back to the summed
+  // contributions only if the fund isn't linked to a community account.
+  const raised      = fundBalance ?? api.totalRaised(fund.contributions);
   const myContrib   = api.contributionByUser(fund.contributions, currentUser);
   const contributors = new Set(fund.contributions.map(c => c.participantId)).size;
 

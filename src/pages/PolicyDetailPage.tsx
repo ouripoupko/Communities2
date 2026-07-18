@@ -160,7 +160,8 @@ const PolicyDetailPage: React.FC = () => {
     setSavingPreference(true);
     try {
       await setPolicyPreference(serverUrl, publicKey, communityId, policyId, value);
-      await loadParameters();
+      // No refetch here - the contract_write SSE listener above picks this
+      // up once the server confirms it.
     } finally {
       setSavingPreference(false);
     }
@@ -173,7 +174,8 @@ const PolicyDetailPage: React.FC = () => {
     setSavingRate(true);
     try {
       await setCommitmentRate(serverUrl, publicKey, communityId, policyId, value);
-      loadPolicies();
+      // No refetch here - the contract_write SSE listener above picks this
+      // up once the server confirms it.
     } finally {
       setSavingRate(false);
     }
@@ -185,7 +187,8 @@ const PolicyDetailPage: React.FC = () => {
     try {
       await setPolicyDetails(serverUrl, publicKey, communityId, policyId, nameInput.trim(), descriptionInput.trim());
       setEditingDetails(false);
-      loadPolicies();
+      // No refetch here - the contract_write SSE listener above picks this
+      // up once the server confirms it.
     } finally {
       setSavingDetails(false);
     }
@@ -269,7 +272,6 @@ const PolicyDetailPage: React.FC = () => {
                 accountId={involvedAccountId}
                 signers={involvedAccount.signers ?? []}
                 threshold={involvedAccount.threshold ?? 1}
-                onChanged={() => void loadAccountDetails()}
               />
             </div>
           )}

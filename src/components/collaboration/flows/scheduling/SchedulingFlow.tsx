@@ -270,6 +270,15 @@ export const SchedulingSetupDialog: React.FC<{
   <SetupDialog isOpen={true} onClose={onCancel} onDone={onDone} />
 );
 
+// A freshly-created scheduling task's set_config write may not be visible to
+// a read yet (contracts deploy with BFT consensus - no read-your-write
+// guarantee), and the component mounts (and starts listening for the
+// contract_write SSE event) only after that write was already submitted.
+// Without a bounded retry here, a config that's still propagating looks
+// identical to "never going to arrive" and the spinner below would never
+// resolve.
+const CONFIG_RETRY_DELAYS_MS = [800, 1500, 3000];
+
 const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
@@ -278,9 +287,22 @@ const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try   { setState(await api.loadSchedulingState(flowServer, flowAgent, instanceId)); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Failed to load.'); }
-    finally   { setLoading(false); }
+    try {
+      let result = await api.loadSchedulingState(flowServer, flowAgent, instanceId);
+      for (const delay of CONFIG_RETRY_DELAYS_MS) {
+        if (result.config) break;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        result = await api.loadSchedulingState(flowServer, flowAgent, instanceId);
+      }
+      setState(result);
+      if (!result.config) {
+        setError("This scheduling task hasn't finished setting up yet. Please try again in a moment.");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load.');
+    } finally {
+      setLoading(false);
+    }
   }, [flowServer, flowAgent, instanceId]);
 
   useEffect(() => { void load(); }, [load]);

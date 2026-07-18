@@ -10,10 +10,9 @@ interface SignersPanelProps {
   accountId: string;
   signers: string[];
   threshold: number;
-  onChanged: () => void;
 }
 
-const SignersPanel: React.FC<SignersPanelProps> = ({ communityId, accountId, signers, threshold, onChanged }) => {
+const SignersPanel: React.FC<SignersPanelProps> = ({ communityId, accountId, signers, threshold }) => {
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { profiles } = useAppSelector((state) => state.communities);
   const [addingSigner, setAddingSigner] = useState('');
@@ -21,13 +20,15 @@ const SignersPanel: React.FC<SignersPanelProps> = ({ communityId, accountId, sig
 
   const isSigner = !!publicKey && signers.includes(publicKey);
 
+  // Neither handler refetches after its write - the parent's
+  // contract_write SSE listener picks up the new signer list once the
+  // server confirms it.
   const handleAdd = async () => {
     if (!addingSigner || !publicKey || !serverUrl) return;
     setBusy(true);
     try {
       await addSigner(serverUrl, publicKey, communityId, accountId, addingSigner);
       setAddingSigner('');
-      onChanged();
     } finally {
       setBusy(false);
     }
@@ -38,7 +39,6 @@ const SignersPanel: React.FC<SignersPanelProps> = ({ communityId, accountId, sig
     setBusy(true);
     try {
       await removeSigner(serverUrl, publicKey, communityId, accountId, signer);
-      onChanged();
     } finally {
       setBusy(false);
     }

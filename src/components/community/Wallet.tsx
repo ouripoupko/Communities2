@@ -48,7 +48,7 @@ const Wallet: React.FC<WalletProps> = ({ communityId }) => {
       labels[pubkey] = getMemberDisplayName(profiles[pubkey]);
     }
     for (const [id, info] of Object.entries(accountDetails)) {
-      if (info.type === 'public') labels[id] = info.name || id;
+      if (info.type === 'public' || info.type === 'fund') labels[id] = info.name || id;
     }
     return labels;
   }, [allMembers, profiles, accountDetails]);
@@ -96,7 +96,8 @@ const Wallet: React.FC<WalletProps> = ({ communityId }) => {
       selfRate: data.rate,
     });
 
-    loadCommitments();
+    // No refetch here - the contract_write SSE listener above picks this
+    // up once the server confirms it.
   };
 
   const handleCommitmentClick = (policy: Policy) => {
@@ -170,7 +171,6 @@ const Wallet: React.FC<WalletProps> = ({ communityId }) => {
         fromAccountId={sendFromAccount ?? ''}
         fromAccountLabel="My personal account"
         onClose={() => setSendFromAccount(null)}
-        onSent={() => void loadAccounts()}
       />
 
       <CreateCommitmentDialog

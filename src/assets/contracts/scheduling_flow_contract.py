@@ -10,9 +10,7 @@ class SchedulingFlow:
         self.config['data'] = config
 
     def get_config(self):
-        if 'data' not in self.config:
-            return {}
-        return self.config['data'].get_dict()
+        return self.config['data'] or {}
 
     # Participant selections — one record per participant, full slot-index list
     def set_my_selection(self, participant_id, slots):

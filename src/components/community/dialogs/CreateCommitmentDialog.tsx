@@ -129,15 +129,30 @@ const CreateCommitmentDialog: React.FC<CreateCommitmentDialogProps> = ({
 
           <div className={styles.formGroup}>
             <label className={styles.label}>Mode</label>
-            <select
-              className={styles.inputField}
-              value={mode}
-              onChange={(e) => setMode(e.target.value as PolicyMode)}
-              disabled={isSubmitting}
-            >
-              <option value="units">Units per tick (fixed amount)</option>
-              <option value="percent">Percent per tick (share of source balance)</option>
-            </select>
+            <div className={styles.radioGroup}>
+              <label className={styles.radioOption}>
+                <input
+                  type="radio"
+                  name="commitmentMode"
+                  value="units"
+                  checked={mode === 'units'}
+                  onChange={() => setMode('units')}
+                  disabled={isSubmitting}
+                />
+                Units per tick (fixed amount)
+              </label>
+              <label className={styles.radioOption}>
+                <input
+                  type="radio"
+                  name="commitmentMode"
+                  value="percent"
+                  checked={mode === 'percent'}
+                  onChange={() => setMode('percent')}
+                  disabled={isSubmitting}
+                />
+                Percent per tick (share of source balance)
+              </label>
+            </div>
           </div>
 
           <div className={styles.formGroup}>

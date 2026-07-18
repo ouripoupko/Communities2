@@ -199,8 +199,9 @@ class Community:
                 'type': account_type,
                 'balance': balance,
             }
-            if account_type == 'public':
+            if account_type in ('public', 'fund'):
                 entry['name'] = data.get('name', account)
+            if account_type == 'public':
                 entry['signers'] = data.get('signers', [])
                 entry['threshold'] = data.get('threshold', 1)
             result[account] = entry

@@ -4,7 +4,19 @@
 
 import { contractRead, contractWrite } from '../../../../services/api';
 import type { IMethod } from '../../../../services/interfaces';
-import { transfer as communityTransfer } from '../../../../services/contracts/community';
+import {
+  transfer as communityTransfer,
+  getAccountDetails as communityGetAccountDetails,
+} from '../../../../services/contracts/community';
+
+/** Logs every call this file makes to the funding flow contract, and the
+ * raw reply, so a stuck/broken flow can be diagnosed from the console. */
+function logFundingCall(tsFunction: string, contractMethod: string, params: unknown): void {
+  console.log(`[fundingApi.ts] ${tsFunction} -> FundingFlow.${contractMethod}`, params);
+}
+function logFundingResult(tsFunction: string, contractMethod: string, result: unknown): void {
+  console.log(`[fundingApi.ts] ${tsFunction} <- FundingFlow.${contractMethod}`, result);
+}
 
 // ---------------------------------------------------------------------------
 // Fundraising types
@@ -107,10 +119,14 @@ function normalizeAllocation(a: Record<string, unknown>): ParticipantAllocation 
 // ---------------------------------------------------------------------------
 
 export async function loadFund(server: string, agent: string, contractId: string): Promise<FundState> {
+  logFundingCall('loadFund', 'get_config', {});
+  logFundingCall('loadFund', 'get_contributions', {});
   const [rawConfig, rawContributions] = await Promise.all([
     contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_config', values: {} } as IMethod }),
     contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_contributions', values: {} } as IMethod }),
   ]);
+  logFundingResult('loadFund', 'get_config', rawConfig);
+  logFundingResult('loadFund', 'get_contributions', rawContributions);
 
   const configIsEmpty = !rawConfig || (typeof rawConfig === 'object' && Object.keys(rawConfig as object).length === 0);
   const config = configIsEmpty ? null : normalizeConfig(rawConfig as Record<string, unknown>);
@@ -129,12 +145,15 @@ export async function configureFund(
   description: string,
   goal: number | null,
 ): Promise<void> {
-  await contractWrite({
+  const values = { config: { name: name.trim(), description: description.trim(), goal } };
+  logFundingCall('configureFund', 'set_config', values);
+  const result = await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_config', values: { config: { name: name.trim(), description: description.trim(), goal } } } as IMethod,
+    method: { name: 'set_config', values } as IMethod,
   });
+  logFundingResult('configureFund', 'set_config', result);
 }
 
 export async function loadCommunityInfo(
@@ -143,10 +162,14 @@ export async function loadCommunityInfo(
   contractId: string,
 ): Promise<CommunityInfo | null> {
   try {
+    logFundingCall('loadCommunityInfo', 'get_community', {});
+    logFundingCall('loadCommunityInfo', 'get_fund_account_name', {});
     const [community, fundAccountName] = await Promise.all([
       contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_community', values: {} } as IMethod }),
       contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_fund_account_name', values: {} } as IMethod }),
     ]);
+    logFundingResult('loadCommunityInfo', 'get_community', community);
+    logFundingResult('loadCommunityInfo', 'get_fund_account_name', fundAccountName);
     const c = community as Record<string, unknown>;
     if (!c?.id) return null;
     return {
@@ -155,9 +178,25 @@ export async function loadCommunityInfo(
       communityId:      String(c.id     ?? ''),
       fundAccountName:  String(fundAccountName ?? ''),
     };
-  } catch {
+  } catch (e) {
+    console.log('[fundingApi.ts] loadCommunityInfo failed ->', e);
     return null;
   }
+}
+
+// The fund's real balance lives on the community contract's account
+// ledger, not in this contract's own contribution records - those records
+// only capture donations made through this Contribute form, and drift from
+// the account's actual balance whenever someone funds it via a direct
+// wallet transfer instead. Read the balance straight from the account.
+export async function loadFundBalance(
+  currentUser: string,
+  communityInfo: CommunityInfo,
+): Promise<number> {
+  logFundingCall('loadFundBalance', 'get_account_details', { fundAccountName: communityInfo.fundAccountName });
+  const details = await communityGetAccountDetails(communityInfo.communityServer, currentUser, communityInfo.communityId);
+  logFundingResult('loadFundBalance', 'get_account_details', details);
+  return details[communityInfo.fundAccountName]?.balance ?? 0;
 }
 
 export async function contribute(
@@ -177,22 +216,22 @@ export async function contribute(
       amount,
     );
   }
-  await contractWrite({
+  const values = {
+    contribution: {
+      id: crypto.randomUUID(),
+      participantId: currentUser,
+      amount,
+      timestamp: Date.now(),
+    },
+  };
+  logFundingCall('contribute', 'add_contribution', values);
+  const result = await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: {
-      name: 'add_contribution',
-      values: {
-        contribution: {
-          id: crypto.randomUUID(),
-          participantId: currentUser,
-          amount,
-          timestamp: Date.now(),
-        },
-      },
-    } as IMethod,
+    method: { name: 'add_contribution', values } as IMethod,
   });
+  logFundingResult('contribute', 'add_contribution', result);
 }
 
 // ---------------------------------------------------------------------------
@@ -200,10 +239,14 @@ export async function contribute(
 // ---------------------------------------------------------------------------
 
 export async function loadBudget(server: string, agent: string, contractId: string): Promise<BudgetState> {
+  logFundingCall('loadBudget', 'get_items', {});
+  logFundingCall('loadBudget', 'get_all_allocations', {});
   const [rawItems, rawAllocations] = await Promise.all([
     contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_items', values: {} } as IMethod }),
     contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_all_allocations', values: {} } as IMethod }),
   ]);
+  logFundingResult('loadBudget', 'get_items', rawItems);
+  logFundingResult('loadBudget', 'get_all_allocations', rawAllocations);
 
   const itemsArray: unknown[] = Array.isArray(rawItems) ? rawItems : [];
   const items = itemsArray.map(i => normalizeBudgetItem(i as Record<string, unknown>));
@@ -221,21 +264,21 @@ export async function addItem(
   currentUser: string,
   name: string,
 ): Promise<void> {
-  await contractWrite({
+  const values = {
+    item: {
+      id: crypto.randomUUID(),
+      name: name.trim(),
+      createdBy: currentUser,
+    },
+  };
+  logFundingCall('addItem', 'add_item', values);
+  const result = await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: {
-      name: 'add_item',
-      values: {
-        item: {
-          id: crypto.randomUUID(),
-          name: name.trim(),
-          createdBy: currentUser,
-        },
-      },
-    } as IMethod,
+    method: { name: 'add_item', values } as IMethod,
   });
+  logFundingResult('addItem', 'add_item', result);
 }
 
 export async function saveMyAllocation(
@@ -245,12 +288,15 @@ export async function saveMyAllocation(
   currentUser: string,
   allocation: Record<string, number>,
 ): Promise<void> {
-  await contractWrite({
+  const values = { participant_id: currentUser, allocation };
+  logFundingCall('saveMyAllocation', 'set_my_allocation', values);
+  const result = await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
-    method: { name: 'set_my_allocation', values: { participant_id: currentUser, allocation } } as IMethod,
+    method: { name: 'set_my_allocation', values } as IMethod,
   });
+  logFundingResult('saveMyAllocation', 'set_my_allocation', result);
 }
 
 // ---------------------------------------------------------------------------

@@ -12,9 +12,6 @@ class Issue:
     def set_name(self, name):
         self.details['name'] = name
 
-    def set_ai_feedback(self, feedback):
-        self.details['ai_feedback'] = feedback
-
     def set_issue(self, name, text):
         self.set_name(name)
         self.set_description(text)
@@ -24,9 +21,6 @@ class Issue:
 
     def get_name(self):
         return self.details['name']
-
-    def get_ai_feedback(self):
-        return self.details['ai_feedback']
 
     def add_comment(self, comment):
         self.comments.append(comment)

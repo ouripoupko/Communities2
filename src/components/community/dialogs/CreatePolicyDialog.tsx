@@ -7,14 +7,13 @@ export interface CreatePolicyFormData {
   source: IPolicySide;
   destinationKind: 'void' | 'account' | 'everyPersonal' | 'everyAccount';
   destinationAccountId?: string;
-  newAccountName?: string;
   mode: PolicyMode;
   name: string;
   description: string;
 }
 
 type SourceKind = 'void' | 'account' | 'everyPersonal' | 'everyAccount';
-type DestinationKind = 'void' | 'account' | 'newAccount' | 'everyPersonal' | 'everyAccount';
+type DestinationKind = 'void' | 'account' | 'everyPersonal' | 'everyAccount';
 
 interface CreatePolicyDialogProps {
   isVisible: boolean;
@@ -29,7 +28,6 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
   const [mode, setMode] = useState<PolicyMode>('units');
   const [destinationKind, setDestinationKind] = useState<DestinationKind>('everyPersonal');
   const [destinationAccount, setDestinationAccount] = useState('');
-  const [newAccountName, setNewAccountName] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +40,6 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
       setMode('units');
       setDestinationKind('everyPersonal');
       setDestinationAccount('');
-      setNewAccountName('');
       setName('');
       setDescription('');
       setError(null);
@@ -72,16 +69,11 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
       setError('Please choose a destination account');
       return;
     }
-    if (destinationKind === 'newAccount' && !newAccountName.trim()) {
-      setError('Please name the new account');
-      return;
-    }
 
     const data: CreatePolicyFormData = {
       source: sourceKind === 'account' ? { kind: 'account', account: sourceAccount } : { kind: sourceKind },
-      destinationKind: destinationKind === 'newAccount' ? 'account' : destinationKind,
+      destinationKind,
       destinationAccountId: destinationKind === 'account' ? destinationAccount : undefined,
-      newAccountName: destinationKind === 'newAccount' ? newAccountName.trim() : undefined,
       mode,
       name: name.trim(),
       description: description.trim(),
@@ -131,15 +123,30 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
 
           <div className={styles.formGroup}>
             <label className={styles.label}>Mode</label>
-            <select
-              className={styles.inputField}
-              value={mode}
-              onChange={(e) => setMode(e.target.value as PolicyMode)}
-              disabled={isSubmitting}
-            >
-              <option value="units">Units per tick (fixed amount)</option>
-              <option value="percent">Percent per tick (share of source balance)</option>
-            </select>
+            <div className={styles.radioGroup}>
+              <label className={styles.radioOption}>
+                <input
+                  type="radio"
+                  name="policyMode"
+                  value="units"
+                  checked={mode === 'units'}
+                  onChange={() => setMode('units')}
+                  disabled={isSubmitting}
+                />
+                Units per tick (fixed amount)
+              </label>
+              <label className={styles.radioOption}>
+                <input
+                  type="radio"
+                  name="policyMode"
+                  value="percent"
+                  checked={mode === 'percent'}
+                  onChange={() => setMode('percent')}
+                  disabled={isSubmitting}
+                />
+                Percent per tick (share of source balance)
+              </label>
+            </div>
           </div>
 
           <div className={styles.formGroup}>
@@ -151,7 +158,6 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
               disabled={isSubmitting}
             >
               <option value="void">Burn (destroy currency)</option>
-              <option value="newAccount">Create a new named account</option>
               <option value="account">A specific account</option>
               <option value="everyPersonal">Every member's personal account</option>
               <option value="everyAccount">Every account in the community</option>
@@ -160,16 +166,6 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
               <div className={styles.pickerWrap}>
                 <AccountPicker communityId={communityId} value={destinationAccount} onChange={setDestinationAccount} disabled={isSubmitting} />
               </div>
-            )}
-            {destinationKind === 'newAccount' && (
-              <input
-                type="text"
-                className={`${styles.inputField} ${styles.pickerWrap}`}
-                value={newAccountName}
-                onChange={(e) => setNewAccountName(e.target.value)}
-                placeholder="New account name"
-                disabled={isSubmitting}
-              />
             )}
           </div>
 

@@ -104,6 +104,25 @@
         .pickerWrap {
           margin-top: 0.75rem;
         }
+
+        .radioGroup {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .radioOption {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.875rem;
+          color: #374151;
+          cursor: pointer;
+
+          input[type='radio'] {
+            cursor: pointer;
+          }
+        }
       }
 
       .errorMessage {

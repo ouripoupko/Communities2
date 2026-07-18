@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, Sparkles, Pencil } from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchRoadmap } from '../../store/slices/initiativeSlice';
 import type { RoadmapSegment, EditProposal } from '../../store/slices/initiativeSlice';
@@ -10,7 +10,6 @@ import {
   voteOnProposal,
   applyProposal,
 } from '../../services/contracts/initiative';
-import { fetchRoadmapSynthesis } from '../../services/openai';
 import { eventStreamService } from '../../services/eventStream';
 import type { BlockchainEvent } from '../../services/eventStream';
 import AddSegmentDialog from './dialogs/AddSegmentDialog';
@@ -26,7 +25,7 @@ const Roadmap: React.FC<RoadmapProps> = ({ initiativeId }) => {
     initiativeHostServer?: string;
   }>();
   const dispatch = useAppDispatch();
-  const { publicKey, serverUrl, profile } = useAppSelector((state) => state.user);
+  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { roadmap, roadmapLoading } = useAppSelector((state) => state.initiative);
   const { profiles } = useAppSelector((state) => state.communities);
 
@@ -47,8 +46,6 @@ const Roadmap: React.FC<RoadmapProps> = ({ initiativeId }) => {
   const [showProposeEdit, setShowProposeEdit] = useState(false);
   const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
   const [proposeEditInitialText, setProposeEditInitialText] = useState('');
-  const [aiDraft, setAiDraft] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
   const [mobileActiveSegment, setMobileActiveSegment] = useState<string | null>(null);
   const [selectedForEdit, setSelectedForEdit] = useState<Set<string>>(new Set());
 
@@ -136,39 +133,6 @@ const Roadmap: React.FC<RoadmapProps> = ({ initiativeId }) => {
     await applyProposal(effectiveServer, effectiveAgent, initiativeId, proposalId);
   };
 
-  const handleAskAI = async () => {
-    const apiKey = profile?.openaiApiKey;
-    if (!apiKey?.trim()) {
-      alert('Please add your OpenAI API key in your profile to use AI synthesis.');
-      return;
-    }
-    setAiLoading(true);
-    setAiDraft(null);
-    try {
-      const result = await fetchRoadmapSynthesis(apiKey, segments);
-      setAiDraft(result);
-    } catch (err) {
-      console.error(err);
-      alert('AI synthesis failed. Please try again.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const handleAdoptAsProposal = () => {
-    if (!aiDraft) return;
-    const refined = aiDraft
-      .split(/\n+/)
-      .map((s) => s.replace(/^\d+\.\s*/, '').trim())
-      .filter(Boolean);
-    const newText = refined.join('\n\n');
-    setSelectedSegmentIds(segments.map((s) => s.id));
-    setProposeEditInitialText(newText);
-    setShowProposeEdit(true);
-    setAiDraft(null);
-    setSelectedForEdit(new Set());
-  };
-
   const startProposeEdit = (segmentIds: string[], texts: string[]) => {
     setSelectedSegmentIds(segmentIds);
     setProposeEditInitialText(texts.join(' '));
@@ -249,15 +213,6 @@ const Roadmap: React.FC<RoadmapProps> = ({ initiativeId }) => {
               Propose Edit ({selectedForEdit.size})
             </button>
           )}
-          <button
-            type="button"
-            className={styles.aiButton}
-            onClick={handleAskAI}
-            disabled={aiLoading || segments.length === 0}
-          >
-            <Sparkles size={18} />
-            {aiLoading ? 'Synthesizing...' : 'Ask AI to Synthesize'}
-          </button>
           <button
             type="button"
             className={styles.addButton}
@@ -395,16 +350,6 @@ const Roadmap: React.FC<RoadmapProps> = ({ initiativeId }) => {
           </>
         )}
       </div>
-
-      {aiDraft && (
-        <div className={styles.aiDraft}>
-          <div className={styles.draftTitle}>AI Refined Segments</div>
-          <div className={styles.draftContent}>{aiDraft}</div>
-          <button type="button" className={styles.adoptBtn} onClick={handleAdoptAsProposal}>
-            Adopt as my Proposal
-          </button>
-        </div>
-      )}
 
       <AddSegmentDialog
         isVisible={showAddDialog}

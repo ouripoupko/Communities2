@@ -67,12 +67,10 @@ const Seeds: React.FC<SeedsProps> = ({ wishId, communityId }) => {
     return () => eventStreamService.removeEventListener('contract_write', handleContractWrite);
   }, [handleContractWrite]);
 
-  const refetchSeeds = useCallback(() => {
-    if (serverUrl && publicKey && wishId) {
-      dispatch(fetchSeeds({ serverUrl, publicKey, wishContractId: wishId }));
-    }
-  }, [serverUrl, publicKey, wishId, dispatch]);
-
+  // Neither handler refetches after its write - the contract_write SSE
+  // listener above (handleContractWrite) already re-dispatches fetchSeeds
+  // whenever anything writes to this wish contract, which includes both
+  // writes below.
   const handleAddIdea = async (description: string) => {
     if (!serverUrl || !publicKey) return;
     setAddSubmitting(true);
@@ -86,7 +84,6 @@ const Seeds: React.FC<SeedsProps> = ({ wishId, communityId }) => {
         }),
       ).unwrap();
       setShowAddIdea(false);
-      refetchSeeds();
     } finally {
       setAddSubmitting(false);
     }
@@ -107,7 +104,6 @@ const Seeds: React.FC<SeedsProps> = ({ wishId, communityId }) => {
         }),
       ).unwrap();
       setShowConfirm(null);
-      refetchSeeds();
       const { initiativeId, hostServer, hostAgent } = result;
       const url = `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${initiativeId}/roadmap`;
       navigate(url, { state: { communityId } });

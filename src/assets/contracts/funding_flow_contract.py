@@ -30,9 +30,7 @@ class FundingFlow:
         self.config['data'] = config
 
     def get_config(self):
-        if 'data' not in self.config:
-            return {}
-        return self.config['data'].get_dict()
+        return self.config['data'] or {}
 
     # Contributions
     def add_contribution(self, contribution):

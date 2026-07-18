@@ -7,7 +7,7 @@ import styles from './AccountPicker.module.scss';
 export interface AccountOption {
   id: string;
   label: string;
-  kind: 'personal' | 'public';
+  kind: 'personal' | 'public' | 'fund';
 }
 
 interface AccountPickerProps {
@@ -15,7 +15,7 @@ interface AccountPickerProps {
   value: string;
   onChange: (accountId: string) => void;
   excludeAccountIds?: string[];
-  kinds?: Array<'personal' | 'public'>;
+  kinds?: Array<'personal' | 'public' | 'fund'>;
   placeholder?: string;
   disabled?: boolean;
 }
@@ -25,13 +25,13 @@ const AccountPicker: React.FC<AccountPickerProps> = ({
   value,
   onChange,
   excludeAccountIds = [],
-  kinds = ['personal', 'public'],
+  kinds = ['personal', 'public', 'fund'],
   placeholder = 'Search for an account...',
   disabled,
 }) => {
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
   const { communityMembers, profiles } = useAppSelector((state) => state.communities);
-  const [publicAccounts, setPublicAccounts] = useState<AccountOption[]>([]);
+  const [nonPersonalAccounts, setNonPersonalAccounts] = useState<AccountOption[]>([]);
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,9 +42,9 @@ const AccountPicker: React.FC<AccountPickerProps> = ({
     void getAccountDetails(serverUrl, publicKey, communityId).then((details) => {
       if (cancelled) return;
       const options: AccountOption[] = Object.entries(details)
-        .filter(([, info]) => info.type === 'public')
-        .map(([id, info]) => ({ id, label: info.name || id, kind: 'public' as const }));
-      setPublicAccounts(options);
+        .filter(([, info]) => info.type === 'public' || info.type === 'fund')
+        .map(([id, info]) => ({ id, label: info.name || id, kind: info.type as 'public' | 'fund' }));
+      setNonPersonalAccounts(options);
     });
     return () => {
       cancelled = true;
@@ -58,10 +58,10 @@ const AccountPicker: React.FC<AccountPickerProps> = ({
       label: getMemberDisplayName(profiles[pubkey]),
       kind: 'personal' as const,
     }));
-    return [...personal, ...publicAccounts]
+    return [...personal, ...nonPersonalAccounts]
       .filter((opt) => kinds.includes(opt.kind))
       .filter((opt) => !excludeAccountIds.includes(opt.id));
-  }, [communityMembers, communityId, profiles, publicAccounts, excludeAccountIds, kinds]);
+  }, [communityMembers, communityId, profiles, nonPersonalAccounts, excludeAccountIds, kinds]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -117,7 +117,9 @@ const AccountPicker: React.FC<AccountPickerProps> = ({
                 }}
               >
                 <span className={styles.optionLabel}>{opt.label}</span>
-                <span className={styles.optionKind}>{opt.kind === 'personal' ? 'Member' : 'Public account'}</span>
+                <span className={styles.optionKind}>
+                  {opt.kind === 'personal' ? 'Member' : opt.kind === 'fund' ? 'Fund account' : 'Public account'}
+                </span>
               </button>
             ))
           )}
