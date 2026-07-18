@@ -1,6 +1,7 @@
 export interface Proposal {
   id: string;
   text: string;
+  author?: string;
 }
 
 export const ACCEPTANCE_BAR_ID = '__ACCEPTANCE_BAR__';

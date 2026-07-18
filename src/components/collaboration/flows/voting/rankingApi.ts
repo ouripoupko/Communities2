@@ -17,7 +17,11 @@ export async function loadProposals(server: string, agent: string, contractId: s
   const items: unknown[] = Array.isArray(result) ? result : [];
   return items.map((raw) => {
     const r = raw as Record<string, unknown>;
-    return { id: String(r['id'] ?? ''), text: String(r['text'] ?? '') };
+    return {
+      id: String(r['id'] ?? ''),
+      text: String(r['text'] ?? ''),
+      author: typeof r['author'] === 'string' ? r['author'] : undefined,
+    };
   });
 }
 
@@ -39,13 +43,23 @@ export async function loadMyRanking(
     const r = raw as Record<string, unknown>;
     return r['participantId'] === currentUser;
   });
+
+  let order: string[];
   if (mine) {
     const r = mine as Record<string, unknown>;
-    const order = r['order'];
-    return Array.isArray(order) ? (order as string[]) : [];
+    const stored = r['order'];
+    order = Array.isArray(stored) ? (stored as string[]) : [];
+  } else {
+    // Default: acceptance bar first, then all proposals
+    order = [ACCEPTANCE_BAR_ID, ...proposals.map((p) => p.id)];
   }
-  // Default: acceptance bar first, then all proposals
-  return [ACCEPTANCE_BAR_ID, ...proposals.map((p) => p.id)];
+
+  // Proposals added after this participant last saved their ranking aren't
+  // in the stored order yet - append them at the bottom instead of
+  // silently leaving them out of the list.
+  const known = new Set(order);
+  const unranked = proposals.map((p) => p.id).filter((id) => !known.has(id));
+  return [...order, ...unranked];
 }
 
 export async function loadAllRankings(server: string, agent: string, contractId: string): Promise<import('./types').ParticipantRanking[]> {

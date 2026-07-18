@@ -11,6 +11,27 @@
 }
 
 // ---------------------------------------------------------------------------
+// Stats bar
+// ---------------------------------------------------------------------------
+.statsBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-lg;
+  padding: $spacing-sm $spacing-lg;
+  background: var(--color-surface-muted);
+  border-radius: $radius-md;
+}
+
+.statsItem {
+  font-size: $text-sm;
+  color: var(--color-text-secondary);
+
+  strong {
+    color: var(--color-text-primary);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tab bar
 // ---------------------------------------------------------------------------
 .tabBar {
@@ -164,6 +185,17 @@
   flex: 1;
 }
 
+.rankedBadge {
+  flex-shrink: 0;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: var(--color-text-tertiary);
+  background: var(--color-surface-muted);
+  border-radius: $radius-full;
+  padding: 2px $spacing-sm;
+  white-space: nowrap;
+}
+
 // ---------------------------------------------------------------------------
 // Acceptance bar
 // ---------------------------------------------------------------------------
@@ -308,6 +340,10 @@
 }
 
 .cycleItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
   padding: $spacing-md $spacing-lg;
   font-size: $text-base;
   color: var(--color-text-primary);
@@ -316,6 +352,10 @@
   &:last-child {
     border-bottom: none;
   }
+}
+
+.cycleItemText {
+  flex: 1;
 }
 
 .cycleAcceptanceBar {

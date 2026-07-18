@@ -6,6 +6,8 @@ class RankingFlow:
 
     # Proposals
     def add_proposal(self, proposal):
+        proposal = dict(proposal)
+        proposal['author'] = master()
         self.proposals.append(proposal)
 
     def get_proposals(self):

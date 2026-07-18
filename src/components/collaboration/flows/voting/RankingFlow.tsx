@@ -52,6 +52,26 @@ const AcceptanceBar: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
+// Stats bar - proposers / rankers counts, shown above both tabs so it's
+// visible no matter which one is active.
+// ---------------------------------------------------------------------------
+interface StatsBarProps {
+  proposerCount: number;
+  rankerCount: number;
+}
+
+const StatsBar: React.FC<StatsBarProps> = ({ proposerCount, rankerCount }) => (
+  <div className={styles.statsBar}>
+    <span className={styles.statsItem}>
+      <strong>{proposerCount}</strong> {proposerCount === 1 ? 'member has' : 'members have'} proposed an option
+    </span>
+    <span className={styles.statsItem}>
+      <strong>{rankerCount}</strong> {rankerCount === 1 ? 'member has' : 'members have'} ranked the options
+    </span>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
 // Custom drag preview (shown during touch drag)
 // ---------------------------------------------------------------------------
 const CustomPreview: React.FC<{ listWidth?: number }> = ({ listWidth }) => {
@@ -88,11 +108,12 @@ interface SortableItemProps {
   label: string;
   index: number;
   isBar: boolean;
+  rankedCount?: number;
   moveItem: (from: number, to: number) => void;
   onDragEnd: () => void;
 }
 
-const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, moveItem, onDragEnd }) => {
+const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, rankedCount, moveItem, onDragEnd }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, dragPreview] = useDrag<DragItem, void, { isDragging: boolean }>({
@@ -147,6 +168,11 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, mo
     >
       <span className={styles.dragHandle}>⠿</span>
       <span className={styles.proposalText}>{label}</span>
+      {typeof rankedCount === 'number' && (
+        <span className={styles.rankedBadge} title="Members who have ranked this option">
+          {rankedCount === 1 ? '1 ranked' : `${rankedCount} ranked`}
+        </span>
+      )}
     </div>
   );
 };
@@ -157,6 +183,7 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, mo
 interface RankingTabProps {
   proposals: Proposal[];
   order: string[];
+  rankedCounts: Map<string, number>;
   onOrderChange: (order: string[]) => void;
   onOrderCommit: (order: string[]) => void;
   onAddProposal: (text: string) => void;
@@ -166,6 +193,7 @@ interface RankingTabProps {
 const RankingTab: React.FC<RankingTabProps> = ({
   proposals,
   order,
+  rankedCounts,
   onOrderChange,
   onOrderCommit,
   onAddProposal,
@@ -231,6 +259,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
               label={isBar ? '' : (proposalMap.get(id) ?? id)}
               index={index}
               isBar={isBar}
+              rankedCount={isBar ? undefined : rankedCounts.get(id) ?? 0}
               moveItem={moveItem}
               onDragEnd={handleDragEnd}
             />
@@ -247,9 +276,10 @@ const RankingTab: React.FC<RankingTabProps> = ({
 interface AggregatedTabProps {
   proposals: Proposal[];
   allRankings: ParticipantRanking[];
+  rankedCounts: Map<string, number>;
 }
 
-const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings }) => {
+const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings, rankedCounts }) => {
   const [mode, setMode] = useState<CycleSetMode>('smith');
 
   const proposalMap = useMemo(
@@ -309,7 +339,10 @@ const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings })
                   </div>
                 ) : (
                   <div key={id} className={styles.cycleItem}>
-                    {proposalMap.get(id) ?? id}
+                    <span className={styles.cycleItemText}>{proposalMap.get(id) ?? id}</span>
+                    <span className={styles.rankedBadge} title="Members who have ranked this option">
+                      {rankedCounts.get(id) === 1 ? '1 ranked' : `${rankedCounts.get(id) ?? 0} ranked`}
+                    </span>
                   </div>
                 ),
               )}
@@ -374,11 +407,28 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
     await api.addProposal(flowServer, flowAgent, instanceId, text);
   }, [flowServer, flowAgent, instanceId]);
 
+  const proposerCount = useMemo(
+    () => new Set(proposals.map((p) => p.author).filter((a): a is string => !!a)).size,
+    [proposals],
+  );
+
+  const rankedCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const ranking of allRankings) {
+      for (const id of ranking.order) {
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [allRankings]);
+
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={() => void load()} />;
 
   return (
     <div className={styles.container}>
+      <StatsBar proposerCount={proposerCount} rankerCount={allRankings.length} />
+
       <div className={styles.tabBar}>
         <button
           className={`${styles.tab} ${activeTab === 'ranking' ? styles.activeTab : ''}`}
@@ -400,6 +450,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
         <RankingTab
           proposals={proposals}
           order={order}
+          rankedCounts={rankedCounts}
           onOrderChange={handleOrderChange}
           onOrderCommit={(newOrder) => { void handleOrderCommit(newOrder); }}
           onAddProposal={(text) => { void handleAddProposal(text); }}
@@ -408,7 +459,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
       )}
 
       {activeTab === 'aggregated' && (
-        <AggregatedTab proposals={proposals} allRankings={allRankings} />
+        <AggregatedTab proposals={proposals} allRankings={allRankings} rankedCounts={rankedCounts} />
       )}
 
       <CustomPreview listWidth={listRef.current?.offsetWidth} />
