@@ -290,6 +290,8 @@ const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings, r
   const cycleGroups = useMemo(() => {
     const candidateIds = [...proposals.map((p) => p.id), ACCEPTANCE_BAR_ID];
     const rankingsOnly = allRankings.map((r) => r.order);
+    const ballotsByVoter = Object.fromEntries(allRankings.map((r) => [r.participantId, r.order]));
+    console.log(`[${mode}] ballots used for set calculation:`, ballotsByVoter);
     return computeCycleGroups(candidateIds, rankingsOnly, mode);
   }, [proposals, allRankings, mode]);
 

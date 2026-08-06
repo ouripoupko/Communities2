@@ -12,9 +12,17 @@ export default tseslint.config([
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
-      reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,
     ],
+    // eslint-plugin-react-hooks@7.1.1's config exports `plugins` as an
+    // array of strings, which eslint@10's flat config rejects. Supply the
+    // plugin object ourselves and pull in just its rules.
+    plugins: {
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      ...reactHooks.configs['recommended-latest'].rules,
+    },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
