@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { initializeUser, setCurrentUser, clearUser, fetchContracts } from '../store/slices/userSlice';
@@ -35,6 +35,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const user = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!(user.publicKey && user.serverUrl);
 
+  // Stable reference so add/removeEventListener target the same closure
+  // across logins/logout instead of accumulating duplicates.
+  const handleContractDeploy = useCallback(() => {
+    dispatch(fetchContracts());
+  }, [dispatch]);
+
   useEffect(() => {
     // Check for stored user data on app load
     const storedUser = localStorage.getItem('user');
@@ -58,16 +64,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Connect to the SSE stream BEFORE initialization so we can catch deploy_contract events
       eventStreamService.connect(serverUrl, publicKey);
-      
+
       // Set up listener for contract deployment events to refresh contracts list
-      const handleContractDeploy = () => {
-        dispatch(fetchContracts());
-      };
       eventStreamService.addEventListener('deploy_contract', handleContractDeploy);
-      
+
       // Use the new initializeUser thunk which handles everything
       await dispatch(initializeUser()).unwrap();
-      
+
       setIsLoading(false);
     } catch (err) {
       throw err;
@@ -83,16 +86,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Connect to the SSE stream BEFORE initialization so we can catch deploy_contract events
       eventStreamService.connect(serverUrl, publicKey);
-      
+
       // Set up listener for contract deployment events to refresh contracts list
-      const handleContractDeploy = () => {
-        dispatch(fetchContracts());
-      };
       eventStreamService.addEventListener('deploy_contract', handleContractDeploy);
-      
+
       // Use the new initializeUser thunk which handles everything
       await dispatch(initializeUser()).unwrap();
-      
+
       // Store in localStorage
       localStorage.setItem('user', JSON.stringify({ publicKey, serverUrl }));
     } catch (err) {
@@ -108,8 +108,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     // Clear user data from Redux
     dispatch(clearUser());
-    
-    // Disconnect from the SSE stream
+
+    // Remove the deploy_contract listener and disconnect from the SSE stream
+    eventStreamService.removeEventListener('deploy_contract', handleContractDeploy);
     eventStreamService.disconnect();
   };
 
