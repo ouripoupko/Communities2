@@ -20,13 +20,24 @@ const WishView = lazy(() => import('./pages/collaboration/WishView'));
 const AgreementView = lazy(() => import('./pages/collaboration/AgreementView'));
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, bootError } = useAuth();
 
   if (isLoading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Validating session...</p>
+      </div>
+    );
+  }
+
+  if (bootError) {
+    return (
+      <div className="loading-container">
+        <p>{bootError}</p>
+        <button className="login-button" onClick={() => window.location.reload()}>
+          Reload page
+        </button>
       </div>
     );
   }

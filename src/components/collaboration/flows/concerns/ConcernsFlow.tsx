@@ -208,7 +208,7 @@ const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, 
 
   useEventStream('contract_write', useCallback((event) => {
     if (event.contract === instanceId) void load();
-  }, [instanceId, load]));
+  }, [instanceId, load]), flowServer, flowAgent);
 
   const handleAdd = useCallback(async (title: string, desc: string) => {
     await api.addConcern(flowServer, flowAgent, instanceId, currentUser, title, desc);

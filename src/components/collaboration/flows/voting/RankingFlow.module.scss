@@ -128,6 +128,49 @@
   margin: 0;
 }
 
+.editBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.editBtn {
+  padding: $spacing-sm $spacing-lg;
+  border: 1.5px solid var(--color-border);
+  border-radius: $radius-md;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  cursor: pointer;
+  transition: background $transition-base, opacity $transition-base;
+
+  &:hover:not(:disabled) {
+    background: var(--color-surface-muted);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.submitBtn {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary-dark);
+  }
+}
+
+.pendingCount {
+  font-size: $text-sm;
+  color: var(--color-text-tertiary);
+}
+
 // ---------------------------------------------------------------------------
 // Sortable list
 // ---------------------------------------------------------------------------

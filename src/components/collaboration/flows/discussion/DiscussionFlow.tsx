@@ -211,7 +211,7 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
 
   useEventStream('contract_write', useCallback((event) => {
     if (event.contract === instanceId) void load();
-  }, [instanceId, load]));
+  }, [instanceId, load]), flowServer, flowAgent);
 
   if (loading) return <FlowLoading />;
   if (error)   return <FlowError message={error} onRetry={load} />;

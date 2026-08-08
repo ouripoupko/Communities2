@@ -455,7 +455,7 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
 
   useEventStream('contract_write', useCallback((event) => {
     if (event.contract === instanceId || event.contract === communityIdRef.current) void load();
-  }, [instanceId, load]));
+  }, [instanceId, load]), flowServer, flowAgent);
 
   const handleSaveAllocation = useCallback(async () => {
     await api.saveMyAllocation(flowServer, flowAgent, instanceId, currentUser, myAllocationRef.current);

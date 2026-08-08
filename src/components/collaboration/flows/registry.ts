@@ -1,6 +1,8 @@
 import { BarChart2, Star, FileText, Heart, MessageSquare, CalendarDays, KanbanSquare, AlertTriangle, HelpCircle, Award } from 'lucide-react';
-import RankingFlow from './voting/RankingFlow';
-import ScoringFlow from './voting/ScoringFlow';
+import RankingFlow, { RankingSetupDialog } from './voting/RankingFlow';
+import { setupTopic as setupRankingTopic } from './voting/rankingApi';
+import ScoringFlow, { ScoringSetupDialog } from './voting/ScoringFlow';
+import { setupTopic as setupScoringTopic } from './voting/scoringApi';
 import DocFlow from './document/DocFlow';
 import FundingFlow, { FundingSetupDialog } from './funding/FundingFlow';
 import { configureFund } from './funding/fundingApi';
@@ -34,6 +36,10 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: BarChart2,
     component: RankingFlow,
     group: 'Decision Making',
+    setupComponent: RankingSetupDialog,
+    onInit: async (server, agent, contractId, config) => {
+      await setupRankingTopic(server, agent, contractId, config as { topic: string; description: string });
+    },
   },
   {
     id: 'scoring',
@@ -41,6 +47,10 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: Star,
     component: ScoringFlow,
     group: 'Decision Making',
+    setupComponent: ScoringSetupDialog,
+    onInit: async (server, agent, contractId, config) => {
+      await setupScoringTopic(server, agent, contractId, config as { topic: string; description: string });
+    },
   },
   {
     id: 'concerns',

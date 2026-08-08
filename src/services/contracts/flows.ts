@@ -94,6 +94,25 @@ export async function addFlow(
 }
 
 // ---------------------------------------------------------------------------
+// Remove a flow reference from a collaboration contract. This does not (and
+// currently cannot) delete the underlying flow contract itself — it only
+// takes the flow out of the collaboration's list, hiding it from everyone.
+// ---------------------------------------------------------------------------
+export async function removeFlow(
+  serverUrl: string,
+  publicKey: string,
+  contractId: string,
+  flowId: string,
+): Promise<void> {
+  await contractWrite({
+    serverUrl,
+    publicKey,
+    contractId,
+    method: { name: 'remove_flow', values: { flow_id: flowId } } as IMethod,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Retrieve all flow references from a collaboration contract.
 // ---------------------------------------------------------------------------
 export async function getFlows(

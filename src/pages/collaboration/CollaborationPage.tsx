@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader } from 'lucide-react';
+import { Plus, Loader, X } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { FLOW_REGISTRY, FLOW_GROUPS, getFlow } from '../../components/collaboration/flows/registry';
-import { deployFlowContract, addFlow, getFlows } from '../../services/contracts/flows';
+import { deployFlowContract, addFlow, getFlows, removeFlow } from '../../services/contracts/flows';
 import { getCommunity } from '../../services/contracts/community';
 import { useAppSelector } from '../../store/hooks';
+import { useEventStream } from '../../hooks/useEventStream';
+import ConfirmDialog from '../../components/community/dialogs/ConfirmDialog';
 import cs from '../Container.module.scss';
 import styles from './CollaborationPage.module.scss';
 
@@ -50,12 +52,13 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const [isLoadingTabs,    setIsLoadingTabs]     = useState(false);
   const [pendingFlow,      setPendingFlow]       = useState<ReturnType<typeof getFlow> | null>(null);
   const [communityId,      setCommunityId]       = useState<string | undefined>(communityIdProp);
+  const [tabToRemove,      setTabToRemove]       = useState<CollaborationTab | null>(null);
 
   const collabServer = collaborationServer ?? serverUrl;
   const collabAgent  = collaborationAgent  ?? publicKey;
 
-  // Restore tabs from collaboration contract on mount
-  useEffect(() => {
+  // Load (and reload) tabs from the collaboration contract.
+  const loadTabs = useCallback(() => {
     if (!collabServer || !collabAgent || !collaborationId) return;
 
     setIsLoadingTabs(true);
@@ -70,11 +73,26 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
             flowAgent:  f.agent,
           }));
         setTabs(restored);
-        if (restored.length > 0) setActiveInstanceId(restored[0].instanceId);
+        // Keep the current tab selected if it still exists; only default to
+        // the first tab when there's no valid selection yet (initial load,
+        // or the previously active tab was removed).
+        setActiveInstanceId((prev) => {
+          if (prev && restored.some((t) => t.instanceId === prev)) return prev;
+          return restored.length > 0 ? restored[0].instanceId : null;
+        });
       })
       .catch((err) => console.error('Failed to load collaboration flows:', err))
       .finally(() => setIsLoadingTabs(false));
   }, [collabServer, collabAgent, collaborationId]);
+
+  // Restore tabs from collaboration contract on mount
+  useEffect(() => { loadTabs(); }, [loadTabs]);
+
+  // Stay in sync when another participant adds (or otherwise writes) a flow
+  // tab to this collaboration.
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === collaborationId) loadTabs();
+  }, [collaborationId, loadTabs]), collabServer ?? undefined, collabAgent ?? undefined);
 
   // Derive community from the collaboration contract when not passed as a prop
   useEffect(() => {
@@ -124,14 +142,25 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
     }
   }, [addTab]);
 
-  const removeTab = (instanceId: string) => {
+  // Removing a tab only takes the flow out of the collaboration's list —
+  // there's no way to delete the underlying flow contract itself, so this
+  // just hides it from every participant, for everyone, permanently.
+  const handleConfirmRemoveTab = useCallback(async () => {
+    if (!tabToRemove || !collabServer || !collabAgent) return;
+    const instanceId = tabToRemove.instanceId;
+    try {
+      await removeFlow(collabServer, collabAgent, collaborationId, instanceId);
+    } catch (err) {
+      console.error('Failed to remove flow tab:', err);
+      throw err; // keep the confirm dialog open so the user can retry
+    }
     setTabs((prev) => {
       const next = prev.filter((t) => t.instanceId !== instanceId);
       if (activeInstanceId === instanceId)
         setActiveInstanceId(next.length > 0 ? next[next.length - 1].instanceId : null);
       return next;
     });
-  };
+  }, [tabToRemove, collabServer, collabAgent, collaborationId, activeInstanceId]);
 
   const activeTab   = tabs.find((t) => t.instanceId === activeInstanceId);
   const activeFlow  = activeTab ? getFlow(activeTab.flowId) : null;
@@ -163,14 +192,16 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
               >
                 <flow.icon size={20} />
                 <span>{flow.label}</span>
-                <span
-                  className={styles.removeBtn}
-                  role="button"
-                  aria-label={`Remove ${flow.label} tab`}
-                  onClick={(e) => { e.stopPropagation(); removeTab(tab.instanceId); }}
-                >
-                  ×
-                </span>
+                {tab.flowAgent === publicKey && (
+                  <span
+                    className={styles.removeBtn}
+                    role="button"
+                    aria-label={`Remove ${flow.label} tab`}
+                    onClick={(e) => { e.stopPropagation(); setTabToRemove(tab); }}
+                  >
+                    <X size={14} strokeWidth={3} />
+                  </span>
+                )}
               </button>
             );
           })}
@@ -269,6 +300,15 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
         onCancel={() => setPendingFlow(null)}
       />
     )}
+
+    <ConfirmDialog
+      isVisible={tabToRemove !== null}
+      title="Remove Tab"
+      message={`Are you sure you want to remove the "${tabToRemove ? getFlow(tabToRemove.flowId)?.label ?? tabToRemove.flowId : ''}" tab? This cannot be undone.`}
+      confirmLabel="Remove Tab"
+      onClose={() => setTabToRemove(null)}
+      onConfirm={handleConfirmRemoveTab}
+    />
     </>
   );
 };

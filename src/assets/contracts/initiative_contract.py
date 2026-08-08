@@ -19,7 +19,11 @@ class Initiative:
 
     # Flows
     def add_flow(self, flow):
-        self.flows.append(flow)
+        self.flows[flow['id']] = flow
 
     def get_flows(self):
         return [self.flows[key].get_dict() for key in self.flows]
+
+    def remove_flow(self, flow_id):
+        if flow_id in self.flows:
+            del self.flows[flow_id]

@@ -61,8 +61,8 @@ app.get('/ibc/app/:agent', (req, res) => {
   const { action } = req.query;
 
   if (action === 'is_exist_agent') {
-    const exists = agents.has(agent);
-    res.json({ exists });
+    // Real server responds with a bare boolean, not { exists }.
+    res.json(agents.has(agent));
   } else if (action === 'get_contracts') {
     const agentContracts = getAgentContracts(agent);
     res.json(agentContracts);

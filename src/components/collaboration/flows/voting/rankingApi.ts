@@ -4,6 +4,43 @@ import { ACCEPTANCE_BAR_ID } from './types';
 export type { Proposal, ParticipantRanking } from './types';
 
 // ---------------------------------------------------------------------------
+// Topic — the question participants are proposing options for and ranking
+// ---------------------------------------------------------------------------
+
+export interface TopicConfig {
+  topic: string;
+  description: string;
+}
+
+export async function loadTopic(server: string, agent: string, contractId: string): Promise<TopicConfig | null> {
+  const result = await contractRead({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'get_config', values: {} } as IMethod,
+  });
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const r = result as Record<string, unknown>;
+    if (r['topic']) {
+      return {
+        topic: String(r['topic'] ?? ''),
+        description: String(r['description'] ?? ''),
+      };
+    }
+  }
+  return null;
+}
+
+export async function setupTopic(server: string, agent: string, contractId: string, fields: TopicConfig): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_config', values: { config: fields } } as IMethod,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Async API — persistent via contract
 // ---------------------------------------------------------------------------
 
@@ -80,14 +117,14 @@ export async function loadAllRankings(server: string, agent: string, contractId:
   });
 }
 
-export async function addProposal(server: string, agent: string, contractId: string, text: string): Promise<void> {
+export async function addProposal(server: string, agent: string, contractId: string, text: string, author: string): Promise<void> {
   await contractWrite({
     serverUrl: server,
     publicKey: agent,
     contractId,
     method: {
       name: 'add_proposal',
-      values: { proposal: { id: crypto.randomUUID(), text: text.trim() } },
+      values: { proposal: { id: crypto.randomUUID(), text: text.trim() }, author },
     } as IMethod,
   });
 }

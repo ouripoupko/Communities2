@@ -17,8 +17,18 @@ import { FlowLoading, FlowError } from '../FlowShell';
 import { ACCEPTANCE_BAR_ID } from './types';
 import type { Proposal, ParticipantRanking } from './types';
 import * as api from './rankingApi';
+import type { TopicConfig } from './rankingApi';
 import { computeCycleGroups, type CycleSetMode } from './smithSet';
+import { TopicSetupDialog, TopicHeader } from './Topic';
 import styles from './RankingFlow.module.scss';
+
+/** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
+export const RankingSetupDialog: React.FC<{
+  onDone: (config: Record<string, unknown>) => void;
+  onCancel: () => void;
+}> = ({ onDone, onCancel }) => (
+  <TopicSetupDialog heading="Set Up Ranking Vote" icon={BarChart2} onDone={onDone} onCancel={onCancel} />
+);
 
 // ---------------------------------------------------------------------------
 // DnD backend config (same pattern as Vote.tsx)
@@ -110,17 +120,18 @@ interface SortableItemProps {
   isBar: boolean;
   rankedCount?: number;
   moveItem: (from: number, to: number) => void;
-  onDragEnd: () => void;
+  onDragStart: () => void;
 }
 
-const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, rankedCount, moveItem, onDragEnd }) => {
+const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, rankedCount, moveItem, onDragStart }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, dragPreview] = useDrag<DragItem, void, { isDragging: boolean }>({
     type: ITEM_TYPE,
-    item: { id, label, index },
+    // Function form so onDragStart fires exactly once per drag, right as
+    // it begins — this is what flips the page into "editing" mode.
+    item: () => { onDragStart(); return { id, label, index }; },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-    end: () => { onDragEnd(); },
   });
 
   useEffect(() => {
@@ -185,9 +196,13 @@ interface RankingTabProps {
   order: string[];
   rankedCounts: Map<string, number>;
   onOrderChange: (order: string[]) => void;
-  onOrderCommit: (order: string[]) => void;
   onAddProposal: (text: string) => void;
   listRef: React.RefObject<HTMLDivElement | null>;
+  isEditing: boolean;
+  onDragStart: () => void;
+  pendingUpdateCount: number;
+  onSubmit: () => void;
+  onRevert: () => void;
 }
 
 const RankingTab: React.FC<RankingTabProps> = ({
@@ -195,9 +210,13 @@ const RankingTab: React.FC<RankingTabProps> = ({
   order,
   rankedCounts,
   onOrderChange,
-  onOrderCommit,
   onAddProposal,
   listRef,
+  isEditing,
+  onDragStart,
+  pendingUpdateCount,
+  onSubmit,
+  onRevert,
 }) => {
   const [inputText, setInputText] = useState('');
   const proposalMap = useMemo(
@@ -214,10 +233,6 @@ const RankingTab: React.FC<RankingTabProps> = ({
     },
     [order, onOrderChange],
   );
-
-  const handleDragEnd = useCallback(() => {
-    onOrderCommit(order);
-  }, [order, onOrderCommit]);
 
   const handleAdd = () => {
     const text = inputText.trim();
@@ -249,6 +264,20 @@ const RankingTab: React.FC<RankingTabProps> = ({
         Drag proposals to reorder. Move the Acceptance Bar to separate accepted from rejected.
       </p>
 
+      <div className={styles.editBar}>
+        <button className={`${styles.editBtn} ${styles.submitBtn}`} disabled={!isEditing} onClick={onSubmit}>
+          Submit
+        </button>
+        <button className={styles.editBtn} disabled={!isEditing} onClick={onRevert}>
+          Revert
+        </button>
+        {isEditing && pendingUpdateCount > 0 && (
+          <span className={styles.pendingCount}>
+            {pendingUpdateCount === 1 ? '1 update' : `${pendingUpdateCount} updates`} arrived — Submit or Revert to refresh
+          </span>
+        )}
+      </div>
+
       <div className={styles.list} ref={listRef}>
         {order.map((id, index) => {
           const isBar = id === ACCEPTANCE_BAR_ID;
@@ -261,7 +290,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
               isBar={isBar}
               rankedCount={isBar ? undefined : rankedCounts.get(id) ?? 0}
               moveItem={moveItem}
-              onDragEnd={handleDragEnd}
+              onDragStart={onDragStart}
             />
           );
         })}
@@ -364,21 +393,29 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
   const [proposals,    setProposals]    = useState<Proposal[]>([]);
   const [order,        setOrder]        = useState<string[]>([]);
   const [allRankings,  setAllRankings]  = useState<ParticipantRanking[]>([]);
+  const [topic,        setTopic]        = useState<TopicConfig | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState<string | null>(null);
+  // While editing (from the first drag until Submit/Revert), incoming SSE
+  // updates must not touch proposals/order/allRankings — reloading them
+  // mid-drag remounts the sortable items and breaks the drag in progress.
+  const [isEditing,           setIsEditing]           = useState(false);
+  const [pendingUpdateCount,  setPendingUpdateCount]  = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [loadedProposals, loadedAllRankings] = await Promise.all([
+      const [loadedProposals, loadedAllRankings, loadedTopic] = await Promise.all([
         api.loadProposals(flowServer, flowAgent, instanceId),
         api.loadAllRankings(flowServer, flowAgent, instanceId),
+        api.loadTopic(flowServer, flowAgent, instanceId),
       ]);
       const myOrder = await api.loadMyRanking(flowServer, flowAgent, instanceId, currentUser, loadedProposals);
       setProposals(loadedProposals);
       setAllRankings(loadedAllRankings);
+      setTopic(loadedTopic);
       setOrder(myOrder);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load ranking data');
@@ -390,24 +427,46 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
   useEffect(() => { void load(); }, [load]);
 
   useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
-  }, [instanceId, load]));
+    if (event.contract !== instanceId) return;
+    // While editing, don't reload — just tally the update so the drag in
+    // progress (or about to start again) isn't disrupted by a re-render
+    // that reshuffles the list.
+    if (isEditing) {
+      setPendingUpdateCount((n) => n + 1);
+    } else {
+      void load();
+    }
+  }, [instanceId, load, isEditing]), flowServer, flowAgent);
 
   const handleOrderChange = useCallback((newOrder: string[]) => {
     setOrder(newOrder);
   }, []);
 
-  const handleOrderCommit = useCallback(async (newOrder: string[]) => {
+  const handleDragStart = useCallback(() => {
+    setIsEditing(true);
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
     try {
-      await api.saveMyRanking(flowServer, flowAgent, instanceId, currentUser, newOrder);
+      await api.saveMyRanking(flowServer, flowAgent, instanceId, currentUser, order);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save ranking.');
+      return; // stay in editing mode so the local order isn't lost; let the user retry
     }
-  }, [flowServer, flowAgent, currentUser, instanceId]);
+    setPendingUpdateCount(0);
+    setIsEditing(false);
+    void load();
+  }, [flowServer, flowAgent, currentUser, instanceId, order, load]);
+
+  const handleRevert = useCallback(() => {
+    setPendingUpdateCount(0);
+    setIsEditing(false);
+    void load();
+  }, [load]);
 
   const handleAddProposal = useCallback(async (text: string) => {
-    await api.addProposal(flowServer, flowAgent, instanceId, text);
-  }, [flowServer, flowAgent, instanceId]);
+    await api.addProposal(flowServer, flowAgent, instanceId, text, currentUser);
+  }, [flowServer, flowAgent, instanceId, currentUser]);
 
   const proposerCount = useMemo(
     () => new Set(proposals.map((p) => p.author).filter((a): a is string => !!a)).size,
@@ -429,6 +488,8 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
 
   return (
     <div className={styles.container}>
+      {topic && <TopicHeader icon={BarChart2} topic={topic.topic} description={topic.description} />}
+
       <StatsBar proposerCount={proposerCount} rankerCount={allRankings.length} />
 
       <div className={styles.tabBar}>
@@ -454,9 +515,13 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
           order={order}
           rankedCounts={rankedCounts}
           onOrderChange={handleOrderChange}
-          onOrderCommit={(newOrder) => { void handleOrderCommit(newOrder); }}
           onAddProposal={(text) => { void handleAddProposal(text); }}
           listRef={listRef}
+          isEditing={isEditing}
+          onDragStart={handleDragStart}
+          pendingUpdateCount={pendingUpdateCount}
+          onSubmit={() => { void handleSubmit(); }}
+          onRevert={handleRevert}
         />
       )}
 

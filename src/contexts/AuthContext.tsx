@@ -4,10 +4,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import { initializeUser, setCurrentUser, clearUser, fetchContracts } from '../store/slices/userSlice';
 import type { AppDispatch, RootState } from '../store';
 import { eventStreamService } from '../services/eventStream';
+import { isExistAgent } from '../services/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  bootError: string | null;
   login: (publicKey: string, serverUrl: string) => Promise<void>;
   logout: () => void;
 }
@@ -28,6 +30,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [bootError, setBootError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const initializationRef = useRef(false);
   
@@ -42,26 +45,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [dispatch]);
 
   useEffect(() => {
+    // StrictMode runs effects twice in dev - bail out of the repeat run
+    // entirely (including the "nothing to do" case below) so it can't
+    // touch isLoading while the first run's validateStoredCredentials is
+    // still in flight. Without this, the second run would flip isLoading
+    // to false early and flash the login page before the real check
+    // resolves and marks the session authenticated.
+    if (initializationRef.current) return;
+    initializationRef.current = true;
+
     // Check for stored user data on app load
     const storedUser = localStorage.getItem('user');
-    if (storedUser && !initializationRef.current) {
-      try {
-        const userData = JSON.parse(storedUser);
-        dispatch(setCurrentUser(userData));
-        // Validate stored credentials and load contracts
-        validateStoredCredentials(userData.publicKey, userData.serverUrl);
-        initializationRef.current = true;
-      } catch (error) {
-        localStorage.removeItem('user');
-        setIsLoading(false);
-      }
-    } else {
+    if (!storedUser) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const userData = JSON.parse(storedUser);
+      // Validate stored credentials and load contracts. Deliberately not
+      // dispatching setCurrentUser here — that only happens once the
+      // agent is confirmed to still exist on the server, so a stale
+      // local session can't flash the authenticated app before we know.
+      void validateStoredCredentials(userData.publicKey, userData.serverUrl);
+    } catch (error) {
+      localStorage.removeItem('user');
       setIsLoading(false);
     }
   }, [dispatch]);
 
   const validateStoredCredentials = async (publicKey: string, serverUrl: string) => {
     try {
+      // The server's DB may have been reset since these credentials were
+      // stored (e.g. during development) — if the agent no longer exists,
+      // don't silently recreate a blank one and drop the user straight
+      // into the app. Leave the stale credentials in localStorage (the
+      // login page will read and prefill them) and fall through to login.
+      const exists = await isExistAgent({ serverUrl, publicKey });
+      if (!exists) {
+        setIsLoading(false);
+        return;
+      }
+
+      dispatch(setCurrentUser({ publicKey, serverUrl }));
+
       // Connect to the SSE stream BEFORE initialization so we can catch deploy_contract events
       eventStreamService.connect(serverUrl, publicKey);
 
@@ -73,7 +99,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       setIsLoading(false);
     } catch (err) {
-      throw err;
+      console.error('Failed to restore session:', err);
+      setBootError("We couldn't connect to the server to check your account. Please check your internet connection, then reload the page to try again.");
+      setIsLoading(false);
     }
   };
 
@@ -117,6 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     isAuthenticated,
     isLoading,
+    bootError,
     login,
     logout,
   };

@@ -309,7 +309,7 @@ const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
 
   useEventStream('contract_write', useCallback((event) => {
     if (event.contract === instanceId) void load();
-  }, [instanceId, load]));
+  }, [instanceId, load]), flowServer, flowAgent);
 
   const handleSetup = useCallback(async (fields: Omit<RangeConfig, 'organizerId'>) => {
     try   { await api.setupRange(flowServer, flowAgent, instanceId, fields, currentUser); }

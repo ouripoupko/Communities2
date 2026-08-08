@@ -411,7 +411,7 @@ const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curre
 
   useEventStream('contract_write', useCallback((event) => {
     if (event.contract === instanceId) void reload();
-  }, [instanceId, reload]));
+  }, [instanceId, reload]), flowServer, flowAgent);
 
   if (error) {
     return <FlowError message={error} onRetry={reload} />;

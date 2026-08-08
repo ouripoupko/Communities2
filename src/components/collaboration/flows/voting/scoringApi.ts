@@ -48,6 +48,43 @@ function normalizeScores(s: Record<string, unknown>): ParticipantScores {
 }
 
 // ---------------------------------------------------------------------------
+// Topic — the question participants are proposing options for and scoring
+// ---------------------------------------------------------------------------
+
+export interface TopicConfig {
+  topic: string;
+  description: string;
+}
+
+export async function loadTopic(server: string, agent: string, contractId: string): Promise<TopicConfig | null> {
+  const result = await contractRead({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'get_config', values: {} } as IMethod,
+  });
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const r = result as Record<string, unknown>;
+    if (r['topic']) {
+      return {
+        topic: String(r['topic'] ?? ''),
+        description: String(r['description'] ?? ''),
+      };
+    }
+  }
+  return null;
+}
+
+export async function setupTopic(server: string, agent: string, contractId: string, fields: TopicConfig): Promise<void> {
+  await contractWrite({
+    serverUrl: server,
+    publicKey: agent,
+    contractId,
+    method: { name: 'set_config', values: { config: fields } } as IMethod,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 

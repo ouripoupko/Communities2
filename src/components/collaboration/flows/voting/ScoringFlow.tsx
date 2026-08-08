@@ -1,11 +1,21 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { BarChart2, List, Plus } from 'lucide-react';
+import { BarChart2, List, Plus, Star } from 'lucide-react';
 
 import type { FlowProps } from '../types';
 import { useEventStream } from '../../../../hooks/useEventStream';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './scoringApi';
+import type { TopicConfig } from './scoringApi';
+import { TopicSetupDialog, TopicHeader } from './Topic';
 import styles from './ScoringFlow.module.scss';
+
+/** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
+export const ScoringSetupDialog: React.FC<{
+  onDone: (config: Record<string, unknown>) => void;
+  onCancel: () => void;
+}> = ({ onDone, onCancel }) => (
+  <TopicSetupDialog heading="Set Up Scoring Vote" icon={Star} onDone={onDone} onCancel={onCancel} />
+);
 
 // ---------------------------------------------------------------------------
 // Scoring tab — add options and assign personal scores
@@ -177,19 +187,22 @@ const ScoringFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
   const [options, setOptions] = useState<api.ScoringOption[]>([]);
   const [myScores, setMyScores] = useState<Record<string, number>>({});
   const [allScores, setAllScores] = useState<api.ParticipantScores[]>([]);
+  const [topic, setTopic] = useState<TopicConfig | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [loadedOptions, loadedMyScores, loadedAllScores] = await Promise.all([
+      const [loadedOptions, loadedMyScores, loadedAllScores, loadedTopic] = await Promise.all([
         api.loadOptions(flowServer, flowAgent, instanceId),
         api.loadMyScores(flowServer, flowAgent, instanceId, currentUser),
         api.loadAllScores(flowServer, flowAgent, instanceId),
+        api.loadTopic(flowServer, flowAgent, instanceId),
       ]);
       setOptions(loadedOptions);
       setMyScores(loadedMyScores);
       setAllScores(loadedAllScores);
+      setTopic(loadedTopic);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load scoring data.');
     } finally {
@@ -203,7 +216,7 @@ const ScoringFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
 
   useEventStream('contract_write', useCallback((event) => {
     if (event.contract === instanceId) void load();
-  }, [instanceId, load]));
+  }, [instanceId, load]), flowServer, flowAgent);
 
   const handleAddOption = useCallback(async (text: string) => {
     try {
@@ -228,6 +241,8 @@ const ScoringFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
 
   return (
     <div className={styles.container}>
+      {topic && <TopicHeader icon={Star} topic={topic.topic} description={topic.description} />}
+
       <div className={styles.tabBar}>
         <button
           className={`${styles.tab} ${activeTab === 'scoring' ? styles.activeTab : ''}`}

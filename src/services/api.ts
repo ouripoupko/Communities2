@@ -25,13 +25,15 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout: numb
 }
 
 // IS_EXIST_AGENT
+// The server responds with a bare JSON boolean (e.g. `false`), not an
+// object — don't destructure it.
 export async function isExistAgent({
   serverUrl,
   publicKey,
 }: {
   serverUrl: string;
   publicKey: string;
-}) {
+}): Promise<boolean> {
   return await fetchWithTimeout(
     `${serverUrl}/ibc/app/${publicKey}?action=is_exist_agent`,
     { method: 'GET' }

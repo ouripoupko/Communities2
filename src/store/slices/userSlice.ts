@@ -62,7 +62,7 @@ export const initializeUser = createAsyncThunk(
     try {
       // 1. Check if agent exists
       const agentExists = await isExistAgent({serverUrl, publicKey });
-      
+
       if (!agentExists) {
         // Register agent if it doesn't exist
         await registerAgent({serverUrl, publicKey });

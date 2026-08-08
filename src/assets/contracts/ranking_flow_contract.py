@@ -1,13 +1,22 @@
 class RankingFlow:
 
     def __init__(self):
+        self.db = Storage('ranking_flow')
+        self.config = self.db['config']
         self.proposals = Storage('proposals')
         self.rankings = Storage('rankings')
 
+    # Topic (what participants are proposing options for and ranking)
+    def set_config(self, config):
+        self.config['data'] = config
+
+    def get_config(self):
+        return self.config['data'] or {}
+
     # Proposals
-    def add_proposal(self, proposal):
+    def add_proposal(self, proposal, author):
         proposal = dict(proposal)
-        proposal['author'] = master()
+        proposal['author'] = author
         self.proposals.append(proposal)
 
     def get_proposals(self):

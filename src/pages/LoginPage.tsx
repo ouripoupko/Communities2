@@ -23,6 +23,22 @@ const LoginPage: React.FC = () => {
     }
   }, []);
 
+  // If we land here with credentials still in localStorage, it's because
+  // AuthContext found them pointing at an agent that no longer exists on
+  // the server (a normal logout already clears this key) — prefill the
+  // form so the user can just click Connect to recreate the agent.
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) return;
+    try {
+      const userData = JSON.parse(storedUser);
+      if (typeof userData.publicKey === 'string') setPublicKey(userData.publicKey);
+      if (typeof userData.serverUrl === 'string') setServerUrl(userData.serverUrl);
+    } catch {
+      // Ignore malformed stored data — fields just stay empty.
+    }
+  }, []);
+
   useEffect(() => {
     // Default server URL
     const defaultServer = 'https://gdi.gloki.contact';
