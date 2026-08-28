@@ -12,7 +12,7 @@ Communities is a platform that lets any community govern itself — from member 
 
 ## Vision
 
-Imagine a world where people very different from one another don't just get along - they thrive together. Instead of power politics, where public discourse is mobilized to persuade others of the rightness of one's path, and in truth to control one another, the community focuses on cooperation around the basic needs of life.
+Imagine a world where people who are profoundly different from one another don't just get along - they thrive together. Instead of power politics, where public discourse is mobilized to persuade others of the rightness of one's path, and in truth to control one another, the community focuses on cooperation around the basic needs of life.
 
 Imagine a society where individual initiative flourishes in complete freedom, where people devote their energy to fulfilling one another's needs, and rely on one another to fulfill their own.
 
