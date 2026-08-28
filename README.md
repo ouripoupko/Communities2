@@ -10,6 +10,20 @@ Communities is a platform that lets any community govern itself — from member 
 
 ---
 
+## Vision
+
+Imagine a world where people very different from one another don't just get along - they thrive together. Instead of power politics, where public discourse is mobilized to persuade others of the rightness of one's path, and in truth to control one another, the community focuses on cooperation around the basic needs of life.
+
+Imagine a society where individual initiative flourishes in complete freedom, where people devote their energy to fulfilling one another's needs, and rely on one another to fulfill their own.
+
+Imagine law that does not seek to rule, but to define the boundaries of morality - so as to enable this cooperation, without anyone treading on another.
+
+Imagine a thriving community as a living social organism, with a community currency that flows like blood through the human body and gives life to the social body.
+
+Communities is not just another tool for shared social organizing - it is a tool that supports a new developmental path for humanity.
+
+---
+
 ## How It Works
 
 ### Personal Digital Agents
