@@ -124,7 +124,7 @@ interface SortableItemProps {
 }
 
 const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, rankedCount, moveItem, onDragStart }) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
 
   const [{ isDragging }, drag, dragPreview] = useDrag<DragItem, void, { isDragging: boolean }>({
     type: ITEM_TYPE,
@@ -161,11 +161,15 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, ra
     },
   });
 
-  drag(drop(ref));
+  // Connect via a callback ref so the DnD connectors run on attach, not during render.
+  const setRef = useCallback((node: HTMLDivElement | null) => {
+    ref.current = node;
+    drag(drop(node));
+  }, [drag, drop]);
 
   if (isBar) {
     return (
-      <div ref={ref} style={{ opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}>
+      <div ref={setRef} style={{ opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}>
         <AcceptanceBar />
       </div>
     );
@@ -173,7 +177,7 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, label, index, isBar, ra
 
   return (
     <div
-      ref={ref}
+      ref={setRef}
       className={`${styles.proposalCard} ${isDragging ? styles.dragging : ''} ${isOver ? styles.over : ''}`}
       style={{ opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}
     >
@@ -196,8 +200,11 @@ interface RankingTabProps {
   order: string[];
   rankedCounts: Map<string, number>;
   onOrderChange: (order: string[]) => void;
-  onAddProposal: (text: string) => void;
-  listRef: React.RefObject<HTMLDivElement | null>;
+  draft: string;
+  onDraftChange: (text: string) => void;
+  onAddProposal: () => void;
+  isAdding: boolean;
+  listRef: React.RefCallback<HTMLDivElement>;
   isEditing: boolean;
   onDragStart: () => void;
   pendingUpdateCount: number;
@@ -210,7 +217,10 @@ const RankingTab: React.FC<RankingTabProps> = ({
   order,
   rankedCounts,
   onOrderChange,
+  draft,
+  onDraftChange,
   onAddProposal,
+  isAdding,
   listRef,
   isEditing,
   onDragStart,
@@ -218,7 +228,6 @@ const RankingTab: React.FC<RankingTabProps> = ({
   onSubmit,
   onRevert,
 }) => {
-  const [inputText, setInputText] = useState('');
   const proposalMap = useMemo(
     () => new Map(proposals.map((p) => [p.id, p.text])),
     [proposals],
@@ -234,13 +243,6 @@ const RankingTab: React.FC<RankingTabProps> = ({
     [order, onOrderChange],
   );
 
-  const handleAdd = () => {
-    const text = inputText.trim();
-    if (!text) return;
-    onAddProposal(text);
-    setInputText('');
-  };
-
   return (
     <div className={styles.rankingTab}>
       <div className={styles.addForm}>
@@ -248,13 +250,13 @@ const RankingTab: React.FC<RankingTabProps> = ({
           className={styles.addInput}
           type="text"
           placeholder="Add a new proposal…"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          value={draft}
+          onChange={(e) => onDraftChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleAdd();
+            if (e.key === 'Enter') onAddProposal();
           }}
         />
-        <button className={styles.addBtn} onClick={handleAdd}>
+        <button className={styles.addBtn} disabled={isAdding} onClick={onAddProposal}>
           <Plus size={16} />
           Add
         </button>
@@ -401,10 +403,25 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
   // mid-drag remounts the sortable items and breaks the drag in progress.
   const [isEditing,           setIsEditing]           = useState(false);
   const [pendingUpdateCount,  setPendingUpdateCount]  = useState(0);
-  const listRef = useRef<HTMLDivElement>(null);
+  // The new-proposal draft lives here rather than in RankingTab so it
+  // survives tab switches.
+  const [draft,     setDraft]     = useState('');
+  const [isAdding,  setIsAdding]  = useState(false);
+  // The touch drag preview is sized to the list; track its width in state
+  // since reading offsetWidth during render would be stale.
+  const [listWidth, setListWidth] = useState<number | undefined>(undefined);
+  const listRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const observer = new ResizeObserver(() => setListWidth(node.offsetWidth));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // Only the initial load (and an explicit retry) shows the spinner.
+  // Background refreshes triggered by SSE update state in place — swapping
+  // in FlowLoading would unmount the tabs and reset scroll position.
+  const load = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     setError(null);
     try {
       const [loadedProposals, loadedAllRankings, loadedTopic] = await Promise.all([
@@ -424,7 +441,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
     }
   }, [flowServer, flowAgent, instanceId, currentUser]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(true); }, [load]);
 
   useEventStream('contract_write', useCallback((event) => {
     if (event.contract !== instanceId) return;
@@ -464,9 +481,20 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
     void load();
   }, [load]);
 
-  const handleAddProposal = useCallback(async (text: string) => {
-    await api.addProposal(flowServer, flowAgent, instanceId, text, currentUser);
-  }, [flowServer, flowAgent, instanceId, currentUser]);
+  const handleAddProposal = useCallback(async () => {
+    const text = draft.trim();
+    if (!text || isAdding) return;
+    setIsAdding(true);
+    try {
+      await api.addProposal(flowServer, flowAgent, instanceId, text, currentUser);
+      // Clear only on success, and only if the user hasn't kept typing meanwhile.
+      setDraft((d) => (d.trim() === text ? '' : d));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add proposal.');
+    } finally {
+      setIsAdding(false);
+    }
+  }, [flowServer, flowAgent, instanceId, currentUser, draft, isAdding]);
 
   const proposerCount = useMemo(
     () => new Set(proposals.map((p) => p.author).filter((a): a is string => !!a)).size,
@@ -484,7 +512,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
   }, [allRankings]);
 
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={() => void load()} />;
+  if (error)   return <FlowError message={error} onRetry={() => void load(true)} />;
 
   return (
     <div className={styles.container}>
@@ -515,7 +543,10 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
           order={order}
           rankedCounts={rankedCounts}
           onOrderChange={handleOrderChange}
-          onAddProposal={(text) => { void handleAddProposal(text); }}
+          draft={draft}
+          onDraftChange={setDraft}
+          onAddProposal={() => { void handleAddProposal(); }}
+          isAdding={isAdding}
           listRef={listRef}
           isEditing={isEditing}
           onDragStart={handleDragStart}
@@ -529,7 +560,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
         <AggregatedTab proposals={proposals} allRankings={allRankings} rankedCounts={rankedCounts} />
       )}
 
-      <CustomPreview listWidth={listRef.current?.offsetWidth} />
+      <CustomPreview listWidth={listWidth} />
     </div>
   );
 };
