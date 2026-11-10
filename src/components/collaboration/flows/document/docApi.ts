@@ -229,11 +229,10 @@ export async function proposeEdit(
   };
 
   let updatedProposals = [...proposals, newProposal];
-  let updatedElements  = elements;
 
   // Check if majority is immediately met
   if (newProposal.supporters.length >= MAJORITY) {
-    updatedElements  = elements.map(e => e.id === targetId ? { ...e, text: newProposal.proposedText! } : e);
+    const updatedElements = elements.map(e => e.id === targetId ? { ...e, text: newProposal.proposedText! } : e);
     updatedProposals = proposals; // don't add the proposal — it was applied instantly
     await Promise.all([
       contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_elements',  values: { elements: updatedElements }   } as IMethod }),
@@ -265,11 +264,10 @@ export async function proposeDelete(
   };
 
   let updatedProposals = [...proposals, newProposal];
-  let updatedElements  = elements;
 
   if (newProposal.supporters.length >= MAJORITY) {
     const toRemove      = new Set([targetId, ...getDescendants(elements, targetId).map(e => e.id)]);
-    updatedElements     = elements.filter(e => !toRemove.has(e.id));
+    const updatedElements = elements.filter(e => !toRemove.has(e.id));
     updatedProposals    = proposals.filter(p => !toRemove.has(p.targetId));
     await Promise.all([
       contractWrite({ serverUrl: server, publicKey: agent, contractId, method: { name: 'set_elements',  values: { elements: updatedElements }   } as IMethod }),

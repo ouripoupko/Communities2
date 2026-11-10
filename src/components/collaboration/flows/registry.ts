@@ -95,7 +95,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     component: FundingFlow,
     group: 'Governance & Finance',
     setupComponent: FundingSetupDialog,
-    onInit: async (server, agent, contractId, config, _currentUser) => {
+    onInit: async (server, agent, contractId, config) => {
       const { name, description, goal } = config as unknown as FundConfig;
       const community = config._community as { server: string; agent: string; id: string } | null;
       await configureFund(server, agent, contractId, name, description ?? '', goal ?? null);

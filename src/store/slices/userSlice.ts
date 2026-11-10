@@ -11,9 +11,6 @@ import { getProfile } from '../../services/contracts/gloki';
 // Profile contract unique name
 export const PROFILE_CONTRACT_NAME = "unique-gloki-communities-profile-contract";
 
-// Community contract unique name
-export const COMMUNITY_CONTRACT_NAME = "unique-gloki-communities-community-contract";
-
 // Complete user state
 interface UserState {
   // Authentication

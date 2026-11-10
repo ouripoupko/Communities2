@@ -138,16 +138,6 @@ export async function setPurpose(
   });
 }
 
-export async function addItem(
-  server: string, agent: string, contractId: string,
-  roleId: string, section: RoleSection, item: RoleItem,
-): Promise<void> {
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'add_role_item', values: { role_id: roleId, section, item } } as IMethod,
-  });
-}
-
 export async function setSection(
   server: string, agent: string, contractId: string,
   roleId: string, section: RoleSection, items: RoleItem[],

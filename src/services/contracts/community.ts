@@ -434,29 +434,6 @@ export async function requestJoin(
 }
 
 /**
- * Directly invoke the open-join procedure (accepts the caller as a member
- * immediately, no nomination/approval). Exposed for parity with the contract's
- * `join_open` method; `requestJoin` above already dispatches to this same
- * behavior automatically when a community is configured for open joining.
- */
-export async function joinOpen(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  logCommunityCall('joinOpen', 'join_open', {});
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'join_open',
-      values: {},
-    } as IMethod,
-  });
-}
-
-/**
  * Approve an agent for community membership
  */
 export async function approveAgent(
@@ -517,25 +494,6 @@ export async function transfer(
   });
 }
 
-export async function getBalance(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string
-) {
-  logCommunityCall('getBalance', 'get_balance', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_balance',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getBalance', 'get_balance', result);
-  return result;
-}
-
 export interface IAccountDetails {
   [account: string]: {
     type: string;
@@ -581,21 +539,6 @@ export async function createFundAccount(
 /**
  * Public accounts (community-owned accounts with authorized signers + threshold)
  */
-
-export async function createPublicAccount(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  name: string,
-): Promise<string | false> {
-  logCommunityCall('createPublicAccount', 'create_public_account', { name });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'create_public_account', values: { name } } as IMethod,
-  });
-}
 
 export async function addSigner(
   serverUrl: string,
