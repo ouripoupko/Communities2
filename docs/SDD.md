@@ -109,8 +109,7 @@ Communities2/
 │   │       ├── initiative_contract.py
 │   │       ├── wish_contract.py
 │   │       ├── agreement_contract.py
-│   │       ├── issue_contract.py
-│   │       └── *_flow_contract.py       # One per flow type (11 total)
+│   │       └── *_flow_contract.py       # One per flow type (10 total)
 │   │
 │   ├── components/
 │   │   ├── PageHeader.tsx               # Shared page header
@@ -124,10 +123,7 @@ Communities2/
 │   │   │           ├── *Api.ts          # Contract read/write wrappers
 │   │   │           └── *.module.scss    # Scoped styles
 │   │   ├── community/                   # Community sub-components + dialogs
-│   │   ├── identity/                    # Profile + communities + join
-│   │   ├── initiative/                  # Initiative roadmap, steps, gaps
-│   │   ├── issue/                       # Issue discussion, proposals, voting
-│   │   └── wish/                        # Wish seeds, offers, related wishes
+│   │   └── identity/                    # Profile + communities + join
 │   │
 │   ├── contexts/
 │   │   └── AuthContext.tsx              # Auth state + login/logout logic
@@ -139,7 +135,7 @@ Communities2/
 │   │   ├── LoginPage.tsx
 │   │   ├── IdentityView.tsx
 │   │   ├── CommunityView.tsx
-│   │   ├── IssueView.tsx
+│   │   ├── PolicyDetailPage.tsx
 │   │   └── collaboration/
 │   │       ├── CollaborationPage.tsx    # Tab container for all collaboration types
 │   │       ├── InitiativeView.tsx
@@ -151,15 +147,10 @@ Communities2/
 │   │   ├── eventStream.ts               # SSE singleton service
 │   │   ├── interfaces.ts                # Shared TypeScript interfaces
 │   │   ├── encodeDecode.ts              # QR code encoding helpers
-│   │   ├── openai.ts                    # OpenAI integration
 │   │   └── contracts/                   # Domain-specific contract wrappers
 │   │       ├── flows.ts                 # Flow deployment + FlowRef management
 │   │       ├── gloki.ts
-│   │       ├── community.ts
-│   │       ├── initiative.ts
-│   │       ├── wish.ts
-│   │       ├── agreement.ts
-│   │       └── issue.ts
+│   │       └── community.ts
 │   │
 │   ├── store/
 │   │   ├── index.ts                     # configureStore
@@ -167,14 +158,11 @@ Communities2/
 │   │   └── slices/
 │   │       ├── userSlice.ts
 │   │       ├── communitiesSlice.ts
-│   │       ├── issuesSlice.ts
-│   │       ├── initiativeSlice.ts
-│   │       ├── wishSlice.ts
-│   │       ├── agreementSlice.ts
-│   │       └── currencySlice.ts
+│   │       └── policiesSlice.ts
 │   │
 │   ├── styles/
 │   │   ├── variables.scss               # Design tokens (colors, spacing, etc.)
+│   │   ├── globals.scss
 │   │   └── index.scss                   # Global base styles
 │   │
 │   └── types/
@@ -233,13 +221,9 @@ Each page component is a full-screen view composed of:
 // store/index.ts
 export const store = configureStore({
   reducer: {
-    user:          userReducer,
     communities:   communitiesReducer,
-    issues:        issuesReducer,
-    initiative:    initiativeReducer,
-    wish:          wishReducer,
-    agreement:     agreementReducer,
-    currency:      currencyReducer,
+    user:          userReducer,
+    policies:      policiesReducer,
   },
 });
 ```
@@ -281,9 +265,11 @@ interface CommunitiesState {
 }
 ```
 
-#### Domain Slices (`initiative`, `wish`, `agreement`, `issues`, `currency`)
+#### `policiesSlice`
 
-Follow the same normalization pattern: all entities keyed by contract ID, with per-entity loading and error flags.
+Holds each community's monetary policies, keyed by community contract ID, with a per-community loading flag and a single `error`. Loaded by the `fetchPolicies` thunk.
+
+Collaborations (initiatives, wishes, agreements) have no slice of their own. Their list lives in `communitiesSlice`, and their contents are flows, which stay out of Redux (see 5.4).
 
 ### 5.3 Thunk Pattern
 
@@ -448,7 +434,6 @@ class ExampleFlow:
 | Domain | `InitiativeContract` | `initiative_contract.py` | flows, properties |
 | Domain | `WishContract` | `wish_contract.py` | flows, related, offers, seeds |
 | Domain | `AgreementContract` | `agreement_contract.py` | flows, properties |
-| Domain | `IssueContract` | `issue_contract.py` | description, comments, proposals |
 | Flow | `RankingFlow` | `ranking_flow_contract.py` | proposals, rankings |
 | Flow | `ScoringFlow` | `scoring_flow_contract.py` | options, scores |
 | Flow | `ConcernsFlow` | `concerns_flow_contract.py` | concerns |
@@ -734,16 +719,16 @@ In smart contract Python code, `master()` returns the public key of the agent ma
 ```
 /                                                        → redirect to /identity
 /identity/*                                             → IdentityView
+/community/:communityId/policy/:policyId                → PolicyDetailPage
 /community/:communityId/*                               → CommunityView
-/initiative/:hostServer/:hostAgent/:communityId/:id/*   → InitiativeView
-/wish/:communityId/:wishId/*                            → WishView
-/agreement/:communityId/:agreementId                    → AgreementView
-/issue/:hostServer/:hostAgent/:communityId/:issueId/*   → IssueView
+/initiative/:hostServer/:hostAgent/:initiativeId/*      → InitiativeView
+/wish/:wishId/*                                         → WishView
+/agreement/:agreementId                                 → AgreementView
 ```
 
 ### 11.2 URL Parameter Design
 
-Initiative and Issue URLs encode the **host server** and **host agent** in the path. This is required because the decentralized architecture means a contract can live on any user's server. By embedding the coordinates in the URL, the application can deep-link to any resource across the network without a central resolver.
+Initiative URLs encode the **host server** and **host agent** in the path. This is required because the decentralized architecture means a contract can live on any user's server. By embedding the coordinates in the URL, the application can deep-link to any resource across the network without a central resolver.
 
 URLs are base64 or URI-encoded where the server URL contains special characters.
 
@@ -752,7 +737,7 @@ URLs are base64 or URI-encoded where the server URL contains special characters.
 When navigating to a collaboration page (wish, initiative, agreement), the originating component passes the full collaboration object in React Router's `state`:
 
 ```typescript
-navigate(`/wish/${communityId}/${item.id}/related`, { state: { wish: item } });
+navigate(`/wish/${item.id}/related`, { state: { wish: item, communityId } });
 ```
 
 The destination page reads `location.state` to pre-populate data before its async fetches complete, eliminating perceived loading latency.

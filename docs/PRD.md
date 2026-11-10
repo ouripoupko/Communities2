@@ -62,7 +62,6 @@ A community is the top-level container. It holds:
 - A list of member public keys
 - A community currency/token system
 - A set of collaborations (wishes, initiatives, agreements)
-- A list of issues
 
 Communities are referenced by a contract ID. To join a community, a user scans a QR code or uses a shared link.
 
@@ -87,10 +86,6 @@ Flows are organized into four categories:
 - **Governance & Finance** — tools for managing resources and authority
 - **Communication** — tools for structured conversation and documentation
 
-### 3.4 Issues
-
-Issues are a standalone mechanism for raising problems or feature requests within a community. They include a description, discussion thread, proposals, and votes. Issues are separate from the collaboration system.
-
 ---
 
 ## 4. Feature Requirements
@@ -112,7 +107,7 @@ Issues are a standalone mechanism for raising problems or feature requests withi
 **FR-CM-03** Members are listed with their profile information.  
 **FR-CM-04** Communities can be shared via a QR code.  
 **FR-CM-05** A community-level currency/token system tracks balances per member.  
-**FR-CM-06** The community page provides tabs for Collaborations, Members, Currency, Issues, and Share.
+**FR-CM-06** The community page provides tabs for Collaborations, Members, Policies, Wallet, and Share.
 
 ### 4.3 Collaborations
 
@@ -125,7 +120,7 @@ Issues are a standalone mechanism for raising problems or feature requests withi
 **FR-CO-07** Flows that require configuration (e.g., Scheduling, Fundraising) show a setup dialog before the tab is created. If the dialog is cancelled, no tab is created.  
 **FR-CO-08** Flow tabs can be closed (removed from the collaboration).  
 **FR-CO-09** Each flow is deployed as an independent smart contract on the creating user's server.  
-**FR-CO-10** The URL for an initiative encodes the host server, host agent, community ID, and initiative ID to support decentralized access.
+**FR-CO-10** The URL for an initiative encodes the host server, host agent, and initiative ID to support decentralized access.
 
 ### 4.4 Collaboration Flows
 
@@ -220,13 +215,6 @@ Issues are a standalone mechanism for raising problems or feature requests withi
 **FR-RT-02** When another participant writes to a shared contract, all connected clients receive an event and refresh the relevant data automatically.  
 **FR-RT-03** The connection is established before the user's contracts are loaded, to avoid missing events during initialization.
 
-### 4.6 Issues
-
-**FR-IS-01** Community members can raise issues with a title and description.  
-**FR-IS-02** Issues have a discussion thread.  
-**FR-IS-03** Members can submit proposals as responses to an issue.  
-**FR-IS-04** Proposals can be voted on.
-
 ---
 
 ## 5. Smart Contract System
@@ -266,7 +254,6 @@ Field-level updates (e.g., `self.items[id]['status'] = value`) are the mechanism
 | `initiative_contract.py` | Initiative metadata and attached flow references |
 | `wish_contract.py` | Wish metadata and attached flow references |
 | `agreement_contract.py` | Agreement metadata and attached flow references |
-| `issue_contract.py` | Issue description, comments, proposals |
 | `ranking_flow_contract.py` | Ranked-choice voting proposals and rankings |
 | `scoring_flow_contract.py` | Score-based voting options and scores |
 | `concerns_flow_contract.py` | Concerns and per-concern vote maps |
@@ -287,12 +274,12 @@ Field-level updates (e.g., `self.items[id]['status'] = value`) are the mechanism
 |------------|------|
 | `/identity/*` | User profile, communities, join |
 | `/community/:communityId/*` | Community hub |
-| `/initiative/:hostServer/:hostAgent/:communityId/:initiativeId/*` | Initiative page |
-| `/wish/:communityId/:wishId/*` | Wish page |
-| `/agreement/:communityId/:agreementId` | Agreement page |
-| `/issue/:hostServer/:hostAgent/:communityId/:issueId/*` | Issue page |
+| `/community/:communityId/policy/:policyId` | Policy details |
+| `/initiative/:hostServer/:hostAgent/:initiativeId/*` | Initiative page |
+| `/wish/:wishId/*` | Wish page |
+| `/agreement/:agreementId` | Agreement page |
 
-Initiative and issue URLs encode the host server and agent in the path to support cross-server navigation in the decentralized network.
+Initiative URLs encode the host server and agent in the path to support cross-server navigation in the decentralized network.
 
 ---
 
