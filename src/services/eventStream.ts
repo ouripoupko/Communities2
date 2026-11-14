@@ -1,17 +1,26 @@
+import type { IbcApp } from './ibc';
+
 export interface BlockchainEvent {
-  action: 'contract_write' | 'deploy_contract' | 'a2a_connect' | string;
-  contract?: string;
-  [key: string]: unknown;
+  action: 'contract_write' | 'deploy_contract' | 'join_contract' | string;
+  contract?: string | null;
+  request?: string;
+  reply?: unknown;
+  // join_contract only: the user's node's check of the contract's source
+  // against its code ('verified', 'unchecked' or 'mismatch'), and why.
+  source_check?: string;
+  reason?: string;
 }
 
 export type EventListener = (event: BlockchainEvent) => void;
 
-export type EventType = 'contract_write' | 'deploy_contract' | 'a2a_connect';
+export type EventType = 'contract_write' | 'deploy_contract' | 'join_contract';
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 interface StreamConnection {
   eventSource: EventSource | null;
+  // The main connection's events come from the user's ibc app instead.
+  stopApp?: () => void;
   isConnected: boolean;
   reconnectAttempts: number;
   listeners: Map<EventType, Set<EventListener>>;
@@ -58,11 +67,25 @@ class EventStreamService {
   }
 
   // ---------------------------------------------------------------------
-  // Main connection — the current user's own agent.
+  // Main connection — the current user's own agent, through the ibc app's
+  // signed stream, which reopens by itself when it breaks.
   // ---------------------------------------------------------------------
-  connect(serverUrl: string, agent: string) {
+  connect(app: IbcApp) {
     this.closeEventSource(this.main);
-    this.openEventSource(this.main, serverUrl, agent, () => this.notifyConnectionListeners());
+    const conn = this.main;
+    const stopStatus = app.onStatus((status, error) => {
+      if (error) console.error(`Event stream ${status}:`, error);
+      const isConnected = status === 'open';
+      if (conn.isConnected !== isConnected) {
+        conn.isConnected = isConnected;
+        this.notifyConnectionListeners();
+      }
+    });
+    const stopEvents = app.onEvent((event) => this.dispatch(conn, event));
+    conn.stopApp = () => {
+      stopEvents();
+      stopStatus();
+    };
   }
 
   disconnect() {
@@ -161,19 +184,7 @@ class EventStreamService {
         return;
       }
       try {
-        const data = JSON.parse(event.data) as BlockchainEvent;
-        console.log('SSE Event received:', data);
-
-        if (data.action) {
-          const listeners = conn.listeners.get(data.action as EventType);
-          listeners?.forEach(listener => {
-            try {
-              listener(data);
-            } catch (error) {
-              console.error('Error in event listener:', error);
-            }
-          });
-        }
+        this.dispatch(conn, JSON.parse(event.data) as BlockchainEvent);
       } catch (error) {
         console.error('Failed to parse SSE event data:', error, 'Raw data:', event.data);
       }
@@ -195,7 +206,21 @@ class EventStreamService {
     };
   }
 
+  private dispatch(conn: StreamConnection, data: BlockchainEvent) {
+    console.log('SSE Event received:', data);
+    if (!data.action) return;
+    conn.listeners.get(data.action as EventType)?.forEach(listener => {
+      try {
+        listener(data);
+      } catch (error) {
+        console.error('Error in event listener:', error);
+      }
+    });
+  }
+
   private closeEventSource(conn: StreamConnection) {
+    conn.stopApp?.();
+    conn.stopApp = undefined;
     if (conn.eventSource) {
       conn.eventSource.close();
       conn.eventSource = null;

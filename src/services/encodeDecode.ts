@@ -111,7 +111,7 @@ export function hexToUint8Array(hexString: string): Uint8Array {
 export function encodeCommunityInvitation(server: string, agent: string, contract: string): string {
   const s = stringToUint8Array(server || "");
   const a = stringToUint8Array(agent || "");
-  const c = hexToUint8Array(contract || "");
+  const c = hexToUint8Array((contract || "").replace(/^0x/, ""));
   const lengths = new Uint8Array([s.length, a.length, c.length]);
   const all = concatUint8Arrays([lengths, s, a, c]);
   return uint8ArrayToString(all, "latin1");
@@ -129,7 +129,7 @@ export function decodeCommunityInvitation(qrData: string): { server: string; age
     const indexes = Array.from(lengths).reduce((acc, curr) => [...acc, acc[acc.length - 1] + curr], [3]);
     const server = uint8ArrayToString(data.slice(indexes[0], indexes[1]), "ascii");
     const agent = uint8ArrayToString(data.slice(indexes[1], indexes[2]), "ascii");
-    const contract = uint8ArrayToHex(data.slice(indexes[2], indexes[3]));
+    const contract = `0x${uint8ArrayToHex(data.slice(indexes[2], indexes[3]))}`;
     return { server, agent, contract };
   } catch (error) {
     console.error('Error decoding QR code:', error);

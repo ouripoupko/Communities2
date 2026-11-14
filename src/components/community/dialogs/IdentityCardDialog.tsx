@@ -9,24 +9,25 @@ import { generateIdentityCardPDF } from './IdentityCardPDFGenerator';
 interface IdentityCardDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  communityId: string;
   communityName: string;
 }
 
 const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
   isOpen,
   onClose,
+  communityId,
   communityName
 }) => {
-  const { contracts, publicKey } = useAppSelector(state => state.user);
+  const { publicKey, serverUrl } = useAppSelector(state => state.user);
   const { profiles } = useAppSelector(state => state.communities);
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  // Get community contract info
-  const communityContract = contracts.find((c) => c.name === communityName);
-  const server = communityContract?.address || '';
+  // The member's own agent and node, and the community
+  const server = serverUrl || '';
   const agent = publicKey || '';
-  const contract = communityContract?.id || '';
+  const contract = communityId;
 
   // Get user profile
   const userProfile = profiles[publicKey || ''] || {};

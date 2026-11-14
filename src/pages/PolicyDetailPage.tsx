@@ -72,7 +72,7 @@ const PolicyDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (!communityId || !serverUrl || !publicKey) return;
-    dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
+    dispatch(fetchCommunityMembers({ contractId: communityId }));
   }, [communityId, serverUrl, publicKey, dispatch]);
 
   useEffect(() => {

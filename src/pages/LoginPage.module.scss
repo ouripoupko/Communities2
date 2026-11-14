@@ -54,33 +54,6 @@
           font-size: $text-sm;
         }
 
-        .inputWithButton {
-          display: flex;
-          gap: $spacing-sm;
-
-          .inputField {
-            flex: 1;
-          }
-
-          .generateButton {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: $spacing-md;
-            background-color: var(--color-surface-muted);
-            color: var(--color-text-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: $radius-md;
-            cursor: pointer;
-            transition: all $transition-base;
-
-            &:hover {
-              background-color: var(--color-surface-muted-strong);
-              color: var(--color-text-primary);
-            }
-          }
-        }
-
         .inputWithDropdown {
           position: relative;
 

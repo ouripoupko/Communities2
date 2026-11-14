@@ -1,12 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAppSelector } from '../../store/hooks';
 import type { IProfile } from '../../services/interfaces';
 import ApprovalDialog from './dialogs/ApprovalDialog';
 import MessageDialog from './dialogs/MessageDialog';
 import styles from './Members.module.scss';
-import { requestJoin } from '../../services/contracts/community';
-import { eventStreamService } from '../../services/eventStream';
-import type { BlockchainEvent } from '../../services/eventStream';
+import { joinCommunity } from '../../services/contracts/community';
 
 interface MemberItemProps {
   publicKey: string;
@@ -68,11 +66,10 @@ interface MembersProps {
 }
 
 const Members: React.FC<MembersProps> = ({ communityId }) => {
-  const { communityMembers, communityTasks, communityNominates, communityProperties, profiles } =
+  const { communityMembers, communityTasks, communityNominates, profiles } =
     useAppSelector((state) => state.communities);
-  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
+  const { publicKey, serverUrl, profileContractId } = useAppSelector((state) => state.user);
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
-  const isOpenJoin = !!communityProperties[communityId]?.open_join;
   const tasks: Record<string, boolean> = communityTasks[communityId] || {};
   const taskAgents: string[] = Object.keys(tasks);
   const nominates: string[] = Array.isArray(communityNominates[communityId]) ? communityNominates[communityId] : [];
@@ -148,67 +145,20 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
     nominates.includes(publicKey)
   );
 
-  const joinRequestResponseRef = useRef<any>(null);
-  const contractWriteListenerRef = useRef<((event: BlockchainEvent) => void) | null>(null);
-
-  const cleanupJoinListener = useCallback(() => {
-    if (contractWriteListenerRef.current) {
-      eventStreamService.removeEventListener('contract_write', contractWriteListenerRef.current);
-      contractWriteListenerRef.current = null;
-    }
-    joinRequestResponseRef.current = null;
-    setIsJoining(false);
-  }, []);
-
-  // Cleanup on unmount (user navigated away)
-  useEffect(() => {
-    return () => {
-      cleanupJoinListener();
-    };
-  }, [cleanupJoinListener]);
-
+  // Becoming a member may open the node's approval page, so it starts from this click.
   const handleJoinCommunity = async () => {
-    if (!serverUrl || !publicKey || !communityId) return;
-    
+    if (!serverUrl || !communityId) return;
     setIsJoining(true);
-    
-    // Register event listener before making the request
-    const handleContractWrite = (event: BlockchainEvent) => {
-      // Check if this event is for our community and matches our request
-      if (event.contract === communityId && joinRequestResponseRef.current) {
-        // Check if the 'request' field matches our response
-        if (event.request === joinRequestResponseRef.current) {
-          // Check the 'reply' field
-          if (event.reply === false) {
-            setMessageDialog({
-              isOpen: true,
-              message: 'There are currently too many nominates in the community. Please try again later.'
-            });
-          }
-          
-          // Clean up listener and state once we found the matching event
-          cleanupJoinListener();
-        }
-      }
-    };
-    
-    // Store the listener reference for cleanup
-    contractWriteListenerRef.current = handleContractWrite;
-    
-    // Register the event listener BEFORE making the request
-    eventStreamService.addEventListener('contract_write', handleContractWrite);
-    
     try {
-      const response = await requestJoin(serverUrl, publicKey, communityId);
-      // Store the response to match against the event
-      // The listener will handle cleanup when the event arrives
-      joinRequestResponseRef.current = response;
-      // Don't set isJoining to false here - wait for the event
+      // CommunityView reloads the members on the write's event
+      await joinCommunity(communityId, serverUrl, profileContractId);
     } catch (error) {
-      console.error('Failed to join community:', error);
-      alert('Failed to join community. Please try again.');
-      // Clean up listener on error - the request failed so no event will come
-      cleanupJoinListener();
+      setMessageDialog({
+        isOpen: true,
+        message: `Failed to join the community: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -217,10 +167,7 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
       <div className={styles.container}>
         <div className={styles.header}>
           <h2>Members</h2>
-          <p>
-            {allMembers.length} community members ·{' '}
-            {isOpenJoin ? 'Open membership — anyone can join immediately' : 'Web of trust — new members need approval'}
-          </p>
+          <p>{allMembers.length} community members</p>
         </div>
         
         {!currentUserInList && publicKey && (
@@ -230,7 +177,7 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
               disabled={isJoining}
               className={styles.joinButton}
             >
-              {isJoining ? 'Joining...' : 'Join Community'}
+              {isJoining ? 'Approve on your node…' : 'Become a Member'}
             </button>
           </div>
         )}

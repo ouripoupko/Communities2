@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppSelector } from '../../../store/hooks';
 import styles from './CreateCommunityDialog.module.scss';
-import { createCommunity, createPolicy } from '../../../services/contracts/community';
+import { createCommunity } from '../../../services/contracts/community';
 
 interface CreateCommunityDialogProps {
   isVisible: boolean;
@@ -12,80 +12,34 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
   const user = useAppSelector((state) => state.user);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [newCommunityDescription, setNewCommunityDescription] = useState('');
-  const [initialBalance, setInitialBalance] = useState('1000');
-  const [joinPolicy, setJoinPolicy] = useState<'trust' | 'open'>('trust');
-  const [includeStarterPolicies, setIncludeStarterPolicies] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const resetForm = () => {
     setNewCommunityName('');
     setNewCommunityDescription('');
-    setInitialBalance('1000');
-    setJoinPolicy('trust');
-    setIncludeStarterPolicies(true);
     setError(null);
   };
 
-  const handleCreateCommunity = () => {
-    if (!newCommunityName.trim() || !user.publicKey || !user.serverUrl) {
+  // Deploying opens the node's approval page, so it must start from this
+  // click. The new community shows up in the list on its own once the node
+  // confirms the deploy (Communities.tsx's deploy_contract listener).
+  const handleCreateCommunity = async () => {
+    if (!newCommunityName.trim() || !user.serverUrl) {
       setError('Please fill in all required fields');
       return;
     }
-    const initialBalanceValue = parseFloat(initialBalance);
-    if (isNaN(initialBalanceValue) || initialBalanceValue < 0) {
-      setError('Please enter a valid starting balance');
-      return;
+    try {
+      setIsCreating(true);
+      setError(null);
+      await createCommunity(user.serverUrl, user.profileContractId, newCommunityName.trim(), newCommunityDescription);
+      resetForm();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create the community.');
+    } finally {
+      setIsCreating(false);
     }
-
-    const { serverUrl, publicKey, profileContractId } = user;
-    const name = newCommunityName.trim();
-    const description = newCommunityDescription;
-    const openJoin = joinPolicy === 'open';
-    const withStarterPolicies = includeStarterPolicies;
-
-    // Close right away - creation continues in the background. The new
-    // community shows up in the list on its own once the server confirms
-    // the deploy (Communities.tsx's existing deploy_contract SSE listener);
-    // we don't fetch anything ourselves and we don't block the dialog on it.
-    onClose();
-    resetForm();
-
-    void (async () => {
-      try {
-        const contractId = await createCommunity(
-          serverUrl,
-          publicKey,
-          name,
-          description,
-          profileContractId,
-          initialBalanceValue,
-          openJoin,
-        );
-
-        if (contractId && withStarterPolicies) {
-          await createPolicy(serverUrl, publicKey, contractId, {
-            id: crypto.randomUUID(),
-            name: 'Personal Minting',
-            description: "Mints currency directly into every member's personal account.",
-            source: { kind: 'void' },
-            destination: { kind: 'everyPersonal' },
-            mode: 'units',
-            rateType: 'community-governed',
-          });
-          await createPolicy(serverUrl, publicKey, contractId, {
-            id: crypto.randomUUID(),
-            name: 'Demurrage',
-            description: 'Gradually burns a share of every account balance.',
-            source: { kind: 'everyAccount' },
-            destination: { kind: 'void' },
-            mode: 'percent',
-            rateType: 'community-governed',
-          });
-        }
-      } catch (err) {
-        console.error('Failed to create community:', err);
-      }
-    })();
   };
 
   const handleClose = () => {
@@ -136,44 +90,6 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
             />
           </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="initialBalance" className={styles.label}>Starting balance for new members</label>
-            <input
-              id="initialBalance"
-              type="number"
-              value={initialBalance}
-              onChange={(e) => setInitialBalance(e.target.value)}
-              placeholder="1000"
-              className={styles.inputField}
-              min="0"
-              step="any"
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="joinPolicy" className={styles.label}>How can new members join?</label>
-            <select
-              id="joinPolicy"
-              value={joinPolicy}
-              onChange={(e) => setJoinPolicy(e.target.value as 'trust' | 'open')}
-              className={styles.inputField}
-            >
-              <option value="trust">Web of trust — existing members approve new joiners</option>
-              <option value="open">Open — anyone can join immediately, no approval needed</option>
-            </select>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>
-              <input
-                type="checkbox"
-                checked={includeStarterPolicies}
-                onChange={(e) => setIncludeStarterPolicies(e.target.checked)}
-              />
-              {' '}Include starter policies: Personal Minting + Demurrage
-            </label>
-          </div>
-
           {error && (
             <div className={styles.errorMessage}>
               {error}
@@ -185,13 +101,14 @@ const CreateCommunityDialog: React.FC<CreateCommunityDialogProps> = ({ isVisible
           <button
             onClick={handleCreateCommunity}
             className={styles.createButton}
-            disabled={!newCommunityName.trim()}
+            disabled={!newCommunityName.trim() || isCreating}
           >
-            Create Community
+            {isCreating ? 'Approve on your node…' : 'Create Community'}
           </button>
           <button
             onClick={handleClose}
             className={styles.cancelButton}
+            disabled={isCreating}
           >
             Cancel
           </button>

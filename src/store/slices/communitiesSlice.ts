@@ -1,14 +1,17 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import {
-  getPartners,
-  getAllPeople,
   getProperties,
+  getMembers,
   getCollaborations,
   type Collaboration,
+  type CommunityMember,
+  type CommunityProperties,
 } from '../../services/contracts/community';
-import type { IProfile, IPartner } from '../../services/interfaces';
-import { getProfile } from '../../services/contracts/gloki';
+import type { IProfile } from '../../services/interfaces';
+import { getPublicProfile } from '../../services/contracts/profile';
+import { needsAccess } from '../../services/ibc';
+import type { RootState } from '../index';
 
 // Define Community interface
 interface Community {
@@ -22,8 +25,10 @@ interface Community {
 interface CommunitiesState {
   currentCommunity: Community | null;
   error: string | null;
-  communityProperties: Record<string, any>;
-  communityMembers: Record<string, string[]>; // contractId -> array of member public keys
+  communityProperties: Record<string, CommunityProperties>;
+  accessNeeded: Record<string, boolean>; // contractId -> the app may not read it yet
+  communityMembers: Record<string, string[]>; // contractId -> array of member agent ids
+  communityMemberDetails: Record<string, CommunityMember[]>; // contractId -> members with their node and profile
   communityTasks: Record<string, Record<string, boolean>>; // contractId -> agentId -> approval status
   communityNominates: Record<string, string[]>; // contractId -> array of candidate public keys
   communityCollaborations: Record<string, Collaboration[]>; // contractId -> collaborations list
@@ -37,7 +42,9 @@ const initialState: CommunitiesState = {
   currentCommunity: null,
   error: null,
   communityProperties: {},
+  accessNeeded: {},
   communityMembers: {},
+  communityMemberDetails: {},
   communityTasks: {},
   communityNominates: {},
   communityCollaborations: {},
@@ -50,28 +57,9 @@ const initialState: CommunitiesState = {
 // Async thunks for community data (will be used in community pages)
 export const fetchCommunityProperties = createAsyncThunk(
   'communities/fetchCommunityProperties',
-  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await getProperties(
-      args.serverUrl,
-      args.publicKey,
-      args.contractId,
-    );
-    return { contractId: args.contractId, properties: result };
-  }
-);
-
-export const fetchMemberProfile = createAsyncThunk(
-  'communities/fetchMemberProfile',
-  async (args: { memberServerUrl: string; memberPublicKey: string; memberContractId: string; memberAgent: string }) => {
-    const { memberServerUrl, memberPublicKey, memberContractId, memberAgent } = args;
-    
-    const profile = await getProfile(
-      memberServerUrl,
-      memberPublicKey,
-      memberContractId,
-    );
-    
-    return { memberAgent, profile: profile as IProfile };
+  async (args: { contractId: string }) => {
+    const properties = await getProperties(args.contractId);
+    return { contractId: args.contractId, properties };
   }
 );
 
@@ -88,69 +76,47 @@ export const fetchCollaborations = createAsyncThunk(
   },
 );
 
-export const fetchCommunityMembers = createAsyncThunk(
-  'communities/fetchCommunityMembers',
-  async (args: { serverUrl: string; publicKey: string; contractId: string }, { getState, dispatch }) => {
-    const { serverUrl, publicKey, contractId } = args;
-    const state = getState() as { communities: CommunitiesState };
-    const existingProfiles = state.communities.profiles;
-    
-    try {
-      // Step 1 & 2: Call get_partners and get_all_people in parallel
-      const [partnersResult, allPeopleResult] = await Promise.all([
-        getPartners(serverUrl, publicKey, contractId ),
-        getAllPeople(serverUrl, publicKey, contractId )
-      ]);
-
-      const partners = partnersResult as IPartner[];
-      const allPeople = allPeopleResult as { tasks: Record<string, boolean>; members: Record<string, unknown>; nominates: string[] };
-      const members = Object.keys(allPeople.members) as string[];
-      const taskAgents = Object.keys(allPeople.tasks) as string[];
-      const nominates = Array.isArray(allPeople.nominates) ? allPeople.nominates : [];
-      
-      // Step 3: For each member and task agent, fetch their profile in parallel
-      // Create a map of agent to partner info for quick lookup
-      const partnerMap = new Map<string, IPartner>();
-      partners.forEach(partner => {
-        partnerMap.set(partner.agent, partner);
-      });
-
-      // Combine members and task agents for profile fetching (nominates don't need profiles - they're just used to check if user has requested to join)
-      const allAgents = [...members, ...taskAgents];
-
-      // Return members data immediately, don't wait for profiles
-      const result = { 
-        contractId, 
-        members: members, // Just the array of member public keys
-        tasks: allPeople.tasks, // Tasks dictionary
-        nominates: nominates, // Array of candidate public keys
-        newProfiles: {} // No profiles yet, they'll be loaded individually
-      };
-
-      // Fetch all profiles in parallel (fire-and-forget)
-      for (const memberAgent of allAgents) {
-        if (existingProfiles[memberAgent]) continue;
-
-        const partner = partnerMap.get(memberAgent);
-        if (!partner) {
-          console.warn(`No partner found for member ${memberAgent}`);
-          continue;
-        }
-
-        if (partner.address && partner.agent && partner.profile) {
-          dispatch(fetchMemberProfile({
-            memberServerUrl: partner.address,
-            memberPublicKey: partner.agent,
-            memberContractId: partner.profile,
-            memberAgent: memberAgent,
-          }));
+// Reads members' profiles on their own nodes, where each member made theirs
+// public. A few at a time: nodes limit public reads per client.
+export const fetchMemberProfiles = createAsyncThunk(
+  'communities/fetchMemberProfiles',
+  async (members: CommunityMember[], { dispatch }) => {
+    const queue = members.filter((m) => m.node && m.profile);
+    const worker = async () => {
+      for (let member = queue.shift(); member; member = queue.shift()) {
+        try {
+          const profile = await getPublicProfile(member.node, member.agent, member.profile);
+          dispatch(updateMemberProfile({ memberAgent: member.agent, profile }));
+        } catch (error) {
+          console.warn(`Failed to read the profile of member ${member.agent}:`, error);
         }
       }
+    };
+    await Promise.all(Array.from({ length: 4 }, worker));
+  }
+);
 
-      return result;
-    } catch (error) {
-      throw error;
+export const fetchCommunityMembers = createAsyncThunk(
+  'communities/fetchCommunityMembers',
+  async (args: { contractId: string }, { getState, dispatch }) => {
+    const members = await getMembers(args.contractId);
+
+    // The user's own profile is known; the others' are read in the background.
+    const { user } = getState() as RootState;
+    const newProfiles: Record<string, IProfile> = {};
+    if (user.publicKey && user.profile && members.some((m) => m.agent === user.publicKey)) {
+      newProfiles[user.publicKey] = user.profile;
     }
+    void dispatch(fetchMemberProfiles(members.filter((m) => m.agent !== user.publicKey)));
+
+    return {
+      contractId: args.contractId,
+      members: members.map((m) => m.agent),
+      details: members,
+      tasks: {} as Record<string, boolean>,
+      nominates: [] as string[],
+      newProfiles,
+    };
   }
 );
 
@@ -168,6 +134,7 @@ const communitiesSlice = createSlice({
       const contractId = action.payload;
       delete state.communityProperties[contractId];
       delete state.communityMembers[contractId];
+      delete state.communityMemberDetails[contractId];
       delete state.communityTasks[contractId];
       delete state.communityNominates[contractId];
       delete state.communityCollaborations[contractId];
@@ -185,8 +152,13 @@ const communitiesSlice = createSlice({
     builder
       .addCase(fetchCommunityProperties.fulfilled, (state, action) => {
         state.communityProperties[action.payload.contractId] = action.payload.properties;
+        state.accessNeeded[action.payload.contractId] = false;
       })
       .addCase(fetchCommunityProperties.rejected, (state, action) => {
+        if (needsAccess(action.error)) {
+          state.accessNeeded[action.meta.arg.contractId] = true;
+          return;
+        }
         state.error = action.error.message || 'Failed to fetch community properties';
       });
 
@@ -202,8 +174,9 @@ const communitiesSlice = createSlice({
         state.loading = false;
         // Clear loading flag for this specific community
         state.membersLoading[action.payload.contractId] = false;
-        // Store the array of member public keys for this community
+        // Store the array of member agent ids for this community, and the members' details
         state.communityMembers[action.payload.contractId] = action.payload.members;
+        state.communityMemberDetails[action.payload.contractId] = action.payload.details;
         // Store the tasks dictionary for this community
         state.communityTasks[action.payload.contractId] = action.payload.tasks;
         // Store the array of candidate public keys for this community
@@ -213,7 +186,9 @@ const communitiesSlice = createSlice({
       })
       .addCase(fetchCommunityMembers.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch community members';
+        if (!needsAccess(action.error)) {
+          state.error = action.error.message || 'Failed to fetch community members';
+        }
         // Clear loading flag for this specific community on error
         if (action.meta.arg) {
           state.membersLoading[action.meta.arg.contractId] = false;
@@ -234,16 +209,6 @@ const communitiesSlice = createSlice({
         if (action.meta.arg) {
           state.collaborationsLoading[action.meta.arg.contractId] = false;
         }
-      });
-
-    // Fetch individual member profile
-    builder
-      .addCase(fetchMemberProfile.fulfilled, (state, action) => {
-        const { memberAgent, profile } = action.payload;
-        state.profiles[memberAgent] = profile;
-      })
-      .addCase(fetchMemberProfile.rejected, (_, action) => {
-        console.warn(`Failed to fetch profile for member ${action.meta.arg?.memberAgent}:`, action.error);
       });
   },
 });

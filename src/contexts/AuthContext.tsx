@@ -1,16 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { initializeUser, setCurrentUser, clearUser, fetchContracts } from '../store/slices/userSlice';
+import { setCurrentUser, clearUser, fetchContracts } from '../store/slices/userSlice';
 import type { AppDispatch, RootState } from '../store';
 import { eventStreamService } from '../services/eventStream';
-import { isExistAgent } from '../services/api';
+import { openApp, forgetApp, isSessionGone } from '../services/ibc';
+import type { IbcApp } from '../services/ibc';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   bootError: string | null;
-  login: (publicKey: string, serverUrl: string) => Promise<void>;
+  login: (serverUrl: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -33,7 +34,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [bootError, setBootError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const initializationRef = useRef(false);
-  
+
   // Get user data from Redux
   const user = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!(user.publicKey && user.serverUrl);
@@ -44,102 +45,95 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch(fetchContracts());
   }, [dispatch]);
 
+  // Events sent while the stream was down are lost, so read again when it
+  // reopens (not when it first opens: the session reads right after).
+  const streamWasOpen = useRef(false);
+  const handleConnectionChange = useCallback((isConnected: boolean) => {
+    if (isConnected && streamWasOpen.current) dispatch(fetchContracts());
+    if (isConnected) streamWasOpen.current = true;
+  }, [dispatch]);
+
+  // Starts the session for an app the user has connected.
+  const startSession = useCallback(async (app: IbcApp, agent: string, serverUrl: string) => {
+    dispatch(setCurrentUser({ publicKey: agent, serverUrl }));
+
+    // Connect to the event stream BEFORE loading contracts so we can catch deploy_contract events
+    streamWasOpen.current = false;
+    eventStreamService.addConnectionListener(handleConnectionChange);
+    eventStreamService.connect(app);
+    eventStreamService.addEventListener('deploy_contract', handleContractDeploy);
+
+    await dispatch(fetchContracts()).unwrap();
+  }, [dispatch, handleContractDeploy, handleConnectionChange]);
+
+  // Ends the session in this app and this browser: clears the user's data,
+  // stops the event stream, and forgets the app's key, so the next login
+  // asks the user again.
+  const endSession = useCallback(() => {
+    dispatch(clearUser());
+    eventStreamService.removeEventListener('deploy_contract', handleContractDeploy);
+    eventStreamService.removeConnectionListener(handleConnectionChange);
+    eventStreamService.disconnect();
+    void forgetApp();
+  }, [dispatch, handleContractDeploy, handleConnectionChange]);
+
+  // The app remembers, in this browser, the agent the user connected it to.
+  // If it has none, or the node no longer knows the app (the user
+  // disconnected it, or the node lost its data), fall through to the login
+  // page, which keeps the stored node URL.
+  const restoreSession = async (serverUrl: string) => {
+    try {
+      const app = await openApp(serverUrl);
+      if (app.agent) {
+        await startSession(app, app.agent, serverUrl);
+      }
+    } catch (err) {
+      if (isSessionGone(err)) {
+        console.warn('The node no longer knows this session; logging in again:', err);
+        endSession();
+        return;
+      }
+      console.error('Failed to restore session:', err);
+      setBootError("We couldn't connect to your node. Please check that it is running and reachable, then reload the page to try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     // StrictMode runs effects twice in dev - bail out of the repeat run
     // entirely (including the "nothing to do" case below) so it can't
-    // touch isLoading while the first run's validateStoredCredentials is
-    // still in flight. Without this, the second run would flip isLoading
-    // to false early and flash the login page before the real check
-    // resolves and marks the session authenticated.
+    // touch isLoading while the first run's restore is still in flight.
     if (initializationRef.current) return;
     initializationRef.current = true;
 
-    // Check for stored user data on app load
+    // Check for a stored session on app load
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       setIsLoading(false);
       return;
     }
     try {
-      const userData = JSON.parse(storedUser);
-      // Validate stored credentials and load contracts. Deliberately not
-      // dispatching setCurrentUser here — that only happens once the
-      // agent is confirmed to still exist on the server, so a stale
-      // local session can't flash the authenticated app before we know.
-      void validateStoredCredentials(userData.publicKey, userData.serverUrl);
-    } catch (error) {
+      const { serverUrl } = JSON.parse(storedUser);
+      void restoreSession(serverUrl);
+    } catch {
       localStorage.removeItem('user');
       setIsLoading(false);
     }
   }, [dispatch]);
 
-  const validateStoredCredentials = async (publicKey: string, serverUrl: string) => {
-    try {
-      // The server's DB may have been reset since these credentials were
-      // stored (e.g. during development) — if the agent no longer exists,
-      // don't silently recreate a blank one and drop the user straight
-      // into the app. Leave the stale credentials in localStorage (the
-      // login page will read and prefill them) and fall through to login.
-      const exists = await isExistAgent({ serverUrl, publicKey });
-      if (!exists) {
-        setIsLoading(false);
-        return;
-      }
-
-      dispatch(setCurrentUser({ publicKey, serverUrl }));
-
-      // Connect to the SSE stream BEFORE initialization so we can catch deploy_contract events
-      eventStreamService.connect(serverUrl, publicKey);
-
-      // Set up listener for contract deployment events to refresh contracts list
-      eventStreamService.addEventListener('deploy_contract', handleContractDeploy);
-
-      // Use the new initializeUser thunk which handles everything
-      await dispatch(initializeUser()).unwrap();
-
-      setIsLoading(false);
-    } catch (err) {
-      console.error('Failed to restore session:', err);
-      setBootError("We couldn't connect to the server to check your account. Please check your internet connection, then reload the page to try again.");
-      setIsLoading(false);
-    }
-  };
-
-  const login = async (publicKey: string, serverUrl: string) => {
-    try {
-      setIsLoading(true);
-      
-      // Set the current user in Redux state first
-      dispatch(setCurrentUser({ publicKey, serverUrl }));
-      
-      // Connect to the SSE stream BEFORE initialization so we can catch deploy_contract events
-      eventStreamService.connect(serverUrl, publicKey);
-
-      // Set up listener for contract deployment events to refresh contracts list
-      eventStreamService.addEventListener('deploy_contract', handleContractDeploy);
-
-      // Use the new initializeUser thunk which handles everything
-      await dispatch(initializeUser()).unwrap();
-
-      // Store in localStorage
-      localStorage.setItem('user', JSON.stringify({ publicKey, serverUrl }));
-    } catch (err) {
-      // Error handling: just throw error for now
-      throw new Error(String(err));
-    } finally {
-      setIsLoading(false);
-    }
+  // Opens the node's approval page, where the user signs in with their
+  // passkey (or creates an identity). Call it from a click.
+  const login = async (serverUrl: string) => {
+    const app = await openApp(serverUrl);
+    const agent = await app.connect();
+    localStorage.setItem('user', JSON.stringify({ serverUrl }));
+    await startSession(app, agent, serverUrl);
   };
 
   const logout = () => {
     localStorage.removeItem('user');
-    
-    // Clear user data from Redux
-    dispatch(clearUser());
-
-    // Remove the deploy_contract listener and disconnect from the SSE stream
-    eventStreamService.removeEventListener('deploy_contract', handleContractDeploy);
-    eventStreamService.disconnect();
+    endSession();
   };
 
   const value: AuthContextType = {
@@ -151,4 +145,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}; 
+};

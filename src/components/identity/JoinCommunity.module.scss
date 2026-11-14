@@ -125,6 +125,19 @@
   }
 }
 
+.roleOption {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  font-size: $text-sm;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  input {
+    margin-top: 3px;
+  }
+}
+
 .manualInputSection {
   background: var(--color-surface);
   border-radius: $radius-lg;

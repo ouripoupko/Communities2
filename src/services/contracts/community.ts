@@ -1,6 +1,10 @@
 import { contractRead, contractWrite, deployContract } from '../api';
 import type { IMethod } from '../interfaces';
-import communityContractCode from '../../assets/contracts/community_contract.py?raw';
+import { needsApproval } from '@ouripoupko/ibc';
+import { getApp, readSilently, writeSilently } from '../ibc';
+import { eventStreamService } from '../eventStream';
+import type { BlockchainEvent } from '../eventStream';
+import communitySource from '../../assets/contracts/Community.sol?raw';
 import initiativeContractCode from '../../assets/contracts/initiative_contract.py?raw';
 import wishContractCode from '../../assets/contracts/wish_contract.py?raw';
 import agreementContractCode from '../../assets/contracts/agreement_contract.py?raw';
@@ -11,7 +15,7 @@ import agreementContractCode from '../../assets/contracts/agreement_contract.py?
  */
 
 /** Logs every call this file makes to the community contract: the wrapper
- * function in community.ts, the Python method it invokes, and the
+ * function in community.ts, the contract method it invokes, and the
  * parameters sent. */
 function logCommunityCall(tsFunction: string, contractMethod: string, params: unknown): void {
   console.log(`[community.ts] ${tsFunction} -> community_contract.${contractMethod}`, params);
@@ -22,177 +26,130 @@ function logCommunityResult(tsFunction: string, contractMethod: string, result: 
   console.log(`[community.ts] ${tsFunction} <- community_contract.${contractMethod}`, result);
 }
 
+/** The label community contracts are deployed with, by which they are found again. */
+export const COMMUNITY_CONTRACT_NAME = 'communities-community';
+
+export interface CommunityProperties {
+  name: string;
+  description: string;
+  createdAt: number; // unix seconds
+  creator: string;
+}
+
+/** A member, and where others find them: their node, and their profile contract there. */
+export interface CommunityMember {
+  agent: string;
+  node: string;
+  profile: string;
+}
+
+/**
+ * Deploys a community contract, with the user as its first member. Opens the
+ * node's approval page, so call it from a click.
+ */
 export async function createCommunity(
-  serverUrl: string,
-  publicKey: string,
-  communityName: string,
-  communityDescription: string,
+  node: string,
   profile: string | null,
-  initialBalance: number = 1000,
-  openJoin: boolean = false,
-): Promise<string | undefined> {
-  // Deploy the community contract
-  const contractId = await deployContract({
-    serverUrl,
-    publicKey,
-    name: communityName,
-    contract: 'community_contract.py',
-    code: communityContractCode,
-    profile: profile || undefined,
-  });
+  name: string,
+  description: string,
+): Promise<string> {
+  const values = { name, description, node, profile: profile ?? '' };
+  logCommunityCall('createCommunity', 'constructor', values);
+  return await getApp().deploy({ source: communitySource, name: COMMUNITY_CONTRACT_NAME, constructor: values });
+}
 
-  // Set properties: name, description, createdAt
-  if (contractId) {
-    logCommunityCall('createCommunity', 'set_property', { key: 'name', value: communityName });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'name',
-          value: communityName
-        },
-      } as IMethod
-    });
-
-    logCommunityCall('createCommunity', 'set_property', { key: 'description', value: communityDescription });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'description',
-          value: communityDescription
-        },
-      } as IMethod,
-    });
-
-    const createdAt = new Date().toISOString();
-    logCommunityCall('createCommunity', 'set_property', { key: 'createdAt', value: createdAt });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'createdAt',
-          value: createdAt
-        },
-      } as IMethod,
-    });
-
-    logCommunityCall('createCommunity', 'set_property', { key: 'initial_balance', value: initialBalance });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'initial_balance',
-          value: initialBalance
-        },
-      } as IMethod,
-    });
-
-    logCommunityCall('createCommunity', 'set_property', { key: 'open_join', value: openJoin });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'open_join',
-          value: openJoin
-        },
-      } as IMethod,
-    });
-
-    // Call request_join to join the community as the creator
-    logCommunityCall('createCommunity', 'request_join', {});
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'request_join',
-        values: {},
-      } as IMethod,
-    });
+/**
+ * Whether the user already has a community's contract on their node, even
+ * one the app may not read yet (the node then says it needs approval).
+ */
+export async function hasCommunityContract(contractId: string): Promise<boolean> {
+  const ibc = getApp().ibc;
+  if (!ibc) return false;
+  try {
+    return Boolean((await ibc.contract(contractId))?.id);
+  } catch (error) {
+    if (needsApproval(error)) return true;
+    throw error;
   }
+}
 
-  return contractId;
+/** How a join ended: whether the user's node now holds the contract, and its check of the source. */
+export interface JoinOutcome {
+  joined: boolean;
+  sourceCheck?: string; // 'verified', 'unchecked' or 'mismatch'
+  reason?: string;
+}
+
+// Joining checks the history, and compiles the source (perhaps downloading
+// the compiler first): give it time.
+const JOIN_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
+ * Joins a community's contract through a member's node, as a partner (the
+ * user's node keeps a copy and takes part in consensus) or as a guest (it
+ * uses the member's copy). The user approves on their node, in one approval,
+ * the join (of the community's source, which the members check), and this
+ * app's permissions for that source; so call it from a click. Resolves with
+ * the outcome, which the node reports as a join_contract event.
+ */
+export async function joinCommunityContract(
+  contractId: string,
+  memberNode: string,
+  memberAgent: string,
+  guest: boolean,
+): Promise<JoinOutcome> {
+  // The outcome can arrive before the join's id does: keep the events seen meanwhile.
+  const seen: BlockchainEvent[] = [];
+  let id: string | null = null;
+  let onOutcome: ((event: BlockchainEvent) => void) | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const listener = (event: BlockchainEvent) => {
+    if (id !== null && event.request === id) onOutcome?.(event);
+    else seen.push(event);
+  };
+  eventStreamService.addEventListener('join_contract', listener);
+  try {
+    id = await getApp().join(contractId, memberNode, memberAgent, { source: communitySource, guest });
+    const event = seen.find((e) => e.request === id) ?? await new Promise<BlockchainEvent>((resolve, reject) => {
+      onOutcome = resolve;
+      timer = setTimeout(() => reject(new Error(
+        'Your node has not finished joining yet. Check the community on your node\'s page, and open Communities again later.',
+      )), JOIN_TIMEOUT_MS);
+    });
+    return { joined: event.reply === true, sourceCheck: event.source_check, reason: event.reason };
+  } finally {
+    clearTimeout(timer);
+    eventStreamService.removeEventListener('join_contract', listener);
+  }
 }
 
 /**
- * Get partners from the community contract
+ * Becomes a member of a community whose contract the user joined. With
+ * silently, never asks: it fails (needsAccess) unless the user let the app
+ * call join() without asking; otherwise it asks if needed, so call it from a
+ * click.
  */
-export async function getPartners(
-  serverUrl: string,
-  publicKey: string,
+export async function joinCommunity(
   contractId: string,
-) {
-  logCommunityCall('getPartners', 'get_partners', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_partners',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getPartners', 'get_partners', result);
+  node: string,
+  profile: string | null,
+  { silently = false } = {},
+): Promise<void> {
+  const values = { node, profile: profile ?? '' };
+  logCommunityCall('joinCommunity', 'join', values);
+  if (silently) await writeSilently(contractId, 'join', values);
+  else await getApp().write(contractId, 'join', values);
+}
+
+export async function getProperties(contractId: string): Promise<CommunityProperties> {
+  const result = await readSilently(contractId, 'getProperties') as CommunityProperties;
+  logCommunityResult('getProperties', 'getProperties', result);
   return result;
 }
 
-/**
- * Get all people from the community contract (tasks, members, nominates)
- */
-export async function getAllPeople(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  logCommunityCall('getAllPeople', 'get_all_people', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_all_people',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getAllPeople', 'get_all_people', result);
-  return result;
-}
-
-/**
- * Get community properties
- */
-export async function getProperties(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  logCommunityCall('getProperties', 'get_properties', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_properties',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getProperties', 'get_properties', result);
+export async function getMembers(contractId: string): Promise<CommunityMember[]> {
+  const result = await readSilently(contractId, 'getMembers') as CommunityMember[];
+  logCommunityResult('getMembers', 'getMembers', result);
   return result;
 }
 
@@ -410,27 +367,6 @@ export async function getCollaborations(
   });
   logCommunityResult('getCollaborations', 'get_collaborations', result);
   return result;
-}
-
-export async function requestJoin(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  // Call request_join on the community contract. The contract itself decides
-  // whether to run the web-of-trust nomination flow or accept immediately,
-  // based on the community's stored `open_join` preference (see createCommunity).
-  logCommunityCall('requestJoin', 'request_join', {});
-  const response = await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'request_join',
-      values: {},
-    } as IMethod,
-  });
-  return response;
 }
 
 /**

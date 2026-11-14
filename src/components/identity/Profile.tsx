@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { readProfile } from '../../store/slices/userSlice';
+import { readProfile, createProfile, fetchContracts } from '../../store/slices/userSlice';
 import { useEventStream, useEventStreamConnection } from '../../hooks/useEventStream';
 import { User, Camera, Save, Key, Server } from 'lucide-react';
 import styles from './Profile.module.scss';
-import { setValues } from '../../services/contracts/gloki';
+import { setProfile, makeProfilePublic } from '../../services/contracts/profile';
 
 const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
@@ -17,6 +17,9 @@ const Profile: React.FC = () => {
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Use the profile contract ID from the slice
@@ -81,19 +84,12 @@ const Profile: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (user.serverUrl && user.publicKey && profileContractId) {
+    if (profileContractId) {
       try {
         setIsSaving(true);
         setSaveError(null);
         
-        await setValues(
-          user.serverUrl,
-          user.publicKey,
-          profileContractId,
-          firstName,
-          lastName,
-          imageData,
-        );
+        await setProfile(profileContractId, { firstName, lastName, userPhoto: imageData ?? '' });
         
         // Profile data will be refreshed automatically via SSE event
         setIsEditing(false);
@@ -143,6 +139,34 @@ const Profile: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+  // Others read members' profiles only if they are public. Opens the node's
+  // approval page, so it must start from this click.
+  const handleMakePublic = async () => {
+    if (!profileContractId) return;
+    try {
+      setIsPublishing(true);
+      await makeProfilePublic(profileContractId);
+      await dispatch(fetchContracts());
+    } catch (error: unknown) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to make your profile public.');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // Deploying opens the node's approval page, so it must start from this click.
+  const handleCreateProfile = async () => {
+    try {
+      setIsCreating(true);
+      setCreateError(null);
+      await dispatch(createProfile()).unwrap();
+    } catch (error: unknown) {
+      setCreateError(typeof error === 'string' ? error : 'Failed to create your profile. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   if (user.loading) {
     return (
       <div className={styles.container}>
@@ -168,6 +192,31 @@ const Profile: React.FC = () => {
     );
   }
 
+  if (!profileContractId) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h1>Profile</h1>
+          <p>You have no profile on your node yet. Create one to choose how others see you.</p>
+        </div>
+        {createError && (
+          <div className={styles.errorMessage}>
+            <div className={styles.errorIcon}>⚠️</div>
+            <div className={styles.errorContent}>
+              <div className={styles.errorTitle}>Create Error</div>
+              <div className={styles.errorDescription}>{createError}</div>
+            </div>
+          </div>
+        )}
+        <div className="form-actions">
+          <button onClick={handleCreateProfile} className="edit-button" disabled={isCreating}>
+            {isCreating ? 'Approve on your node…' : 'Create my profile'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -176,6 +225,14 @@ const Profile: React.FC = () => {
         {user.profile && (
           <div className={styles.profileName}>
             {user.profile.firstName} {user.profile.lastName}
+          </div>
+        )}
+        {!user.profilePublic && (
+          <div className={styles.publicNotice}>
+            <span>Your profile is private: other members can't see your name and photo.</span>
+            <button onClick={handleMakePublic} className="edit-button" disabled={isPublishing}>
+              {isPublishing ? 'Approve on your node…' : 'Make it public'}
+            </button>
           </div>
         )}
         <div className={styles.eventStreamStatus}>
@@ -301,7 +358,7 @@ const Profile: React.FC = () => {
             <div className={styles.infoItem}>
               <div className={styles.infoLabel}>
                 <Key size={16} />
-                Public Key
+                Agent
               </div>
               <div className={styles.infoValue}>
                 <code>{user?.publicKey}</code>
@@ -318,7 +375,7 @@ const Profile: React.FC = () => {
             <div className={styles.infoItem}>
               <div className={styles.infoLabel}>
                 <Server size={16} />
-                Server URL
+                Node
               </div>
               <div className={styles.infoValue}>
                 <code>{user?.serverUrl}</code>

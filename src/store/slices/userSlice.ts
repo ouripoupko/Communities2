@@ -1,29 +1,25 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { isExistAgent, registerAgent, getContracts, deployContract } from '../../services/api';
-import type { IContract, IProfile } from '../../services/interfaces';
+import type { IProfile } from '../../services/interfaces';
 import type { RootState } from '../index';
-import profileContractCode from '../../assets/contracts/gloki_contract.py?raw';
-import { getProfile } from '../../services/contracts/gloki';
-
-// Interfaces from contractsSlice
-
-// Profile contract unique name
-export const PROFILE_CONTRACT_NAME = "unique-gloki-communities-profile-contract";
+import { getApp } from '../../services/ibc';
+import type { ContractSummary } from '../../services/ibc';
+import { PROFILE_CONTRACT_NAME, deployProfile, getProfile } from '../../services/contracts/profile';
 
 // Complete user state
 interface UserState {
-  // Authentication
+  // Authentication: the user's agent id (an address) and their node's URL
   publicKey: string | null;
   serverUrl: string | null;
-  
+
   // User data
   profile: IProfile | null;
   profileContractId: string | null;
-  
+  profilePublic: boolean; // whether anyone may read the profile (others read it so)
+
   // Contracts
-  contracts: IContract[];
-  
+  contracts: ContractSummary[];
+
   // UI state
   loading: boolean;
   error: string | null;
@@ -33,125 +29,72 @@ const initialState: UserState = {
   // Authentication
   publicKey: null,
   serverUrl: null,
-  
+
   // User data
   profile: null,
   profileContractId: null,
-  
+  profilePublic: false,
+
   // Contracts
   contracts: [],
-  
+
   // UI state
   loading: false,
   error: null,
 };
 
-// Main initialization thunk - handles everything
-export const initializeUser = createAsyncThunk(
-  'user/initializeUser',
-  async (_, { dispatch, getState, rejectWithValue }) => {
-    const { publicKey, serverUrl } = (getState() as RootState).user;
-    
-    if (!publicKey || !serverUrl) {
-      return rejectWithValue('Missing publicKey or serverUrl');
-    }
-    
-    try {
-      // 1. Check if agent exists
-      const agentExists = await isExistAgent({serverUrl, publicKey });
-
-      if (!agentExists) {
-        // Register agent if it doesn't exist
-        await registerAgent({serverUrl, publicKey });
-      }
-      
-      // 2. Get contracts
-      dispatch(fetchContracts());
-      
-      return null;
-    } catch (error) {
-      return rejectWithValue(String(error));
-    }
-  }
-);
-
-// Fetch contracts (for refreshing)
+// Fetch the contracts this app may see (for refreshing), then the profile
 export const fetchContracts = createAsyncThunk(
   'user/fetchContracts',
-  async (_, { dispatch, getState, rejectWithValue }) => {
-    const { publicKey, serverUrl } = (getState() as RootState).user;
-    
-    if (!publicKey || !serverUrl) {
-      return rejectWithValue('Missing publicKey or serverUrl');
-    }
-    
-          try {
-        const contracts = await getContracts({serverUrl, publicKey });
-        
-        // Store contracts in Redux state first
-        await dispatch(setContracts(contracts || []));
-        
-        // Then call readProfile which can access contracts from state
-        dispatch(readProfile());
-        
-        return contracts || [];
+  async (_, { dispatch, rejectWithValue }) => {
+    try {
+      const contracts = (await getApp().ibc?.contracts()) ?? [];
+
+      // Store contracts in Redux state first
+      dispatch(setContracts(contracts));
+
+      // Then call readProfile which can access contracts from state
+      await dispatch(readProfile());
+
+      return contracts;
     } catch (error) {
       return rejectWithValue(String(error));
     }
   }
 );
 
-// Fetch contracts (for refreshing)
+// Read the profile from the user's profile contract, if they have one yet
 export const readProfile = createAsyncThunk(
   'user/readProfile',
   async (_, { rejectWithValue, getState }) => {
-    const { publicKey, serverUrl, contracts } = (getState() as RootState).user;
+    const { contracts } = (getState() as RootState).user;
 
-    if (!publicKey || !serverUrl) {
-      return rejectWithValue('Missing publicKey or serverUrl');
-    }
-    
     try {
-      // 3. Handle profile contract
-      const profileContract = contracts?.find((c: IContract) => {
-        return c.name === PROFILE_CONTRACT_NAME;
-      });
-      let profileData = null;
-      
-      let profileContractId = null;
-      
-      if (profileContract) {
-        // Read profile data from existing contract
-        const profileResult = await getProfile(
-          serverUrl,
-          publicKey,
-          profileContract.id,
-        );
-        profileData = profileResult;
-        profileContractId = profileContract.id;
-      } else {
-        // Deploy profile contract - SSE listener will handle updating contracts list
-        await deployContract({
-          serverUrl,
-          publicKey,
-          name: PROFILE_CONTRACT_NAME,
-          contract: 'gloki_contract.py',
-          code: profileContractCode
-        });
-        
-        // Set default profile data
-        profileData = {
-          firstName: '',
-          lastName: '',
-          userPhoto: '',
-          userBio: ''
-        };
-        // Note: profileContractId will be null here, but will be updated when contracts are refreshed
+      const profileContract = contracts.find(
+        (c) => c.name === PROFILE_CONTRACT_NAME && !c.deploy_error,
+      );
+      if (!profileContract) {
+        return { profile: null, profileContractId: null, profilePublic: false };
       }
-      
-      return { profile: profileData, profileContractId };
+      const profile = await getProfile(profileContract.id);
+      return { profile, profileContractId: profileContract.id, profilePublic: profileContract.public === true };
     } catch (error) {
       return rejectWithValue(String(error));
+    }
+  }
+);
+
+// Deploy the user's profile contract. Opens the node's approval page, so
+// call it from a click.
+export const createProfile = createAsyncThunk(
+  'user/createProfile',
+  async (_, { dispatch, rejectWithValue }) => {
+    try {
+      await deployProfile();
+      await dispatch(fetchContracts());
+      return null;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : String(error));
     }
   }
 );
@@ -172,7 +115,7 @@ const userSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    setContracts: (state, action: PayloadAction<IContract[]>) => {
+    setContracts: (state, action: PayloadAction<ContractSummary[]>) => {
       state.contracts = action.payload;
     },
     clearUser: (state) => {
@@ -180,26 +123,13 @@ const userSlice = createSlice({
       state.serverUrl = null;
       state.profile = null;
       state.profileContractId = null;
+      state.profilePublic = false;
       state.contracts = [];
       state.error = null;
     },
   },
   extraReducers: (builder) => {
-    // Initialize user
     builder
-      .addCase(initializeUser.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(initializeUser.fulfilled, (state) => {
-        state.loading = false;
-        // initializeUser returns null, so no payload to process
-      })
-      .addCase(initializeUser.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      
       // Fetch contracts
       .addCase(fetchContracts.pending, (state) => {
         state.loading = true;
@@ -213,23 +143,18 @@ const userSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-      
+
       // Read profile
-      .addCase(readProfile.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
       .addCase(readProfile.fulfilled, (state, action) => {
-        state.loading = false;
         state.profile = action.payload.profile;
         state.profileContractId = action.payload.profileContractId;
+        state.profilePublic = action.payload.profilePublic;
       })
       .addCase(readProfile.rejected, (state, action) => {
-        state.loading = false;
         state.error = action.payload as string;
-      })
+      });
   },
 });
 
 export const { setCurrentUser, clearError, setContracts, clearUser } = userSlice.actions;
-export default userSlice.reducer; 
+export default userSlice.reducer;

@@ -24,54 +24,6 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout: numb
   }
 }
 
-// IS_EXIST_AGENT
-// The server responds with a bare JSON boolean (e.g. `false`), not an
-// object — don't destructure it.
-export async function isExistAgent({
-  serverUrl,
-  publicKey,
-}: {
-  serverUrl: string;
-  publicKey: string;
-}): Promise<boolean> {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=is_exist_agent`,
-    { method: 'GET' }
-  );
-}
-
-// REGISTER_AGENT
-export async function registerAgent({
-  serverUrl,
-  publicKey,
-}: {
-  serverUrl: string;
-  publicKey: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=register_agent`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: serverUrl }),
-    }
-  );
-}
-
-// GET_CONTRACTS
-export async function getContracts({
-  serverUrl,
-  publicKey,
-}: {
-  serverUrl: string;
-  publicKey: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=get_contracts`,
-    { method: 'GET' }
-  );
-}
-
 // DEPLOY_CONTRACT
 export async function deployContract({
   serverUrl,
@@ -110,32 +62,6 @@ export async function deployContract({
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(contractData),
-    }
-  );
-}
-
-// JOIN_CONTRACT
-export async function joinContract({
-  serverUrl,
-  publicKey,
-  address,
-  agent,
-  contract,
-  profile = '',
-}: {
-  serverUrl: string;
-  publicKey: string;
-  address: string;
-  agent: string;
-  contract: string;
-  profile?: string;
-}) {
-  return await fetchWithTimeout(
-    `${serverUrl}/ibc/app/${publicKey}?action=join_contract`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, agent, contract, profile }),
     }
   );
 }
