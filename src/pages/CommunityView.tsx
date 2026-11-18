@@ -26,7 +26,8 @@ const CommunityView: React.FC = () => {
   // Get contracts and properties from Redux
   const { publicKey, serverUrl } = useAppSelector(state => state.user);
   const { communityProperties = {}, communityMembers = {}, accessNeeded = {} } = useAppSelector(state => state.communities);
-  const [fetching, setFetching] = useState(false);
+  // The community whose properties were last read (successfully or not).
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const [showIdentityCard, setShowIdentityCard] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const dispatch = useAppDispatch();
@@ -46,11 +47,7 @@ const CommunityView: React.FC = () => {
   const handleContractWrite = useCallback((event: BlockchainEvent) => {
     if (event.contract === communityId && publicKey && serverUrl && communityId) {
       dispatch(fetchCommunityMembers({ contractId: communityId }));
-      dispatch(fetchCollaborations({
-        serverUrl: serverUrl,
-        publicKey: publicKey,
-        contractId: communityId,
-      }));
+      dispatch(fetchCollaborations({ contractId: communityId }));
     }
   }, [communityId, publicKey, serverUrl, dispatch]);
 
@@ -59,9 +56,8 @@ const CommunityView: React.FC = () => {
   // caused an infinite fetch loop when the server returned an error.
   const loadCommunity = useCallback(() => {
     if (!communityId || !publicKey || !serverUrl) return;
-    setFetching(true);
     dispatch(fetchCommunityProperties({ contractId: communityId }))
-      .finally(() => setFetching(false));
+      .finally(() => setLoadedId(communityId));
     dispatch(fetchCommunityMembers({ contractId: communityId }));
   }, [communityId, publicKey, serverUrl, dispatch]);
 
@@ -71,6 +67,7 @@ const CommunityView: React.FC = () => {
 
   // Once the user lets the app read the community, it also appears in the list.
   const handleAccessAllowed = useCallback(() => {
+    setLoadedId(null);
     dispatch(fetchContracts());
     loadCommunity();
   }, [dispatch, loadCommunity]);
@@ -104,6 +101,7 @@ const CommunityView: React.FC = () => {
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
+  const fetching = !!(communityId && publicKey && serverUrl) && loadedId !== communityId;
   if (fetching) {
     return (
       <div className={styles.container}>
@@ -157,10 +155,11 @@ const CommunityView: React.FC = () => {
     }
   ] : [];
 
+  const memberCount = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : null;
   const rightLabel = (
     <span className={styles.stat}>
       <Users size={16} />
-      {Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : '-'} members
+      {memberCount === null ? '- members' : `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`}
     </span>
   );
 

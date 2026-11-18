@@ -1,20 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Plus, UserCheck, LogOut, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
+import { useParticipants } from '../useParticipants';
 import * as api from './taskboardApi';
 import type { Task, TaskStatus } from './taskboardApi';
 import { FlowLoading, FlowError } from '../FlowShell';
 import styles from './TaskboardFlow.module.scss';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-const ownerLabel = (id: string | null, currentUser: string) => {
-  if (!id) return null;
-  return id === currentUser ? 'You' : id;
-};
 
 const COLUMN_COLORS: Record<TaskStatus, string> = {
   todo:        styles.colTodo,
@@ -92,8 +85,9 @@ const TaskCard: React.FC<{
   onRevert:  () => Promise<void>;
   onDelete:  () => Promise<void>;
 }> = ({ task, currentUser, onClaim, onRelease, onAdvance, onRevert, onDelete }) => {
-  const owner = ownerLabel(task.ownerId, currentUser);
-  const isOwn = task.ownerId === currentUser;
+  const { isMe, nameOf, byline } = useParticipants(currentUser);
+  const owner = task.ownerId ? nameOf(task.ownerId) : null;
+  const isOwn = isMe(task.ownerId);
 
   return (
     <div className={`${styles.card} ${isOwn ? styles.cardOwn : ''} ${task.status === 'done' ? styles.cardDone : ''}`}>
@@ -121,7 +115,7 @@ const TaskCard: React.FC<{
         ) : (
           <span className={styles.unclaimedChip}>Unassigned</span>
         )}
-        <span className={styles.creatorLabel}>by {task.createdBy === currentUser ? 'you' : task.createdBy}</span>
+        <span className={styles.creatorLabel}>{byline(task.createdBy)}</span>
       </div>
 
       {/* Actions */}
@@ -160,10 +154,8 @@ const Column: React.FC<{
   tasks: Task[];
   currentUser: string;
   onAddTask: (title: string, desc: string) => Promise<void>;
-  server: string;
-  agent: string;
   contractId: string;
-}> = ({ status, tasks, currentUser, onAddTask, server, agent, contractId }) => (
+}> = ({ status, tasks, currentUser, onAddTask, contractId }) => (
   <div className={`${styles.column} ${COLUMN_COLORS[status]}`}>
     <div className={styles.colHeader}>
       <span className={styles.colTitle}>{api.STATUS_LABELS[status]}</span>
@@ -180,11 +172,11 @@ const Column: React.FC<{
           key={t.id}
           task={t}
           currentUser={currentUser}
-          onClaim={async ()   => { await api.claimTask(server, agent, contractId, t.id, currentUser); }}
-          onRelease={async () => { await api.releaseTask(server, agent, contractId, t.id); }}
-          onAdvance={async () => { await api.advanceTask(server, agent, contractId, t); }}
-          onRevert={async ()  => { await api.revertTask(server, agent, contractId, t); }}
-          onDelete={async ()  => { await api.deleteTask(server, agent, contractId, t.id); }}
+          onClaim={async ()   => { await api.claimTask(contractId, t.id); }}
+          onRelease={async () => { await api.releaseTask(contractId, t.id); }}
+          onAdvance={async () => { await api.advanceTask(contractId, t.id); }}
+          onRevert={async ()  => { await api.revertTask(contractId, t.id); }}
+          onDelete={async ()  => { await api.deleteTask(contractId, t.id); }}
         />
       ))}
     </div>
@@ -194,31 +186,13 @@ const Column: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const TaskboardFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [tasks,   setTasks]   = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await api.loadTasks(flowServer, flowAgent, instanceId);
-      setTasks(data.sort((a, b) => a.createdAt - b.createdAt));
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [instanceId, flowServer, flowAgent]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
-  }, [instanceId, load]), flowServer, flowAgent);
+const TaskboardFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
+  const { data, loading, error, retry } = useFlowData(instanceId, api.loadTasks);
 
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
+  if (error)   return <FlowError message={error} onRetry={retry} />;
+
+  const tasks = data ?? [];
 
   const byStatus = (s: TaskStatus) =>
     tasks.filter(t => t.status === s).sort((a, b) => a.createdAt - b.createdAt);
@@ -227,7 +201,7 @@ const TaskboardFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent,
   const myDone = mine.filter(t => t.status === 'done').length;
 
   const handleAddTask = async (title: string, desc: string) => {
-    await api.addTask(flowServer, flowAgent, instanceId, currentUser, title, desc);
+    await api.addTask(instanceId, title, desc);
   };
 
   return (
@@ -259,8 +233,6 @@ const TaskboardFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent,
             tasks={byStatus(status)}
             currentUser={currentUser}
             onAddTask={handleAddTask}
-            server={flowServer}
-            agent={flowAgent}
             contractId={instanceId}
           />
         ))}

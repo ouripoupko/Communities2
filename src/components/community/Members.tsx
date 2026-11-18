@@ -66,13 +66,15 @@ interface MembersProps {
 }
 
 const Members: React.FC<MembersProps> = ({ communityId }) => {
-  const { communityMembers, communityTasks, communityNominates, profiles } =
+  const { communityMembers, communityTasks, communityNominates, communityProperties, profiles } =
     useAppSelector((state) => state.communities);
   const { publicKey, serverUrl, profileContractId } = useAppSelector((state) => state.user);
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
   const tasks: Record<string, boolean> = communityTasks[communityId] || {};
   const taskAgents: string[] = Object.keys(tasks);
   const nominates: string[] = Array.isArray(communityNominates[communityId]) ? communityNominates[communityId] : [];
+  const isOpenJoin = !!communityProperties[communityId]?.openJoin;
+  const isNominee = !!publicKey && nominates.includes(publicKey);
   const [isJoining, setIsJoining] = useState(false);
   const [messageDialog, setMessageDialog] = useState<{
     isOpen: boolean;
@@ -145,7 +147,8 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
     nominates.includes(publicKey)
   );
 
-  // Becoming a member may open the node's approval page, so it starts from this click.
+  // Joining may open the node's approval page, so it starts from this click.
+  // With open join it makes the user a member; otherwise it nominates them.
   const handleJoinCommunity = async () => {
     if (!serverUrl || !communityId) return;
     setIsJoining(true);
@@ -167,8 +170,18 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
       <div className={styles.container}>
         <div className={styles.header}>
           <h2>Members</h2>
-          <p>{allMembers.length} community members</p>
+          <p>
+            {allMembers.length} community {allMembers.length === 1 ? 'member' : 'members'} ·{' '}
+            {isOpenJoin ? 'Open membership — anyone can join immediately' : 'Web of trust — new members need approval'}
+          </p>
         </div>
+
+        {isNominee && (
+          <p className={styles.nomineeNote}>
+            You asked to join. Approve each member below whom you know, and they approve you: once all
+            of you approved each other, you are a member.
+          </p>
+        )}
         
         {!currentUserInList && publicKey && (
           <div className={styles.joinSection}>
@@ -177,7 +190,7 @@ const Members: React.FC<MembersProps> = ({ communityId }) => {
               disabled={isJoining}
               className={styles.joinButton}
             >
-              {isJoining ? 'Approve on your node…' : 'Become a Member'}
+              {isJoining ? 'Approve on your node…' : isOpenJoin ? 'Become a Member' : 'Ask to Join'}
             </button>
           </div>
         )}

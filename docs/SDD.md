@@ -1,9 +1,9 @@
 # Software Description Document
 ## Communities — Decentralized Community Self-Governance
 
-**Version:** 1.0  
-**Date:** April 2026  
-**Stack:** React 19 · TypeScript 5 · Redux Toolkit · Vite · Python Smart Contracts · MongoDB
+**Version:** 2.0
+**Date:** November 2026
+**Stack:** React 19 · TypeScript 6 · Redux Toolkit · Vite 8 · Solidity contracts on the ibc-go node · `@ouripoupko/ibc`
 
 ---
 
@@ -12,965 +12,540 @@
 1. [System Overview](#1-system-overview)
 2. [Architecture](#2-architecture)
 3. [Directory Structure](#3-directory-structure)
-4. [Frontend Application](#4-frontend-application)
-5. [State Management](#5-state-management)
-6. [Services Layer](#6-services-layer)
-7. [Smart Contract System](#7-smart-contract-system)
-8. [Collaboration Flows](#8-collaboration-flows)
-9. [Real-Time Event System](#9-real-time-event-system)
-10. [Authentication and Identity](#10-authentication-and-identity)
-11. [Routing and Navigation](#11-routing-and-navigation)
-12. [Key Data Models](#12-key-data-models)
-13. [UI Patterns and Component Design](#13-ui-patterns-and-component-design)
-14. [Build and Configuration](#14-build-and-configuration)
+4. [The ibc Node and Its Client Library](#4-the-ibc-node-and-its-client-library)
+5. [Services Layer](#5-services-layer)
+6. [Smart Contracts](#6-smart-contracts)
+7. [Collaborations and Flows](#7-collaborations-and-flows)
+8. [Currency](#8-currency)
+9. [Membership and the Web of Trust](#9-membership-and-the-web-of-trust)
+10. [Real-Time Events](#10-real-time-events)
+11. [Authentication and Session](#11-authentication-and-session)
+12. [State Management](#12-state-management)
+13. [Routing and Navigation](#13-routing-and-navigation)
+14. [UI Patterns and Component Design](#14-ui-patterns-and-component-design)
+15. [Build and Configuration](#15-build-and-configuration)
 
 ---
 
 ## 1. System Overview
 
-Communities is a **decentralized community self-governance application** built as a single-page React application. It operates without a central backend server: all persistent data lives in Python smart contracts deployed by users to their own servers on the **Gloki** distributed network.
+Communities is a **decentralized community self-governance application**, a single-page React app with no backend of its own. All persistent data lives in **Solidity contracts** that users deploy on their own **ibc-go nodes**. Each contract has its own EVM state, replicated among its partners' nodes and agreed on by consensus (Cordial Miners).
 
-The application is organized around three areas: managing a personal profile, creating and joining communities, and collaborating within communities via initiatives, wishes, and agreements. Each collaboration can have any number of **flow** modules (voting, scheduling, budgeting, task boards, etc.) attached to it as independent contracts.
+The app is organized around three areas:
 
-The application is a stateless frontend that:
-- Reads and writes to smart contracts via HTTP API calls
-- Subscribes to real-time contract events via Server-Sent Events (SSE)
-- Composes collaborative flows as independent contracts attached to shared collaboration objects
+- **My Identity:** the user's profile, their communities, and joining a community.
+- **A community:** its members, its collaborations, its currency (policies and wallet), and sharing an invitation.
+- **A collaboration** (an initiative, a wish or an agreement): a tree of **flows** (voting, scheduling, task board, discussion, funding, and more), each its own contract.
 
-The system is fully peer-to-peer at the data layer. There is no platform-owned database. Each user is their own data host.
+The app never holds the user's keys. It talks to the user's node through the `@ouripoupko/ibc` library, which gives the app a browser key of its own (an *app key*). Anything the user has not let the app do silently goes through the node's **approval page**, where the user confirms with their passkey.
 
 ---
 
 ## 2. Architecture
 
-### 2.1 Layered Architecture
+### 2.1 Layers
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        React UI Layer                           │
-│  Pages · Components · Flow Components · Dialogs · SCSS Modules  │
-├─────────────────────────────────────────────────────────────────┤
-│                     State Management Layer                      │
-│        Redux Toolkit · Slices · Thunks · Selectors              │
-├─────────────────────────────────────────────────────────────────┤
-│                      Services Layer                             │
-│   api.ts · eventStream.ts · contracts/* · openai.ts             │
-├─────────────────────────────────────────────────────────────────┤
-│                   Gloki Network (External)                      │
-│   User Server A · User Server B · User Server N                 │
-│   Python Smart Contracts · MongoDB Storage · SSE Endpoints      │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│  Pages and components (React, CSS modules)                │
+├───────────────────────────────────────────────────────────┤
+│  Redux slices (user, communities, currency) · hooks       │
+├───────────────────────────────────────────────────────────┤
+│  services/contracts/* (profile, community, flows)         │
+│  flows/*/…Api.ts (one per flow type)                      │
+├───────────────────────────────────────────────────────────┤
+│  services/ibc.ts · services/eventStream.ts                │
+├───────────────────────────────────────────────────────────┤
+│  @ouripoupko/ibc  (IbcApp: app key, approval popup,       │
+│                    reads, writes, deploys, joins, events) │
+└────────────────────────────┬──────────────────────────────┘
+                             │ HTTPS, signed by the app key
+                 ┌───────────▼───────────┐       ┌──────────────┐
+                 │  The user's ibc node  │◄─────►│ Other nodes  │
+                 │  (EVM per contract)   │       │ (partners)   │
+                 └───────────────────────┘       └──────────────┘
 ```
 
-### 2.2 Decentralized Data Model
+### 2.2 Where data lives
 
-Every piece of persistent data is owned by a user and stored in a contract on their server. There is no platform database.
+| Data | Contract | Hosted on |
+|------|----------|-----------|
+| A user's name and photo | `Profile` | The user's node (public reads, so other members can read it) |
+| A community: properties, members, nominations, collaborations list, accounts, policies | `Community` (one ibc contract; its parts `Membership`, `Collaborations` and `Currency` are contracts it creates) | Every member who joined as a partner |
+| A collaboration: kind, title, community, flow tree | `Collaboration` | Its creator's node; others are guests |
+| A flow's data | One contract per flow (`RankingFlow`, …) | The node of whoever added it; others are guests |
 
-```
-User A (server-a.example.com / publicKeyA)
-  ├── Gloki Profile Contract
-  ├── Community Contract (if A created a community)
-  ├── Initiative Contract (if A created an initiative)
-  └── Flow Contracts (ranking, scheduling, etc. — one per tab A added)
-
-User B (server-b.example.com / publicKeyB)
-  ├── Gloki Profile Contract
-  └── Flow Contracts (tabs B added to shared collaborations)
-```
-
-When User B views an initiative created by User A, the frontend makes HTTP calls to `server-a.example.com` to read User A's initiative contract. Each tab (flow) within that initiative may be hosted on a different user's server — whichever user added it.
-
-### 2.3 Contract Reference Chain
+### 2.3 Reference chain
 
 ```
-Community Contract (User A's server)
-  └── collaborations[]
-        └── FlowRef { id, server, agent, type }
-              ↓ dereferences to
-        Flow Contract (any user's server)
+User's node
+ └── Profile (found by its name, communities-profile)
+ └── Community (found by its name, communities-community)
+      ├── members[]           → each member's node, agent, profile contract id
+      ├── collaborations[]    → Collaboration contract id + its host's node and agent
+      │    └── Collaboration.getFlows() → each flow's contract id, type, host, parent
+      └── accounts[]          → a fund account's id is its Funding flow's contract id
 ```
-
-A `FlowRef` is a pointer: `{ id: contractId, server: serverUrl, agent: publicKey, type: flowType }`. The frontend resolves references by issuing HTTP reads to the specified server.
 
 ---
 
 ## 3. Directory Structure
 
 ```
-Communities2/
-├── src/
-│   ├── App.tsx                          # Root: routing tree + AuthProvider
-│   ├── main.tsx                         # Entry point: Redux store + React mount
-│   │
-│   ├── assets/
-│   │   └── contracts/                   # Python source for all smart contracts
-│   │       ├── gloki_contract.py
-│   │       ├── community_contract.py
-│   │       ├── initiative_contract.py
-│   │       ├── wish_contract.py
-│   │       ├── agreement_contract.py
-│   │       └── *_flow_contract.py       # One per flow type (10 total)
-│   │
-│   ├── components/
-│   │   ├── PageHeader.tsx               # Shared page header
-│   │   ├── collaboration/
-│   │   │   └── flows/                   # All flow UI modules
-│   │   │       ├── FlowShell.tsx        # FlowLoading + FlowError components
-│   │   │       ├── types.ts             # FlowProps + FlowDefinition interfaces
-│   │   │       ├── registry.ts          # FLOW_REGISTRY array + getFlow()
-│   │   │       └── {flowName}/          # One folder per flow type
-│   │   │           ├── *Flow.tsx        # React component
-│   │   │           ├── *Api.ts          # Contract read/write wrappers
-│   │   │           └── *.module.scss    # Scoped styles
-│   │   ├── community/                   # Community sub-components + dialogs
-│   │   └── identity/                    # Profile + communities + join
-│   │
-│   ├── contexts/
-│   │   └── AuthContext.tsx              # Auth state + login/logout logic
-│   │
-│   ├── hooks/
-│   │   └── useEventStream.ts            # SSE subscription hooks
-│   │
-│   ├── pages/
-│   │   ├── LoginPage.tsx
-│   │   ├── IdentityView.tsx
-│   │   ├── CommunityView.tsx
-│   │   ├── PolicyDetailPage.tsx
-│   │   └── collaboration/
-│   │       ├── CollaborationPage.tsx    # Tab container for all collaboration types
-│   │       ├── InitiativeView.tsx
-│   │       ├── WishView.tsx
-│   │       └── AgreementView.tsx
-│   │
-│   ├── services/
-│   │   ├── api.ts                       # Low-level HTTP contract API
-│   │   ├── eventStream.ts               # SSE singleton service
-│   │   ├── interfaces.ts                # Shared TypeScript interfaces
-│   │   ├── encodeDecode.ts              # QR code encoding helpers
-│   │   └── contracts/                   # Domain-specific contract wrappers
-│   │       ├── flows.ts                 # Flow deployment + FlowRef management
-│   │       ├── gloki.ts
-│   │       └── community.ts
-│   │
-│   ├── store/
-│   │   ├── index.ts                     # configureStore
-│   │   ├── hooks.ts                     # useAppDispatch, useAppSelector
-│   │   └── slices/
-│   │       ├── userSlice.ts
-│   │       ├── communitiesSlice.ts
-│   │       └── policiesSlice.ts
-│   │
-│   ├── styles/
-│   │   ├── variables.scss               # Design tokens (colors, spacing, etc.)
-│   │   ├── globals.scss
-│   │   └── index.scss                   # Global base styles
-│   │
-│   └── types/
-│       └── initiative.ts                # InitiativeData interface
-│
-├── storage_interface.py                 # MongoDB bridge for smart contracts
-├── PRD.md                               # Program Requirements Document
-├── SDD.md                               # This document
-└── vite.config.ts
+src/
+├── App.tsx                     Routes, AuthProvider, store Provider
+├── assets/contracts/           Solidity sources, deployed and joined by the app (services/contracts/sources.ts)
+│   ├── Profile.sol
+│   ├── community/              the community's source, several files (§6.3)
+│   │   ├── Community.sol       the root ibc deploys: properties, join hooks, creates the parts
+│   │   ├── Membership.sol      members and the web of trust
+│   │   ├── Collaborations.sol  the collaborations list
+│   │   └── Currency.sol        accounts, payments, funds, policies, settlement
+│   ├── Collaboration.sol
+│   └── *Flow.sol               one per flow type
+├── contexts/AuthContext.tsx    login, session restore, logout
+├── services/
+│   ├── ibc.ts                  the IbcApp connection and its helpers
+│   ├── trace.ts                tracing calls and events to the console
+│   ├── eventStream.ts          one event stream, listeners by event type
+│   ├── encodeDecode.ts         community invitation encoding (QR / text)
+│   ├── interfaces.ts           IProfile, shared types
+│   └── contracts/
+│       ├── sources.ts          the contracts' sources, as files by path
+│       ├── profile.ts
+│       ├── community.ts        members, collaborations, web of trust, currency
+│       └── flows.ts            collaboration tree, deploying and joining flows
+├── hooks/
+│   ├── useEventStream.ts
+│   ├── useCurrency.ts
+│   └── useMediaQuery.ts
+├── store/slices/               userSlice, communitiesSlice, currencySlice
+├── pages/
+│   ├── LoginPage.tsx
+│   ├── IdentityView.tsx        profile · communities · join
+│   ├── CommunityView.tsx       collaborations · members · policies · wallet · share
+│   ├── PolicyDetailPage.tsx
+│   └── collaboration/
+│       ├── CollaborationView.tsx   a collaboration's route: its kind's page
+│       ├── CollaborationPage.tsx   the flow tree (or drill-down on phones)
+│       └── FlowPage.tsx            one flow, with its breadcrumb and bin action
+├── components/
+│   ├── AllowAccess.tsx         "Allow Access" (permit) banner
+│   ├── PageHeader.tsx
+│   ├── Modal.tsx               the frame every dialog shares (+ dialogForm.module.scss)
+│   ├── identity/               Profile, Communities, JoinCommunity, …
+│   ├── community/              Members, Collaborations, Policies, Wallet, Share,
+│   │                           BalancesStatus, AccountPicker, dialogs/, policies/
+│   └── collaboration/
+│       ├── kinds/              initiative, wish, agreement: what sets each kind apart
+│       ├── ContractGate.tsx    join / allow access before showing a contract
+│       ├── FlowTreeList.tsx    the whole tree (wide screens)
+│       ├── FlowDrillDown.tsx   one level at a time (phones)
+│       ├── AddFlowDialog.tsx   new flow, or restore one from the bin
+│       ├── flowTree.ts         buildTree, ancestorsOf, countUnder
+│       └── flows/              registry.ts, types.ts, one folder per flow type
+└── styles/                     variables.scss and globals
 ```
+
+Beside `src/`, `tests/contracts/` holds the contract tests (Node's test runner), which `npm run test:contracts` runs on a throwaway ibc node, and `tests/e2e/` the browser test of the app (`npm run test:e2e`).
 
 ---
 
-## 4. Frontend Application
+## 4. The ibc Node and Its Client Library
 
-### 4.1 Entry Point
+The node is ibc-go (`../ibc-go`, documentation in its `docs/`). The app uses its JavaScript client, `@ouripoupko/ibc`, installed from `../ibc-go/js`.
 
-**`main.tsx`** mounts the application:
+### 4.1 Concepts the app relies on
 
-```tsx
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <Provider store={store}>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </Provider>
-);
-```
+- **Agent:** the user's identity on their node, rooted in a passkey. The app knows it by its address (`state.user.publicKey`).
+- **App key:** `IbcApp.open(node)` creates or loads a browser key for the app (kept in the IndexedDB database `ibc-app`). `app.connect()` asks the user, on the approval page, to connect it to their agent.
+- **Approval page:** a popup on the node. It opens for `connect`, `deploy`, `permit`, `join`, and for reads and writes the user has not allowed silently. Browsers only allow popups from a click, so every call that may open it starts from a click.
+- **Consents:** when the user approves, they can let the app read a contract, and call some of its methods, silently. Consents are per **source hash**: approving one Community contract covers every contract with the same source.
+- **Partners and guests:** a partner's node keeps a copy of the contract and takes part in consensus. A guest's node keeps no copy and uses a host's copy, which the guest trusts with their reads and transactions. A contract decides who may join with `approve_partner(address)` and `approve_guest(address)`.
+- **Sources are files:** a contract's source is its Solidity files by path (`Sources`, `{ 'Community.sol': '…', 'Currency.sol': '…' }`), which import each other by those paths and are all the compiler gets. The source hash covers every file and its path, so a joiner must send the same files, under the same paths, as the deploy.
+- **One-step join:** `app.join(contract, memberNode, memberAgent, { source, guest, contractName })` sends the join, together with the source the user approved, and resolves with a request id. The outcome arrives later as a `join_contract` event with `reply` (accepted or not), `source_check` (`verified`, `unchecked` or `mismatch`) and `reason`.
+- **Public reads:** a contract deployed or permitted with `public: true` can be read by anyone with `Ibc.publicRead(node, agent, contract, method)`. Profiles use this so members can see each other's names and photos.
+- **Errors:** the library throws `IbcError` for contract errors (a failed `require` shows its message). `needsApproval(error)` tells an error that only needs the user's approval.
 
-**`App.tsx`** wraps all routes in `AuthProvider` and uses React Router's `<Routes>`. Unauthenticated users are redirected to `/identity` (which shows the login screen). All page components are lazily loaded with `React.lazy()` to reduce the initial bundle size.
+### 4.2 Source check
 
-### 4.2 Page Components
-
-Each page component is a full-screen view composed of:
-- A `PageHeader` with title, subtitle, back button, and action slots
-- A sidebar navigation (tab buttons)
-- A main content area that renders the active tab's sub-component
-
-**`CollaborationPage.tsx`** is the most complex page. It is shared by `InitiativeView`, `WishView`, and `AgreementView`, which pass in the collaboration type, IDs, and server coordinates. It manages the tab bar, flow loading, and flow contract deployment.
-
-### 4.3 Component Conventions
-
-- All components are **function components** with TypeScript generics for props.
-- Styles are **SCSS Modules** (`*.module.scss`) co-located with the component file.
-- Icons are sourced exclusively from **Lucide React**.
-- No inline styles; all visual logic lives in SCSS.
-- Async operations trigger local `loading` / `error` state; global Redux state is for shared/cached domain data only.
+When a node joins a contract with a source, it compiles the source (its files, and nothing else) with the deploy's compiler and compares the result with the code the contract runs; the join's `join_contract` event reports `verified`, `unchecked` or `mismatch`. A source with several deployable contracts (the community's: `Community` and its parts) names the one it is about: `contract: 'Community'` on deploy, and `contractName: 'Community'` on join, for the approval page to show its functions (`COMMUNITY_CONTRACT` in `sources.ts`).
 
 ---
 
-## 5. State Management
+## 5. Services Layer
 
-### 5.1 Redux Store Configuration
+### 5.1 `services/ibc.ts`
 
-```typescript
-// store/index.ts
-export const store = configureStore({
-  reducer: {
-    communities:   communitiesReducer,
-    user:          userReducer,
-    policies:      policiesReducer,
-  },
-});
-```
+| Function | What it does |
+|----------|--------------|
+| `openApp(nodeUrl)` / `getApp()` | Opens, or returns, the one `IbcApp` |
+| `readSilently(contract, method, values)` | Reads without ever opening the approval page. Fails with an error for which `needsAccess()` is true if the app may not read the contract |
+| `writeSilently(contract, method, values)` | The same for writes: for calls that do not start from a click |
+| `write(contract, method, values)` / `deploy(input)` | A write or a deploy that may open the approval page: call them from a click |
+| `{ at }` | The last argument of `readSilently`, `writeSilently` and `write`: another contract of the agreement, by address (a community's parts) |
+| `needsAccess(error)` | The error only needs the user's approval |
+| `isSessionGone(error)` | The node no longer knows this app or agent (the user disconnected the app, or the node lost its data) |
+| `allowAccess(contract)` | `permit`: asks the user to let the app read the contract (from a click) |
+| `contractAccess(contract)` | `'none'` (not joined), `'joined'` (not readable by the app yet) or `'readable'` |
+| `hasContract(contract)` | Joined, readable or not |
+| `joinAndWait(contract, node, agent, source, guest)` | One-step join; waits for the `join_contract` event of that request (up to 5 minutes, since the node may download a compiler). Keeps events that arrive before the request id |
+| `joinFailure(outcome)` | The message for a rejected join |
+| `forgetApp()` | Deletes the app key from the browser, so the next login asks again |
 
-### 5.2 Slice Overview
+**Tracing.** These four (`readSilently`, `writeSilently`, `write`, `deploy`) are the only way the app calls a contract, and each logs the call through `services/trace.ts` (a read also logs its reply); the event stream logs each event the same way. Tracing is on in development; in a build, run `localStorage.setItem('trace', '1')` in the console and reload.
 
-#### `userSlice`
+**Silent-or-banner pattern.** A step that follows an await (for example, adding a flow to the tree after deploying it) can no longer open a popup. The app tries it with `writeSilently`. If that fails with `needsAccess`, it shows a banner with a button ("Add it", "Allow Access", "Become a Member"), whose click makes the call that may ask.
 
-Owns authentication credentials and the user's contract list.
+### 5.2 `services/contracts/`
 
-```typescript
-interface UserState {
-  publicKey:         string | null;
-  serverUrl:         string | null;
-  profile:           IProfile | null;
-  profileContractId: string | null;
-  contracts:         IContract[];
-  loading:           boolean;
-  error:             string | null;
-}
-```
+A contract's TypeScript wrapper lives with what uses it: the contracts the app shares (profile, community, collaboration) in `services/contracts/`; a flow's contract next to its flow, as its `*Api.ts` (§5.3).
 
-Key thunks:
-- **`initializeUser()`** — Checks agent existence, registers if new, fetches contracts, reads profile.
-- **`fetchContracts()`** — Refreshes the full contract list from the server.
-- **`readProfile()`** — Reads the Gloki profile contract; deploys a new one if absent.
+- **`profile.ts`:** `deployProfile` (named `communities-profile`), `makeProfilePublic`, `getProfile`, `getPublicProfile(node, agent, contract)`, `setProfile`.
+- **`community.ts`:**
+  - `createCommunity` deploys the community's source (`communitySource`, the files of `contracts/community/`) with `contract: 'Community'`, name `communities-community`, and the constructor's name, description, node, profile, starting balance, starter policies and join policy.
+  - `joinCommunityContract` (the ibc join, with `contractName: 'Community'`) and `joinCommunity` (the contract's `join()`, becoming a member).
+  - Members and collaborations: `getProperties`, `getMembers`, `deployCollaboration`, `listCollaboration`, `getCollaborations`.
+  - Web of trust: `getNominations`, `approveAgent`, `disapproveAgent`.
+  - Currency: `getAccounts`, `pay`, `createFundAccount`, `getContributions`, `getCurrency`, `updateBalances`, `getPolicies`, `createPolicy`, `setPolicyPreference`, `setCommitmentRate`, `setPolicyDetails`, `deletePolicy`. Also `toUnits`/`fromUnits` (the contract counts millionths).
+- **`flows.ts`:** `getFlows`, `getCollaborationInfo`, `joinCollaboration`, `deployFlow`, `addFlow`, `removeFlow`, `restoreFlow`, `joinFlow`.
 
-#### `communitiesSlice`
+### 5.3 Flow API modules
 
-Normalizes all community data by contract ID.
-
-```typescript
-interface CommunitiesState {
-  communityProperties:     Record<string, CommunityProperties>;
-  communityMembers:        Record<string, string[]>;         // contractId → publicKeys
-  communityCollaborations: Record<string, Collaboration[]>;  // contractId → collab list
-  profiles:                Record<string, IProfile>;         // publicKey  → profile
-  // ...loading maps per contractId
-}
-```
-
-#### `policiesSlice`
-
-Holds each community's monetary policies, keyed by community contract ID, with a per-community loading flag and a single `error`. Loaded by the `fetchPolicies` thunk.
-
-Collaborations (initiatives, wishes, agreements) have no slice of their own. Their list lives in `communitiesSlice`, and their contents are flows, which stay out of Redux (see 5.4).
-
-### 5.3 Thunk Pattern
-
-All async Redux operations use `createAsyncThunk`. The standard pattern:
-
-```typescript
-export const fetchCommunityMembers = createAsyncThunk(
-  'communities/fetchMembers',
-  async ({ serverUrl, publicKey, contractId }: FetchArgs) => {
-    const members = await getMembers(serverUrl, publicKey, contractId);
-    return { contractId, members };
-  }
-);
-```
-
-Results are handled in `extraReducers` with `pending` / `fulfilled` / `rejected` cases.
-
-### 5.4 Local vs. Global State
-
-- **Redux** holds data that must survive navigation: user identity, community members, collaboration lists, profiles.
-- **`useState`** holds ephemeral UI state: form inputs, open/closed dialogs, active tabs, loading indicators within a single component.
-- Flow data (task lists, scheduling slots, votes, etc.) is **not stored in Redux** — it is fetched directly by each flow component from the contract on mount, and held in local state. This avoids stale data issues across multiple simultaneous flow views.
+Each flow folder has an `*Api.ts` that maps the flow component's operations to its contract's methods with `readSilently` and `write`, and converts the contract's structs to the component's types. Flows with a setup dialog also export a `*Constructor(config, context)` that builds the constructor arguments.
 
 ---
 
-## 6. Services Layer
+## 6. Smart Contracts
 
-### 6.1 `api.ts` — Low-Level HTTP Client
+All contracts are in `src/assets/contracts/`. `services/contracts/sources.ts` reads them with Vite's `import.meta.glob` and gives them as ibc takes them, files by path: `sourceOf('Profile.sol')` for a one-file contract, `communitySource` for the community's files.
 
-All network communication goes through this module. Each function wraps a `fetch` call with a 10-second `AbortController` timeout.
+### 6.1 Conventions
 
-**Base URL pattern:** `${serverUrl}/ibc/app/${publicKey}`
+- **The caller is `msg.sender`:** the agent that signed the transaction. Contracts record agents as `address`.
+- **Who may join:** every contract has `approve_partner(address)` and `approve_guest(address)`. Today all return `true`: who can find the contract id may join, and membership is enforced by the contract's own rules (for example, `onlyMember` in `Community`).
+- **String ids:** items get ids from a counter, as decimal strings (`decimal()`), so the UI can use them as keys.
+- **Errors:** `require` messages are written for the user, since the UI shows them as they are.
+- **Compiler limits we design around:**
+  - Calldata arrays of strings are copied element by element, since nested calldata copies are not supported.
+  - Functions with many string parameters take them as `memory`, to avoid "stack too deep" (`SchedulingFlow.setRange`).
+  - The EVM's limits on code (the node runs every fork through Osaka): 24,576 bytes of runtime code per contract, and 49,152 bytes of creation code per deploy, which for `Community` includes the parts it creates (see 6.3).
+  - Names that are reserved words (`apply`) are avoided.
 
-| Function | HTTP | Path | Purpose |
-|----------|------|------|---------|
-| `isExistAgent` | GET | `/` | Check if agent is registered |
-| `registerAgent` | PUT | `/` | Register a new agent |
-| `getContracts` | GET | `/contracts` | List all contracts for user |
-| `deployContract` | POST | `/?action=deploy_contract` | Deploy a new contract |
-| `joinContract` | POST | `/?action=join_contract` | Join an existing contract |
-| `contractRead` | GET | `/${contractId}/${method}?action=contract_read` | Read contract state |
-| `contractWrite` | POST | `/${contractId}/${method}?action=contract_write` | Mutate contract state |
+### 6.2 `Profile.sol`
 
-All write operations serialize a `{ name, values }` method object as the request body.
+`setProfile(firstName, lastName, userPhoto)` and `getProfile()`. Deployed by the user on their node. "Make it public" permits it with `public: true`, so members can read it with public reads.
 
-### 6.2 `services/contracts/` — Domain-Specific Wrappers
+### 6.3 The community (`contracts/community/`)
 
-Each file provides typed wrappers over `contractRead` / `contractWrite` for a specific contract class:
+A community is one ibc **agreement**: one deploy, one join, one approval, one group of partners, and its own EVM world. The contract ibc deploys is its root, which creates the others; members call any of them directly, by address (`at` in the client), and each sees `msg.sender` as the member who signed. Its parts act together in one transaction: a member admitted gets their account in the same step. Its source is several files, one contract each:
 
-```typescript
-// Example from community.ts
-export async function getMembers(
-  serverUrl: string, publicKey: string, contractId: string
-): Promise<string[]> {
-  const result = await contractRead({
-    serverUrl, publicKey, contractId,
-    method: { name: 'get_members', values: {} } as IMethod,
-  });
-  return Array.isArray(result) ? result.map(String) : [];
+- **`Community.sol`**, the root: the community's properties (`getProperties()`), the ibc join hooks (`approve_partner`, `approve_guest`: anyone may join the agreement, and then asks to become a member), and `getParts()`, the parts' addresses. Its constructor creates the parts, connects them, and makes its deployer the first member.
+- **`Membership.sol`**: the members, and the web of trust (nominations, vouchers, approvals, the drawing and rewiring of the graph). In an open community, `join` makes a member at once. Admitting a member opens their personal account in `Currency`.
+- **`Collaborations.sol`**: the collaborations list; members only (it asks `Membership.isMember`).
+- **`Currency.sol`**: accounts, payments and fund contributions, policies and preferences, and the settlement of balances. Its members are the owners of the personal accounts (each member has one, and only `Membership` opens them), so it checks membership, and takes the median of the members' preferences, without asking `Membership`.
+
+Each part keeps its own storage and checks who may call it. The calls among them are few and fixed at creation: the root adds the founder (`Membership.addFounder`) and tells `Currency` which `Membership` opens accounts (`setMembership`, once).
+
+A function's signature means one function in the whole source (the node refuses a source where it does not), so the parts' functions have distinct names.
+
+**Size.** The root's creation code includes the parts' (it creates them), and must stay under 49,152 bytes: it is about 34,000. Each part's runtime code is well under 24,576 bytes (`Currency`, the largest, about 15,500). A part that grows much needs splitting again.
+
+| Part | Methods |
+|------|---------|
+| `Community` (the root) | `getProperties()`, `getParts()` |
+| `Membership` | `join(node, profile)`, `approve(other)`, `disapprove(other)`, `isMember(agent)`, `getMembers()`, `getNominations()` |
+| `Collaborations` | `addCollaboration(id, kind, title, description, detail, node)`, `getCollaborations()` |
+| `Currency` | Accounts: `getAccounts()`, `createFundAccount(id, name, owner)`, `getContributions(fundId)`, `pay(to, amount)`. Policies: `createPolicy(…)`, `setPolicyPreference(policyId, value)`, `setCommitmentRate(policyId, value)`, `setPolicyDetails(policyId, name, description)`, `deletePolicy(policyId)`, `getPolicies()`. Settlement: `getCurrency()`, `updateBalances()` |
+
+The root's constructor takes `name, description, node, profile, initialBalance, starterPolicies, openJoin`.
+
+`community.ts` reads a community's parts once (`getParts`, cached) and sends each call to its part.
+
+### 6.4 `Collaboration.sol`
+
+Kind (initiative, wish, agreement), title, community id and creator, and the flow tree:
+
+```solidity
+struct Flow {
+    string id;        // the flow's contract
+    string flowType;  // e.g. "ranking"
+    string title;
+    string node;      // its host's node
+    address agent;    // its host: whoever added it
+    string parent;    // its parent flow's id, or "" at the top level
+    uint64 position;  // orders siblings: later is lower
+    bool binned;      // its branch is in the bin
 }
 ```
 
-### 6.3 `services/contracts/flows.ts` — Flow Contract Deployment
+- `addFlow(id, flowType, flowTitle, node, parent)` adds a flow the caller deployed.
+- `removeFlow(id)` moves the flow's branch to the bin. Only the flow's host or the collaboration's creator may call it.
+- `restoreFlow(id, parent)` puts a binned branch back under any flow in the tree.
+- `getFlows()` returns every flow: the client builds the tree, and the bin.
 
-This module manages the full lifecycle of flow contracts.
+A flow is in the bin if it, or one of its ancestors, is binned. Its children stay under it, so a branch is restored whole.
 
-**`FLOW_SPECS`** maps each flow type ID to its Python class name and the source code imported from `src/assets/contracts/`:
+### 6.5 Flow contracts
 
-```typescript
-const FLOW_SPECS: Record<string, { name: string; contract: string; code: string }> = {
-  'ranking':          { name: 'ranking_flow',    contract: 'RankingFlow',    code: rankingSource },
-  'scheduling':       { name: 'scheduling_flow', contract: 'SchedulingFlow', code: schedulingSource },
-  // ... 9 more entries
-};
-```
+| Contract | Main methods |
+|----------|--------------|
+| `RankingFlow` | `addProposal`, `setMyRanking(order)`, `getTopic`, `getProposals`, `getRankings` |
+| `ScoringFlow` | `addOption`, `setMyScores(optionIds, values)`, `getTopic`, `getOptions`, `getScores` |
+| `ConcernsFlow` | `addConcern`, `vote(concernId, value)`, `getConcerns` |
+| `SchedulingFlow` | `setRange(…)`, `setMySelection(slots)`, `getRange`, `getSelections` |
+| `TaskBoardFlow` | `addTask`, `claimTask`, `releaseTask`, `advanceTask`, `revertTask`, `deleteTask`, `getTasks` |
+| `RolesFlow` | `addRole`, `joinRole`, `leaveRole`, `deleteRole`, `setPurpose`, `setSection`, `vote`, `getRoles` |
+| `FundingFlow` | `addItem`, `setMyAllocation(itemIds, points)`, `getFund`, `getItems`, `getAllocations` |
+| `DiscussionFlow` | `addComment(text, parent)`, `deleteComment`, `getComments` |
+| `QAFlow` | `addQuestion`, `deleteQuestion`, `addAnswer`, `editAnswer`, `deleteAnswer`, `vote`, `getQuestions`, `getAnswers` |
+| `DocumentFlow` | `addElement`, `editElement`, `deleteElement`, `proposeEdit`, `proposeDelete`, `voteProposal`, `getElements`, `getProposals` |
 
-**`deployFlowContract(serverUrl, publicKey, flowType)`**  
-Calls `api.deployContract()` with the Python class source. Returns the new contract ID.
-
-**`addFlow(server, agent, collaborationId, flowRef)`**  
-Calls the collaboration contract's `add_flow` method with a `FlowRef` object.
-
-**`getFlows(server, agent, collaborationId)`**  
-Calls the collaboration contract's `get_flows` method. Returns an array of `FlowRef` objects.
-
-### 6.4 Flow-Specific API Modules (`*Api.ts`)
-
-Each flow type has its own API module co-located in its component folder. These modules:
-
-1. Define TypeScript interfaces for the flow's data model.
-2. Provide typed read functions that call `contractRead` and normalize the result.
-3. Provide typed write functions that call `contractWrite` with the correct method name and parameters.
-4. Contain pure helper functions (e.g., `totalRaised`, `computeSlotsPerDay`) for derived data.
-
-This encapsulation means the flow component never calls `api.ts` directly — only through its own `*Api.ts` module.
+The rules are in the contracts: for example, a participant edits only their own items, and a document proposal is applied when 3 participants support it (`MAJORITY`), or discarded when 3 reject it. The UI only reflects them.
 
 ---
 
-## 7. Smart Contract System
+## 7. Collaborations and Flows
 
-### 7.1 Contract Language and Runtime
+### 7.0 Kinds of collaboration
 
-Smart contracts are **Python classes** deployed to and executed by a Gloki server. The server handles:
-- Storing and retrieving contract state via MongoDB (via `storage_interface.py`)
-- Routing HTTP method calls to the correct Python class method
-- Access control (only registered agents may write to contracts they participate in)
-- Broadcasting SSE events on every `contract_write`
+Initiatives, wishes and agreements share one contract and one page today, and are expected to grow apart. Each kind is a definition in `components/collaboration/kinds/` (`initiative.ts`, `wish.ts`, `agreement.ts`), made with `defineKind`, which fills in the defaults; a kind sets only how it differs:
 
-### 7.2 Storage Abstraction
+- its label, icon and create button (`createLabel`, `submitLabel`);
+- `fields`: what the create dialog asks for, and which of the collaboration's three texts (`title`, `description`, `detail`) each fills (an agreement's title is its rule, its detail the harm it prevents);
+- `summary` (the card's line; default: the description) and `subtitle` (the page's line; a wish shows its author);
+- `Page`: its own page, when it needs more than the generic `CollaborationPage`.
 
-All contracts use a `Storage` class that provides dict-like persistence to MongoDB:
+The create dialog, the card, the filter and create buttons, and the routes are generic: they read `COLLABORATION_KINDS` and `kindOf(type)`.
 
-```python
-class Storage:
-    # Store by explicit key (for ID-addressed documents)
-    storage['my-uuid'] = { 'field': 'value' }
+### 7.1 Creating a collaboration
 
-    # Append with auto-generated key (for sequential lists)
-    storage.append({ 'field': 'value' })
+1. `deployCollaboration` deploys `Collaboration.sol` on the creator's node (from the dialog's click).
+2. `listCollaboration` adds it to the community with `addCollaboration`, silently. If the app may not call it silently, a banner asks the user to approve it.
 
-    # Read all documents
-    [storage[key].get_dict() for key in storage]
+### 7.2 Opening a collaboration
 
-    # Update a single field on an existing document
-    storage['my-uuid']['field'] = new_value
+`CollaborationPage` wraps its content in a `ContractGate` (keyed by the contract id):
 
-    # Replace a list field on an existing document
-    storage['my-uuid']['listField'] = new_list
+- If the user has not joined the collaboration, the gate offers **Join**, which joins it as a guest through its host (`joinCollaboration`).
+- If the app may not read it, the gate shows **Allow Access**.
+- Once it is readable, the gate calls `onReady`, and the page loads `getFlows()`.
+
+Each flow page has its own `ContractGate` for the flow's contract, joined as a guest through the flow's host (`joinFlow`).
+
+### 7.3 The flow tree
+
+`flowTree.ts` builds the tree from `getFlows()`: children by `parent`, siblings by `position`, and binned branches apart.
+
+- **Wide screens:** `FlowTreeList` shows the whole tree, with folding and an "Add a flow under …" button on each flow.
+- **Phones** (`useMediaQuery('(max-width: 640px)')`): `FlowDrillDown` shows one level at a time, with a breadcrumb. The level is in the URL (`?in=<flowId>`), so the back button goes up a level.
+- **Flow pages:** each flow is a page at `flow/:flowId` (`FlowPage`), with its breadcrumb and a **Move to bin** button for the flow's host or the collaboration's creator.
+
+### 7.4 Adding a flow
+
+`AddFlowDialog` asks for a title and a flow type (grouped as in `FLOW_GROUPS`), or offers to restore a branch from the bin ("Put it here").
+
+1. If the flow type has a `setupComponent`, its dialog collects the config.
+2. `deployFlow` deploys the flow's source with `constructorArgs(config, { title, communityId })`.
+3. `addFlow` adds it to the tree, silently. If that fails with `needsAccess`, the page shows "… is created on your node. Approve adding it to the collaboration." with an **Add it** button.
+
+### 7.5 The flow registry
+
+```typescript
+export interface FlowDefinition {
+  id: string;                         // e.g. 'ranking', stored as flowType
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  component: React.ComponentType<FlowProps>;
+  group?: string;                     // section in the Add flow dialog
+  setupComponent?: React.ComponentType<{ onDone: (config) => void; onCancel: () => void }>;
+  source?: string;                    // the contract's Solidity source
+  constructorArgs?: (config, context: FlowContext) => Record<string, unknown>;
+}
+
+export interface FlowProps {
+  instanceId: string;                 // the flow's contract id
+  flowAgent: string;                  // its host
+  currentUser: string;                // the user's agent address
+}
 ```
 
-**Key design rule:** If a document will ever be looked up or mutated by ID (e.g., updating a task's status), it must be stored as `storage[item['id']] = item`. Using `storage.append()` generates opaque internal keys, making field-level updates impossible.
+To add a flow type: write its contract, its `*Api.ts`, its component (and setup dialog if needed), and its registry entry. No other change is needed.
 
-### 7.3 Contract Anatomy
+Two hooks give every flow what flows share:
 
-Every contract follows this structure:
+- **`useFlowData(instanceId, load, { alsoWatch?, paused? })`** reads the flow's contract with `load`, and reloads it on that contract's `contract_write` events. Only the first load (and a retry) shows the spinner; later ones update in place. Of overlapping reloads, only the latest one's reply counts. `alsoWatch` names another contract from the loaded data (funding: its community); `paused` holds reloads while a participant edits a draft (ranking), counting the updates meanwhile in `pendingUpdates`. A flow's actions only write; its view follows the events.
+- **`useParticipants(currentUser)`** names participants: `nameOf(agent)` ("You", the member's profile name, or a short address), `byline(agent)` ("by you", "by Dana Levi") and `isMe(agent)`, comparing addresses whatever their case. The profiles are the community members' in the store; the collaboration page loads them when the community page has not.
 
-```python
-class ExampleFlow:
+### 7.6 Funding and the community fund
 
-    def __init__(self):
-        self.items = Storage('items')   # One Storage per data type
-
-    def add_item(self, item):
-        self.items[item['id']] = item   # Store by ID for later field updates
-
-    def get_items(self):
-        return [self.items[key].get_dict() for key in self.items]
-
-    def update_item_field(self, item_id, field, value):
-        self.items[item_id][field] = value   # Field-level mutation
-
-    def replace_list_field(self, item_id, list_field, new_list):
-        self.items[item_id][list_field] = new_list  # Whole-list replacement
-```
-
-### 7.4 Contract Registry
-
-| Category | Contract Class | Python File | Key Storages |
-|----------|---------------|-------------|--------------|
-| Identity | `GlokiContract` | `gloki_contract.py` | profile |
-| Domain | `CommunityContract` | `community_contract.py` | members, properties, collaborations, accounts |
-| Domain | `InitiativeContract` | `initiative_contract.py` | flows, properties |
-| Domain | `WishContract` | `wish_contract.py` | flows, related, offers, seeds |
-| Domain | `AgreementContract` | `agreement_contract.py` | flows, properties |
-| Flow | `RankingFlow` | `ranking_flow_contract.py` | proposals, rankings |
-| Flow | `ScoringFlow` | `scoring_flow_contract.py` | options, scores |
-| Flow | `ConcernsFlow` | `concerns_flow_contract.py` | concerns |
-| Flow | `SchedulingFlow` | `scheduling_flow_contract.py` | config, selections |
-| Flow | `TaskBoardFlow` | `task_board_flow_contract.py` | tasks |
-| Flow | `RolesFlow` | `roles_flow_contract.py` | roles |
-| Flow | `FundraisingFlow` | `fundraising_flow_contract.py` | config, contributions |
-| Flow | `BudgetAllocationFlow` | `budget_allocation_flow_contract.py` | fund_link, items, allocations |
-| Flow | `DiscussionFlow` | `discussion_flow_contract.py` | comments |
-| Flow | `QAFlow` | `qa_flow_contract.py` | questions, answers |
-| Flow | `DocumentFlow` | `document_flow_contract.py` | elements, proposals, votes |
-
-### 7.5 Python Constraints
-
-The contract runtime runs a restricted subset of Python. Notable restrictions:
-- `isinstance` is **not supported** — type checks must be avoided in contract code.
-- Third-party imports are not available.
-- The `master()` built-in returns the calling user's public key.
-- List `.append()` on **nested fields within a stored document** is not supported — the client must compute the new list and replace the field wholesale.
+A Funding flow holds the fund's description, goal and budget allocation. The money is in the community: the flow creates a **fund account** in the community whose id is the flow's contract id (`createFundAccount`). Contributions are community payments into it (`pay`), recorded by the community (`getContributions`).
 
 ---
 
-## 8. Collaboration Flows
+## 8. Currency
 
-### 8.1 Flow Definition Interface
+All amounts are in millionths: `UNIT = 1e6`. The app converts them with `toUnits` and `fromUnits`.
 
-Every flow is described by a `FlowDefinition` object registered in `registry.ts`:
-
-```typescript
-interface FlowDefinition {
-  id:             string;
-  label:          string;
-  icon:           React.ComponentType<{ size?: number }>;
-  component:      React.ComponentType<FlowProps>;
-  group?:         string;
-  isAvailable?:   (existingFlowIds: string[]) => boolean;
-  setupComponent?: React.ComponentType<{
-    onDone:   (config: Record<string, unknown>) => void;
-    onCancel: () => void;
-  }>;
-  onInit?:        (
-    server: string, agent: string, contractId: string,
-    config: Record<string, unknown>, currentUser: string
-  ) => Promise<void>;
-}
-```
-
-Every flow component receives `FlowProps`:
-
-```typescript
-interface FlowProps {
-  instanceId:   string;   // The flow's contract ID
-  flowServer:   string;   // Server where the flow contract lives
-  flowAgent:    string;   // Owner of the flow contract
-  currentUser:  string;   // Current user's public key
-}
-```
-
-### 8.2 Flow Registry
-
-`FLOW_REGISTRY` in `registry.ts` is an array of `FlowDefinition` objects, organized into four named groups defined in `FLOW_GROUPS`:
-
-```
-Decision Making        → Ranking Vote, Scoring Vote, Concern Resolution
-Planning & Execution   → Scheduling, Task Board, Role Nomination
-Governance & Finance   → Fundraising, Budget Allocation
-Communication          → Discussion, Q&A, Document
-```
-
-`getFlow(id)` provides O(n) lookup by ID.
-
-### 8.3 Tab Lifecycle in `CollaborationPage`
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ Mount                                                            │
-│   getFlows(collabServer, collabAgent, collabId)                  │
-│   → setTabs(flowRefs.map(ref => CollaborationTab))              │
-│   → setActiveInstanceId(tabs[0].instanceId)                     │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │
-┌────────────────────────────▼─────────────────────────────────────┐
-│ User clicks "Add" button                                         │
-│   setShowAddMenu(true)                                           │
-│   Renders FLOW_REGISTRY grouped menu                             │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │
-         ┌───────────────────┴───────────────────┐
-         │ has setupComponent?                   │ no setupComponent
-         ▼                                       ▼
-┌────────────────────┐              ┌─────────────────────────────┐
-│ setPendingFlow(def) │              │ addTab(flowId, undefined)   │
-│ Render dialog      │              └──────────────┬──────────────┘
-│ User fills config  │                             │
-│ User clicks "Done" │                             │
-│ addTab(id, config) │                             │
-└────────┬───────────┘                             │
-         └──────────────────┬──────────────────────┘
-                            ▼
-┌───────────────────────────────────────────────────────────────────┐
-│ addTab(flowId, config?)                                           │
-│  1. deployFlowContract(userServer, userKey, flowId)              │
-│     → returns contractId                                         │
-│  2. if config && flowDef.onInit:                                 │
-│       flowDef.onInit(server, key, contractId, config, user)      │
-│       (e.g. setupRange, configureFund)                           │
-│  3. addFlow(collabServer, collabAgent, collabId, FlowRef)        │
-│  4. setTabs([...tabs, newTab])                                   │
-│  5. setActiveInstanceId(contractId)                              │
-└───────────────────────────────────────────────────────────────────┘
-```
-
-### 8.4 Flow Component Pattern
-
-Every flow component follows the same internal structure:
-
-```tsx
-const ExampleFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [data,    setData]    = useState<DataType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const result = await api.loadData(flowServer, flowAgent, instanceId);
-      setData(result);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [instanceId, flowServer, flowAgent]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
-
-  return <ActiveUI data={data} onAction={...} />;
-};
-```
-
-`FlowLoading` and `FlowError` are shared components from `FlowShell.tsx`.
-
-### 8.5 Setup Dialogs
-
-Flows that require configuration before creation (Scheduling, Fundraising) export a `SetupDialog` component:
-
-```tsx
-export const MySetupDialog: React.FC<{
-  onDone:   (config: Record<string, unknown>) => void;
-  onCancel: () => void;
-}> = ({ onDone, onCancel }) => {
-  // Form fields in state
-  // Validate and call onDone(config) on submit
-  // Call onCancel() on dismiss
-};
-```
-
-The `CollaborationPage` renders this component as a modal overlay when `pendingFlow` is set. On `onDone`, it calls `addTab` with the config; on `onCancel`, it clears `pendingFlow` without creating a tab.
-
-The `onInit` function in the registry receives the config after the contract is deployed and performs the initialization write (e.g., calling `set_config` on the new contract).
+- **Accounts:** each member has a personal account (`personalAccountId(agent)`). Funds have accounts of their own. A new member gets the community's starting balance.
+- **Policies** move currency once a day, a **tick** counted from the community's creation:
+  - Each has a source (void = mint, an account, every personal account, or every account) and a destination (void = burn, or the same choices).
+  - Its mode is units per tick, or a percentage of the source's balance per tick.
+  - A **community-governed** policy's rate is the median of the members' preferences. A **commitment** (self-set) is created from the creator's own account, and the creator sets its rate.
+- **Settlement:** balances are calculated up to a tick (`settledTick`).
+  - `updateBalances()`, and every write that depends on balances (the `upToDate` modifier), settle up to `MAX_TICKS_PER_UPDATE` (366) ticks at a time.
+  - Ticks are applied one at a time, every policy in turn on the same tick's balances. Each tick, a policy mints its rate into each destination (units only), or takes its rate (units, or a percentage of the balance) from each source and burns it or splits it equally among the destinations.
+  - A write that is more than a year behind fails, and asks to update the balances first.
+- **No live projection:** the UI shows the contract's balances and "Balances calculated up to …" (`BalancesStatus`) with an **Update balances** button. It doesn't estimate balances itself.
+- `useCurrency(communityId)` loads accounts, policies and currency state into `currencySlice` and refreshes them on the community's `contract_write` events.
 
 ---
 
-## 9. Real-Time Event System
+## 9. Membership and the Web of Trust
 
-### 9.1 `EventStreamService` (`services/eventStream.ts`)
+Every community chooses its join policy when created (`openJoin`).
 
-A **singleton** that manages one SSE connection per session.
-
-```typescript
-class EventStreamService {
-  private source:             EventSource | null;
-  private listeners:          Map<EventType, Set<EventListener>>;
-  private connectionListeners: Set<ConnectionListener>;
-  private reconnectAttempts:  number;
-
-  connect(serverUrl: string, agent: string): void;
-  disconnect(): void;
-  addEventListener(type: EventType, listener: EventListener): void;
-  removeEventListener(type: EventType, listener: EventListener): void;
-  addConnectionListener(listener: ConnectionListener): void;
-  isConnectedToStream(): boolean;
-}
-
-export const eventStreamService = new EventStreamService(); // singleton
-```
-
-SSE endpoint: `${serverUrl}/stream?agent=${agent}`
-
-Event types: `contract_write`, `deploy_contract`, `a2a_connect`
-
-On reconnect, the service uses exponential backoff (max 5 retries) before giving up.
-
-### 9.2 React Hooks (`hooks/useEventStream.ts`)
-
-```typescript
-// Listen for a specific event type
-useEventStream(eventType: string, listener: (event: MessageEvent) => void): void
-
-// Monitor connection status
-useEventStreamConnection(): { isConnected: boolean }
-```
-
-`useEventStream` wraps `addEventListener` / `removeEventListener` with cleanup on unmount. Listener stability is managed with `useRef` to avoid stale closure issues.
-
-### 9.3 Event-Driven Data Refresh Pattern
-
-Components that need to stay current with other users' writes use this pattern:
-
-```tsx
-useEventStream('contract_write', useCallback((event) => {
-  const data = JSON.parse(event.data);
-  if (data.contractId === instanceId) {
-    void load();  // Re-fetch the contract data
-  }
-}, [instanceId, load]));
-```
-
-### 9.4 Auto Contract List Refresh
-
-In `AuthContext`, a `deploy_contract` listener is registered immediately after login:
-
-```typescript
-eventStreamService.addEventListener('deploy_contract', () => {
-  dispatch(fetchContracts());
-});
-```
-
-This ensures the user's sidebar contract list updates automatically when they deploy a new flow from any tab.
+- **Open:** `join(node, profile)` makes the caller a member at once.
+- **Web of trust:** `join` nominates the caller, who becomes a member when they and their vouchers have approved each other (`approve(other)` from both sides).
+  - **Fewer than 5 members:** the nominee is vouched for by every member. One nomination is open at a time.
+  - **5 members or more:** the contract draws two random, disjoint edges of the trust graph (pseudo-random from `keccak256(block.timestamp, block.number, sender, salt)`). Their four ends are the vouchers. Once all approvals are in, the nominee is linked to the four vouchers and the two edges are removed, so the graph stays 4-regular (`TRUST_DEGREE = 4`).
+  - **Cancelling:** `disapprove(other)` cancels a nomination. Only the nominee or one of their vouchers may.
+- **In the app:**
+  - `JoinCommunity` makes one approval on the node: the ibc join of the Community contract (as a partner or as a guest) and the app's permissions for its source. It then calls `join()` silently, and opens the Members page.
+  - If the silent call is not allowed, the Members page shows **Become a Member** (open) or **Ask to Join** (web of trust).
+  - The Members page also lists nominations. The user's own tasks (whom to approve) come from `tasksOf(nominations, me)`, and `ApprovalDialog` approves or disapproves.
 
 ---
 
-## 10. Authentication and Identity
+## 10. Real-Time Events
 
-### 10.1 `AuthContext` (`contexts/AuthContext.tsx`)
+See [SSE_EVENT_SYSTEM.md](SSE_EVENT_SYSTEM.md) for details.
 
-Provides `{ isAuthenticated, isLoading, login, logout }` to the entire component tree.
-
-**`login(publicKey, serverUrl)`:**
-
-```
-1. Persist { publicKey, serverUrl } to localStorage
-2. dispatch(setCurrentUser({ publicKey, serverUrl }))
-3. eventStreamService.connect(serverUrl, publicKey)
-4. Register 'deploy_contract' SSE listener → dispatch(fetchContracts())
-5. dispatch(initializeUser())
-   ├── isExistAgent()
-   │   └── if not found → registerAgent()
-   ├── fetchContracts()
-   └── readProfile()
-       └── if no profile contract → deployContract(gloki_contract.py)
-```
-
-**`logout()`:**
-
-```
-1. Remove localStorage entry
-2. dispatch(clearUser())
-3. eventStreamService.disconnect()
-```
-
-### 10.2 Session Persistence
-
-On `App.tsx` mount, `AuthProvider` reads `localStorage` for stored credentials. If found, it dispatches `initializeUser()` silently, restoring the session without requiring re-login.
-
-### 10.3 Public Key Validation
-
-Login enforces that the public key is exactly 64 alphanumeric hexadecimal characters. This mirrors the Gloki network's key format requirement.
-
-### 10.4 `master()` Built-in
-
-In smart contract Python code, `master()` returns the public key of the agent making the current call. This is the primary identity mechanism inside contracts — there are no usernames, and all data can be attributed to a public key.
+- `eventStreamService` uses the library's signed stream (`app.onEvent`, `app.onStatus`), which reconnects by itself. It carries events of every contract the app may read, including those the user is a guest of.
+- Event types: `contract_write`, `deploy_contract`, `join_contract`.
+- `useEventStream(type, listener)` subscribes a component. Flow components refetch when a `contract_write` event names their contract. `Communities` refreshes the contract list on `deploy_contract`. `joinAndWait` listens for `join_contract`.
 
 ---
 
-## 11. Routing and Navigation
+## 11. Authentication and Session
 
-### 11.1 Route Definitions (`App.tsx`)
+`AuthContext` (`contexts/AuthContext.tsx`):
 
-```
-/                                                        → redirect to /identity
-/identity/*                                             → IdentityView
-/community/:communityId/policy/:policyId                → PolicyDetailPage
-/community/:communityId/*                               → CommunityView
-/initiative/:hostServer/:hostAgent/:initiativeId/*      → InitiativeView
-/wish/:wishId/*                                         → WishView
-/agreement/:agreementId                                 → AgreementView
-```
+- **`login(serverUrl)`:** `openApp(serverUrl)`, then `app.connect()` (the approval page, from the Connect click), then starts the session: loads the user's agent and contracts, opens the event stream, and stores `{ serverUrl }` in `localStorage` (`user`).
+- **`restoreSession()`:** on reload, reopens the app from the stored node URL. If `isSessionGone`, it ends the session and shows the login page. Any other error shows a boot error with a retry.
+- **`logout()`:** closes the event stream, clears the stored session and calls `forgetApp()`.
 
-### 11.2 URL Parameter Design
-
-Initiative URLs encode the **host server** and **host agent** in the path. This is required because the decentralized architecture means a contract can live on any user's server. By embedding the coordinates in the URL, the application can deep-link to any resource across the network without a central resolver.
-
-URLs are base64 or URI-encoded where the server URL contains special characters.
-
-### 11.3 Navigation State
-
-When navigating to a collaboration page (wish, initiative, agreement), the originating component passes the full collaboration object in React Router's `state`:
-
-```typescript
-navigate(`/wish/${item.id}/related`, { state: { wish: item, communityId } });
-```
-
-The destination page reads `location.state` to pre-populate data before its async fetches complete, eliminating perceived loading latency.
-
-### 11.4 Nested Routing in Views
-
-Multi-tab pages (`IdentityView`, `CommunityView`, `InitiativeView`, etc.) use nested `<Routes>` with the `/*` wildcard on the parent:
-
-```tsx
-<Routes>
-  <Route path="profile"      element={<Profile />} />
-  <Route path="communities"  element={<Communities />} />
-  <Route path="join"         element={<JoinCommunity />} />
-  <Route path="*"            element={<Navigate to="profile" replace />} />
-</Routes>
-```
-
-The active tab is reflected in the URL, making deep links and browser back/forward work correctly.
+`LoginPage` asks only for the node URL. The field starts empty, or with the node of a session that ended (to connect again with one click); a list offers the URLs used before. It rejects IP addresses, since passkeys need a host name. It opens the app ahead of the click, so the click can open the popup at once.
 
 ---
 
-## 12. Key Data Models
+## 12. State Management
 
-### 12.1 Core Interfaces (`services/interfaces.ts`)
+| Slice | Holds |
+|-------|-------|
+| `userSlice` | `serverUrl`, `publicKey` (the agent's address), the user's contracts, `profileContractId`, the profile and whether it is public |
+| `communitiesSlice` | Per community: properties, members, member profiles (read with public reads, four at a time), nominations, `accessNeeded` |
+| `currencySlice` | Per community: accounts, policies, currency state (`fetchCurrency`) |
 
-```typescript
-interface IContract {
-  id:           string;                       // Contract ID on its server
-  name:         string;
-  contract:     string;                       // Python class name
-  code:         string;                       // Python source
-  protocol:     string;
-  pid:          string;                       // Owner's public key
-  address:      string;                       // Owner's server URL
-  group:        string[];
-  threshold:    number;
-  profile:      string | null;                // Linked profile contract ID
-  constructor:  Record<string, unknown>;
-}
-
-interface IMethod {
-  name:         string;                       // Python method name
-  arguments?:   string[];
-  values?:      Record<string, unknown>;      // Named parameters
-  parameters?:  Record<string, unknown>;
-}
-
-interface IProfile {
-  firstName:    string;
-  lastName:     string;
-  userPhoto:    string;                       // Base64 image
-  userBio:      string;
-  openaiApiKey?: string;
-}
-```
-
-### 12.2 Flow Reference
-
-```typescript
-interface FlowRef {
-  id:     string;   // Contract ID on the owner's server
-  server: string;   // Owner's server URL
-  agent:  string;   // Owner's public key
-  type:   string;   // Flow type ID (e.g., 'ranking', 'scheduling')
-}
-```
-
-### 12.3 Collaboration Tab (local UI state)
-
-```typescript
-interface CollaborationTab {
-  instanceId: string;   // = FlowRef.id
-  flowId:     string;   // = FlowRef.type
-  flowServer: string;   // = FlowRef.server
-  flowAgent:  string;   // = FlowRef.agent
-}
-```
-
-### 12.4 Flow Data Models (selected)
-
-```typescript
-// Scheduling
-interface RangeConfig {
-  title: string; description: string; organizerId: string;
-  startDate: string; endDate: string;
-  dailyStart: number; dailyEnd: number;   // hours (0–23)
-  slotMinutes: number;                    // granularity
-}
-interface ParticipantSelection {
-  participantId: string;
-  slots: number[];                        // flat global slot indices
-}
-
-// Task Board
-interface Task {
-  id: string; title: string; description: string;
-  ownerId: string | null;
-  status: 'backlog' | 'in-progress' | 'done';
-  createdBy: string; createdAt: number;
-}
-
-// Roles
-interface Role {
-  id: string; name: string; description: string;
-  createdBy: string; createdAt: number;
-  assignees:        string[];
-  purpose:          string;
-  responsibilities: RoleItem[];
-  autonomy:         RoleItem[];
-  authorities:      RoleItem[];
-  boundaries:       RoleItem[];
-  votes:            Record<string, Record<string, 'approve' | 'disapprove'>>;
-}
-// Vote key scheme:
-//   'purpose'        → vote on purpose text
-//   'holder_<id>'    → vote on a role holder
-//   'item_<id>'      → vote on a list item
-
-// Fundraising
-interface FundConfig { name: string; description: string; goal: number | null; }
-interface Contribution { id: string; participantId: string; amount: number; timestamp: number; }
-
-// Discussion
-interface Comment { id: string; author: string; text: string; parentId: string | null; timestamp: number; }
-```
+Thunks call the services and store the results. Components keep UI state (dialogs, edits, busy flags) locally.
 
 ---
 
-## 13. UI Patterns and Component Design
+## 13. Routing and Navigation
 
-### 13.1 Design Tokens
+```
+/                                                   → /identity
+/identity/{profile|communities|join}                IdentityView
+/community/:communityId/{collaborations|members|policies|wallet|share}
+/community/:communityId/policy/:policyId            PolicyDetailPage
+/{initiative|wish|agreement}/:hostServer/:hostAgent/:collaborationId/*
+                                                    CollaborationView → the kind's page (CollaborationPage)
+   …/flow/:flowId                                   FlowPage
+   …?in=:flowId                                     drill-down level (phones)
+```
 
-All visual constants are defined in `styles/variables.scss` and imported into component SCSS files via `@use '../../../../styles/variables' as *`. This covers:
+Every collaboration's path holds its host, so a link to it works on its own; the community's list also passes the listed collaboration in navigation state, to show its title at once. `CollaborationView` keys the page by the collaboration id, so each collaboration starts with fresh state.
 
-- **Colors:** `$primary`, `$warning`, `$error`, `$success`, `$gray-100` through `$gray-900`
-- **Spacing:** `$spacing-xs`, `$spacing-sm`, `$spacing-md`, `$spacing-lg`, `$spacing-xl`, `$spacing-2xl`, `$spacing-3xl`
-- **Typography:** `$text-xs` through `$text-2xl`, `$font-normal`, `$font-medium`, `$font-semibold`, `$font-bold`
-- **Shape:** `$radius-sm`, `$radius-md`, `$radius-lg`, `$radius-full`
+---
+
+## 14. UI Patterns and Component Design
+
+### 14.1 Design Tokens
+
+Visual constants are in `styles/variables.scss`, imported into component SCSS files with `@use '…/styles/variables' as *`:
+
+- **Spacing:** `$spacing-xs` … `$spacing-3xl`
+- **Typography:** `$text-xs` … `$text-2xl`, `$font-normal` … `$font-bold`
+- **Shape:** `$radius-sm` … `$radius-full`
 - **Effects:** `$shadow-sm`, `$shadow-base`, `$shadow-lg`, `$transition-base`
+- **Colors:** CSS variables (`var(--color-…)`)
 
-### 13.2 Modal Dialog Pattern
+### 14.2 Approval-aware actions
 
-Setup dialogs (Scheduling, Fundraising, and community dialogs) use a consistent structure:
+Every button whose call may open the node's approval page shows "Approve on your node…" while it waits. Steps that come after an await use the silent-or-banner pattern (5.1). `ContractGate` and `AllowAccess` are the shared components for "join this contract" and "let the app read it".
 
-```
-.overlay   → fixed full-screen backdrop (rgba black, z-index 1000)
-  .dialog  → centered white box (max-width ~520px, max-height 90vh, overflow-y: auto)
-    .header         → title + close (×) button
-    .dialogContent  → form fields (gap: spacing-lg)
-    .dialogActions  → Cancel + Confirm buttons (right-aligned, gray-50 background)
-```
+### 14.3 Modal Dialog Pattern
 
-### 13.3 Flow Card Pattern
+Every dialog renders its content in `Modal` (`components/Modal.tsx`), and only while it is open:
 
-Many flows (Roles, Task Board, Concerns) use a card layout:
-
-```
-.card          → white, border, border-radius, box-shadow
-  .cardHeader  → flex row: expand toggle + title + action buttons
-  .cardBody    → collapsible content (sections with titles and items)
+```tsx
+<Modal title="Send Payment" onClose={onClose} locked={isSending} actions={<>Cancel, Send</>}>
+  …fields…
+</Modal>
 ```
 
-### 13.4 Collapsible Card (Roles)
+- The frame: an overlay, a header (title and ×), a body that scrolls, and a footer with the actions (Cancel first, the main action last, right-aligned; stacked on phones). Sizes: `small`, `medium` (default), `large`.
+- It closes on ×, an outside click and Escape; `locked` (an action in progress) holds it open, and `closable={false}` makes a dialog that only its actions close (the web-of-trust approval).
+- While open it takes the keyboard focus (and gives it back), and stops the page behind from scrolling.
+- `dialogForm.module.scss` styles the body: `field`, `label`, `input` (inputs, selects and text areas), `radioGroup`/`radioOption`, `hint`, `error`, and the `primaryButton`, `secondaryButton` and `dangerButton`. A dialog's own stylesheet keeps only what is its own.
+- Dialogs with a form mount it only while open (a wrapper renders it when visible), so each opening starts empty.
 
-Role cards use a `useState(false)` expanded flag toggled by a chevron button. The card header (name, assignees, join/leave) is always visible. The `cardBody` with all five role definition sections renders only when `expanded === true`.
+### 14.4 Flow Card Pattern
 
-Vote buttons on assignees are shown only when `expanded && !isHolder`, keeping the collapsed view clean.
+Many flows (Roles, Task Board, Concerns) use cards: a `.card` with a `.cardHeader` (expand toggle, title, actions) and a collapsible `.cardBody`. Role cards keep their five sections collapsed until expanded. Votes on assignees show only when expanded, and not to the role's holders.
 
-### 13.5 Inline Edit Pattern
+### 14.5 Inline Edit Pattern
 
-List items (role sections, task descriptions) use inline edit state:
+List items use an `editId` / `editText` pair: Enter or ✓ commits, and Escape or × cancels.
 
-```typescript
-const [editId,   setEditId]   = useState<string | null>(null);
-const [editText, setEditText] = useState('');
+### 14.6 Refetch after writes
 
-// Show input when editId === item.id
-// Commit on Enter or ✓ button
-// Cancel on Escape or × button
-```
+Flows write, then refetch, and also refetch on the contract's `contract_write` events, so other participants' changes appear too. Lists that the user is building (such as ranking items) keep the local edit while a refetch is in flight.
 
-### 13.6 Optimistic UI
+### 14.7 Drag-to-Select (Scheduling Heatmap)
 
-For voting (Concern Resolution, Role Nomination), the new vote state is computed client-side and sent to the contract in a single write. The UI does not wait for the write to confirm before re-rendering — it re-fetches after the write completes (or on error, can re-fetch to restore truth).
-
-### 13.7 Drag-to-Select (Scheduling Heatmap)
-
-The scheduling grid implements a drag-to-select interaction using `mousedown`, `mouseenter`, and a global `mouseup` handler:
-
-- `dragModeRef` — `'select' | 'deselect' | null`, set on `mousedown` based on current slot state
-- `draggedRef` — set of slot indices touched during the current drag
-- `persistedRef` — confirmed slots (written to contract)
-- `effectiveSlots` — `persistedRef ∪ draggedRef` (or `persistedRef ∖ draggedRef` in deselect mode)
-
-All drag state lives in `useRef` (not `useState`) to avoid re-render overhead during drag, with a single `useState` trigger at the end of each drag to commit the effective slots to the UI and contract.
+The scheduling grid selects with `mousedown`, `mouseenter` and a global `mouseup`. The drag state is kept in refs (`dragModeRef`, `draggedRef`, `persistedRef`), so dragging doesn't re-render. At the end of each drag, one state update commits the selection to the UI and the contract (`setMySelection`).
 
 ---
 
-## 14. Build and Configuration
+## 15. Build and Configuration
 
-### 14.1 Vite Configuration
+### 15.1 Vite
 
-```typescript
-// vite.config.ts
-export default defineConfig({
-  plugins: [react()],
-  // SCSS variables auto-imported via additionalData or @use in each file
-});
-```
-
-Python contract files in `src/assets/contracts/` are imported as raw strings using Vite's `?raw` import suffix:
+Contract sources are read with `import.meta.glob` (as raw text) in `services/contracts/sources.ts`, and given as ibc takes them, files by path:
 
 ```typescript
-import rankingSource from '../../assets/contracts/ranking_flow_contract.py?raw';
+source: sourceOf('RankingFlow.sol')   // { 'RankingFlow.sol': '…' }
+source: communitySource               // { 'Community.sol': '…', 'Currency.sol': '…', … }
 ```
 
-This embeds the Python source as a JavaScript string at build time, enabling the frontend to deploy contracts without a separate file download.
+The app deploys these sources itself, and nodes that join compile them to check them against the running code.
 
-### 14.2 TypeScript Configuration
+### 15.2 Dependencies
 
-- `tsconfig.app.json` targets ES2020 with strict mode enabled.
-- Path aliases are not used; all imports are relative paths.
-- `"moduleResolution": "bundler"` enables Vite's module resolution.
+`@ouripoupko/ibc` is installed from the sibling repository: `"@ouripoupko/ibc": "file:../ibc-go/js"`. Build the library in `../ibc-go/js` before `npm install`.
 
-### 14.3 NPM Scripts
+### 15.3 NPM Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `npm run dev` | Start Vite dev server with HMR |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Preview production build locally |
-| `npm run lint` | Run ESLint with TypeScript rules |
+| `npm run dev` | Vite dev server with HMR |
+| `npm run build` | Type check (`tsc -b`) and production build to `dist/` |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | ESLint |
+| `npm run test:contracts` | The contract tests, on a throwaway ibc node (see the testing guide) |
+| `npm run test:e2e` | The browser test of the app, on a throwaway node; `SHOTS=1` also saves the docs' screenshots |
 
-### 14.4 Environment
+### 15.4 Environment
 
-No `.env` files are required for basic operation. The server URL is provided at runtime by the user during login and stored in `localStorage`. There are no build-time API keys or environment-specific configuration.
+No `.env` is needed. The node URL is given at login and stored in `localStorage`. The node must allow the app's origin, and be reached by host name (not IP) for passkeys.

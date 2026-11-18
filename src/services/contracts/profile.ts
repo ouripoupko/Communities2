@@ -1,7 +1,7 @@
 import { Ibc } from '@ouripoupko/ibc';
-import { getApp, readSilently } from '../ibc';
+import { getApp, readSilently, write, deploy } from '../ibc';
 import type { IProfile } from '../interfaces';
-import profileSource from '../../assets/contracts/Profile.sol?raw';
+import { sourceOf } from './sources';
 
 /** The label the profile contract is deployed with, by which it is found again. */
 export const PROFILE_CONTRACT_NAME = 'communities-profile';
@@ -11,7 +11,7 @@ export const PROFILE_CONTRACT_NAME = 'communities-profile';
  * others can read it. The user approves (and decides) on their node.
  */
 export async function deployProfile(): Promise<string> {
-  return await getApp().deploy({ source: profileSource, name: PROFILE_CONTRACT_NAME, public: true });
+  return await deploy({ source: sourceOf('Profile.sol'), name: PROFILE_CONTRACT_NAME, public: true });
 }
 
 /** Asks the user to let anyone read their profile. Opens the node's approval page. */
@@ -29,5 +29,5 @@ export async function getPublicProfile(node: string, agent: string, contractId: 
 }
 
 export async function setProfile(contractId: string, profile: IProfile): Promise<void> {
-  await getApp().write(contractId, 'setProfile', { ...profile });
+  await write(contractId, 'setProfile', { ...profile });
 }

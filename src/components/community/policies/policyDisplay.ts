@@ -1,4 +1,4 @@
-import type { IPolicySide } from '../../../services/contracts/community';
+import type { Account, IPolicySide } from '../../../services/contracts/community';
 
 export function describeSide(
   side: IPolicySide,
@@ -19,6 +19,27 @@ export function describeSide(
   }
 }
 
+/** An amount of the currency, with two decimals. */
+export function formatAmount(amount: number): string {
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function formatRate(mode: 'units' | 'percent', rate: number): string {
-  return mode === 'percent' ? `${rate}% per tick` : `${rate} per tick`;
+  return mode === 'percent'
+    ? `${rate.toLocaleString(undefined, { maximumFractionDigits: 4 })}% per day`
+    : `${formatAmount(rate)} per day`;
+}
+
+/** How many of the community's accounts a policy's side names now (0 for minting or burning). */
+export function sideCount(side: IPolicySide, accounts: Account[]): number {
+  switch (side.kind) {
+    case 'account':
+      return 1;
+    case 'everyPersonal':
+      return accounts.filter((a) => a.kind === 'personal').length;
+    case 'everyAccount':
+      return accounts.length;
+    default:
+      return 0;
+  }
 }

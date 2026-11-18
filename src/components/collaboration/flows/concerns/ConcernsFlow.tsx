@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
+import { useParticipants } from '../useParticipants';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './concernsApi';
 import type { Concern, ConcernVote, ConcernStatus } from './concernsApi';
@@ -91,6 +92,7 @@ const ConcernCard: React.FC<{
   onVote: (concernId: string, v: ConcernVote) => Promise<void>;
   onClearVote: (concernId: string) => Promise<void>;
 }> = ({ concern, status, currentUser, onVote, onClearVote }) => {
+  const { byline } = useParticipants(currentUser);
   const counts  = api.voteCounts(concern);
   const weight  = api.supportWeight(concern);
   const myVote  = concern.votes[currentUser] as ConcernVote | undefined;
@@ -122,7 +124,7 @@ const ConcernCard: React.FC<{
         <div className={styles.cardHeader}>
           <span className={styles.cardTitle}>{concern.title}</span>
           <span className={styles.cardCreator}>
-            by {concern.createdBy === currentUser ? 'you' : concern.createdBy}
+            {byline(concern.createdBy)}
           </span>
         </div>
 
@@ -186,52 +188,27 @@ const CollapsibleSection: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [concerns, setConcerns] = useState<Concern[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.loadConcerns(flowServer, flowAgent, instanceId);
-      setConcerns(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load concerns');
-    } finally {
-      setLoading(false);
-    }
-  }, [flowServer, flowAgent, instanceId]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
-  }, [instanceId, load]), flowServer, flowAgent);
+const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
+  const { data: concerns, loading, error, retry } = useFlowData(instanceId, api.loadConcerns);
 
   const handleAdd = useCallback(async (title: string, desc: string) => {
-    await api.addConcern(flowServer, flowAgent, instanceId, currentUser, title, desc);
-  }, [flowServer, flowAgent, instanceId, currentUser]);
+    await api.addConcern(instanceId, title, desc);
+  }, [instanceId]);
 
   const handleVote = useCallback(async (concernId: string, v: ConcernVote) => {
-    const concern = concerns.find(c => c.id === concernId);
-    if (!concern) return;
-    await api.voteConcern(flowServer, flowAgent, instanceId, concern, currentUser, v);
-  }, [flowServer, flowAgent, instanceId, concerns, currentUser]);
+    await api.voteConcern(instanceId, concernId, v);
+  }, [instanceId]);
 
   const handleClearVote = useCallback(async (concernId: string) => {
-    const concern = concerns.find(c => c.id === concernId);
-    if (!concern) return;
-    await api.clearVoteConcern(flowServer, flowAgent, instanceId, concern, currentUser);
-  }, [flowServer, flowAgent, instanceId, concerns, currentUser]);
+    await api.clearVoteConcern(instanceId, concernId);
+  }, [instanceId]);
 
   const { active, resolved, rejected } = useMemo(() => {
     const active:   Concern[] = [];
     const resolved: Concern[] = [];
     const rejected: Concern[] = [];
 
-    for (const c of concerns) {
+    for (const c of concerns ?? []) {
       const s = api.concernStatus(c);
       if      (s === 'active')   active.push(c);
       else if (s === 'resolved') resolved.push(c);
@@ -245,7 +222,7 @@ const ConcernsFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, 
   }, [concerns]);
 
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={() => void load()} />;
+  if (error)   return <FlowError message={error} onRetry={retry} />;
 
   return (
     <div className={styles.container}>

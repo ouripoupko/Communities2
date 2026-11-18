@@ -1,10 +1,13 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Heart, Target, Users, X, List, PieChart, Plus } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Heart, Target, Users, List, PieChart, Plus } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
+import { useParticipants } from '../useParticipants';
 import * as api from './fundingApi';
 import { FlowLoading, FlowError } from '../FlowShell';
+import Modal from '../../../Modal';
+import form from '../../../dialogForm.module.scss';
 import styles from './FundingFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -30,68 +33,63 @@ export const FundingSetupDialog: React.FC<{
   };
 
   return (
-    <div className={styles.overlay}>
-      <div className={styles.dialog}>
-        <div className={styles.dialogHeader}>
-          <h2 className={styles.dialogTitle}>Set Up Funding</h2>
-          <button className={styles.closeButton} onClick={onCancel}><X size={18} /></button>
-        </div>
-
-        <div className={styles.dialogContent}>
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="fund-name">Fund name *</label>
-            <input
-              id="fund-name"
-              className={styles.input}
-              type="text"
-              placeholder="e.g. Community Garden Renovation"
-              value={name}
-              autoFocus
-              onChange={e => { setName(e.target.value); setError(''); }}
-              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') onCancel(); }}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="fund-desc">
-              Description <span className={styles.optional}>(optional)</span>
-            </label>
-            <textarea
-              id="fund-desc"
-              className={styles.textarea}
-              rows={3}
-              placeholder="What will the funds be used for?"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="fund-goal">
-              Target goal <span className={styles.optional}>(optional, in {api.CURRENCY_SYMBOL})</span>
-            </label>
-            <input
-              id="fund-goal"
-              className={styles.input}
-              type="number"
-              min={1}
-              placeholder="e.g. 500"
-              value={goalInput}
-              onChange={e => { setGoalInput(e.target.value); setError(''); }}
-            />
-          </div>
-
-          {error && <p className={styles.errorMsg}>{error}</p>}
-        </div>
-
-        <div className={styles.dialogActions}>
-          <button className={styles.btnSecondary} onClick={onCancel}>Cancel</button>
-          <button className={styles.btnPrimary} onClick={handleSubmit}>
+    <Modal
+      title="Set Up Funding"
+      onClose={onCancel}
+      actions={(
+        <>
+          <button className={form.secondaryButton} onClick={onCancel}>Cancel</button>
+          <button className={form.primaryButton} onClick={handleSubmit}>
             <Heart size={15} /> Launch Fund
           </button>
-        </div>
+        </>
+      )}
+    >
+      <div className={form.field}>
+        <label className={form.label} htmlFor="fund-name">Fund name *</label>
+        <input
+          id="fund-name"
+          className={form.input}
+          type="text"
+          placeholder="e.g. Community Garden Renovation"
+          value={name}
+          autoFocus
+          onChange={e => { setName(e.target.value); setError(''); }}
+          onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
+        />
       </div>
-    </div>
+
+      <div className={form.field}>
+        <label className={form.label} htmlFor="fund-desc">
+          Description <span className={styles.optional}>(optional)</span>
+        </label>
+        <textarea
+          id="fund-desc"
+          className={form.input}
+          rows={3}
+          placeholder="What will the funds be used for?"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+        />
+      </div>
+
+      <div className={form.field}>
+        <label className={form.label} htmlFor="fund-goal">
+          Target goal <span className={styles.optional}>(optional, in {api.CURRENCY_SYMBOL})</span>
+        </label>
+        <input
+          id="fund-goal"
+          className={form.input}
+          type="number"
+          min={1}
+          placeholder="e.g. 500"
+          value={goalInput}
+          onChange={e => { setGoalInput(e.target.value); setError(''); }}
+        />
+      </div>
+
+      {error && <div className={form.error}>{error}</div>}
+    </Modal>
   );
 };
 
@@ -128,12 +126,8 @@ const ProgressBar: React.FC<{ raised: number; goal: number | null }> = ({ raised
 // Contribution form
 // ---------------------------------------------------------------------------
 const ContributeForm: React.FC<{
-  flowServer: string;
-  flowAgent: string;
-  instanceId: string;
-  currentUser: string;
-  communityInfo: api.CommunityInfo | null;
-}> = ({ flowServer, flowAgent, instanceId, currentUser, communityInfo }) => {
+  communityInfo: api.CommunityInfo;
+}> = ({ communityInfo }) => {
   const [amountInput, setAmountInput] = useState('');
   const [error,       setError]       = useState('');
   const [success,     setSuccess]     = useState(false);
@@ -144,7 +138,7 @@ const ContributeForm: React.FC<{
     if (!amount || amount <= 0) { setError('Amount must be positive.'); return; }
     setSubmitting(true);
     try {
-      await api.contribute(flowServer, flowAgent, instanceId, currentUser, amount, communityInfo ?? undefined);
+      await api.contribute(communityInfo, amount);
       setAmountInput('');
       setError('');
       setSuccess(true);
@@ -191,23 +185,23 @@ const ContributionsList: React.FC<{
   contributions: api.Contribution[];
   currentUser: string;
 }> = ({ contributions, currentUser }) => {
+  const { isMe, nameOf } = useParticipants(currentUser);
   if (contributions.length === 0) {
     return <p className={styles.noData}>No contributions yet. Be the first!</p>;
   }
   const sorted = [...contributions].sort((a, b) => b.timestamp - a.timestamp);
   const fmt    = (ts: number) => new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  const label  = (id: string) => (id === currentUser ? 'You' : id);
 
   return (
     <div className={styles.contributionsList}>
       {sorted.map(c => (
         <div key={c.id} className={styles.contributionRow}>
           <div className={styles.contributorInfo}>
-            <span className={`${styles.avatar} ${c.participantId === currentUser ? styles.avatarMe : ''}`}>
-              {label(c.participantId)[0].toUpperCase()}
+            <span className={`${styles.avatar} ${isMe(c.participantId) ? styles.avatarMe : ''}`}>
+              {nameOf(c.participantId)[0].toUpperCase()}
             </span>
             <div>
-              <span className={styles.contributorName}>{label(c.participantId)}</span>
+              <span className={styles.contributorName}>{nameOf(c.participantId)}</span>
               <span className={styles.contributionTime}>{fmt(c.timestamp)}</span>
             </div>
           </div>
@@ -224,8 +218,6 @@ const ContributionsList: React.FC<{
 // Budget — allocation tab
 // ---------------------------------------------------------------------------
 const AllocationTab: React.FC<{
-  flowServer: string;
-  flowAgent: string;
   instanceId: string;
   currentUser: string;
   items: api.BudgetItem[];
@@ -233,7 +225,7 @@ const AllocationTab: React.FC<{
   myAllocation: Record<string, number>;
   onMyAllocationChange: (updated: Record<string, number>) => void;
   onSaveAllocation: () => Promise<void>;
-}> = ({ flowServer, flowAgent, instanceId, currentUser, items, allocations, myAllocation, onMyAllocationChange, onSaveAllocation }) => {
+}> = ({ instanceId, currentUser, items, allocations, myAllocation, onMyAllocationChange, onSaveAllocation }) => {
   const [inputText, setInputText] = useState('');
   const [error,     setError]     = useState('');
   const [adding,    setAdding]    = useState(false);
@@ -248,7 +240,7 @@ const AllocationTab: React.FC<{
     if (!name) return;
     setAdding(true);
     try {
-      await api.addItem(flowServer, flowAgent, instanceId, currentUser, name);
+      await api.addItem(instanceId, name);
       setInputText('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to add item.');
@@ -385,91 +377,85 @@ const ResultsTab: React.FC<{
 // Root
 // ---------------------------------------------------------------------------
 
-// A freshly-created fund's set_config write may not be visible to a read yet
-// (contracts deploy with BFT consensus - no read-your-write guarantee), and
-// this component mounts (and starts listening for the contract_write SSE
-// event) only after that write was already submitted. Without a bounded
-// retry here, a config that's still propagating looks identical to "never
-// going to arrive" and the spinner below would never resolve.
-const CONFIG_RETRY_DELAYS_MS = [800, 1500, 3000];
+// Everything the fund shows: its config, its account in the community and the budget.
+async function loadFunding(instanceId: string) {
+  const [{ config, communityId }, budget] = await Promise.all([
+    api.loadFundConfig(instanceId),
+    api.loadBudget(instanceId),
+  ]);
+  const info: api.CommunityInfo = { communityId, fundId: instanceId };
+  const account = await api.loadFundAccount(info);
+  return { info, config, account, budget };
+}
 
-const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [fund,          setFund]          = useState<api.FundState | null>(null);
-  const [communityInfo, setCommunityInfo] = useState<api.CommunityInfo | null>(null);
-  const [fundBalance,   setFundBalance]   = useState<number | null>(null);
-  const [budgetState,   setBudgetState]   = useState<api.BudgetState | null>(null);
-  const [myAllocation,  setMyAllocation]  = useState<Record<string, number>>({});
-  const [budgetTab,     setBudgetTab]     = useState<'allocation' | 'results'>('allocation');
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
+const watchCommunity = (data: { info: api.CommunityInfo }) => data.info.communityId;
 
-  // Tracks whether we've seeded myAllocation from the server for this instance.
-  // SSE reloads must NOT overwrite in-progress local edits.
-  const myAllocationInitialized = useRef(false);
-  useEffect(() => { myAllocationInitialized.current = false; }, [instanceId]);
+const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowAgent, currentUser }) => {
+  // Payments into the fund's account, in its community, change the fund too.
+  const { data, loading, error, retry } = useFlowData(instanceId, loadFunding, { alsoWatch: watchCommunity });
 
-  // Always-current ref so handleSaveAllocation never needs myAllocation as a dep.
-  const myAllocationRef = useRef(myAllocation);
-  myAllocationRef.current = myAllocation;
+  // My allocation as I edit it; until then, the one the contract has.
+  const [myEdit,     setMyEdit]     = useState<Record<string, number> | null>(null);
+  const [budgetTab,  setBudgetTab]  = useState<'allocation' | 'results'>('allocation');
+  const [opening,    setOpening]    = useState(false);
+  // A write that failed: the contract is as it was.
+  const [writeError, setWriteError] = useState<string | null>(null);
 
-  // Always-current ref so the SSE listener below can also catch writes to
-  // the community contract (e.g. a wallet-tab transfer into the fund
-  // account) without re-subscribing every time communityInfo changes.
-  const communityIdRef = useRef<string | null>(null);
-  communityIdRef.current = communityInfo?.communityId ?? null;
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      let [fundState, info, budget] = await Promise.all([
-        api.loadFund(flowServer, flowAgent, instanceId),
-        api.loadCommunityInfo(flowServer, flowAgent, instanceId),
-        api.loadBudget(flowServer, flowAgent, instanceId),
-      ]);
-      for (const delay of CONFIG_RETRY_DELAYS_MS) {
-        if (fundState.config) break;
-        await new Promise(resolve => setTimeout(resolve, delay));
-        fundState = await api.loadFund(flowServer, flowAgent, instanceId);
-      }
-      setFund(fundState);
-      setCommunityInfo(info);
-      setFundBalance(info ? await api.loadFundBalance(currentUser, info) : null);
-      setBudgetState(budget);
-      if (!myAllocationInitialized.current) {
-        const mine = budget.allocations.find(a => a.participantId === currentUser)?.allocation ?? {};
-        setMyAllocation(mine);
-        myAllocationInitialized.current = true;
-      }
-      if (!fundState.config) {
-        setError("This fund hasn't finished setting up yet. Please try again in a moment.");
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load funding data.');
-    } finally {
-      setLoading(false);
-    }
-  }, [flowServer, flowAgent, instanceId, currentUser]);
-
-  useEffect(() => { load(); }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId || event.contract === communityIdRef.current) void load();
-  }, [instanceId, load]), flowServer, flowAgent);
+  const myAllocation = useMemo(
+    () => myEdit ?? data?.budget.allocations.find(a => a.participantId === currentUser)?.allocation ?? {},
+    [myEdit, data, currentUser],
+  );
 
   const handleSaveAllocation = useCallback(async () => {
-    await api.saveMyAllocation(flowServer, flowAgent, instanceId, currentUser, myAllocationRef.current);
-  }, [flowServer, flowAgent, currentUser, instanceId]);
+    await api.saveMyAllocation(instanceId, myAllocation);
+  }, [instanceId, myAllocation]);
+
+  // Opening the fund's account may open the node's approval page: it starts from this click.
+  const handleOpenFund = useCallback(async () => {
+    if (!data?.config) return;
+    setOpening(true);
+    try {
+      await api.openFund(data.info, data.config.name, currentUser);
+    } catch (e) {
+      setWriteError(e instanceof Error ? e.message : 'Failed to open the fund.');
+    } finally {
+      setOpening(false);
+    }
+  }, [data, currentUser]);
 
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
-  if (!fund || fund.config === null || !budgetState) return <FlowLoading />;
+  const failure = error ?? writeError;
+  if (failure) return <FlowError message={failure} onRetry={() => { setWriteError(null); retry(); }} />;
+  if (!data?.config) return <FlowLoading />;
+  const { config, account, budget: budgetState } = data;
+  const fund = { config, contributions: account.contributions };
 
-  // The account's real balance (from the community ledger) is authoritative -
-  // it reflects wallet-tab transfers into the fund account too, which this
-  // contract's own contribution records don't see. Fall back to the summed
-  // contributions only if the fund isn't linked to a community account.
-  const raised      = fundBalance ?? api.totalRaised(fund.contributions);
+  if (!account.open) {
+    const isHost = flowAgent.toLowerCase() === currentUser.toLowerCase();
+    return (
+      <div className={styles.activeFund}>
+        <div className={styles.descriptionCard}>
+          <h3 className={styles.fundName}>{fund.config.name}</h3>
+          {isHost ? (
+            <>
+              <p className={styles.description}>
+                Open the fund&apos;s account in the community, so members can contribute to it.
+              </p>
+              <button className={styles.btnPrimary} onClick={() => void handleOpenFund()} disabled={opening}>
+                <Heart size={16} /> {opening ? 'Approve on your node…' : 'Open the fund'}
+              </button>
+            </>
+          ) : (
+            <p className={styles.description}>The fund is not open yet: its creator opens it.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // The fund's balance is its account's in the community: payments from the
+  // wallet tab count too, as the community records them all.
+  const raised      = account.balance;
   const myContrib   = api.contributionByUser(fund.contributions, currentUser);
   const contributors = new Set(fund.contributions.map(c => c.participantId)).size;
 
@@ -516,13 +502,7 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
 
       <ProgressBar raised={raised} goal={fund.config.goal ?? null} />
 
-      <ContributeForm
-        flowServer={flowServer}
-        flowAgent={flowAgent}
-        instanceId={instanceId}
-        currentUser={currentUser}
-        communityInfo={communityInfo}
-      />
+      <ContributeForm communityInfo={data.info} />
 
       <div className={styles.historySection}>
         <h3 className={styles.cardTitle}>Contributions</h3>
@@ -554,14 +534,12 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, c
 
         {budgetTab === 'allocation' && (
           <AllocationTab
-            flowServer={flowServer}
-            flowAgent={flowAgent}
             instanceId={instanceId}
             currentUser={currentUser}
             items={budgetState.items}
             allocations={allocationsWithMine}
             myAllocation={myAllocation}
-            onMyAllocationChange={setMyAllocation}
+            onMyAllocationChange={setMyEdit}
             onSaveAllocation={handleSaveAllocation}
           />
         )}

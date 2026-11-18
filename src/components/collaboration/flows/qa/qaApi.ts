@@ -1,5 +1,4 @@
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
+import { readSilently, write } from '../../../../services/ibc';
 
 export interface Question {
   id: string;
@@ -18,193 +17,60 @@ export interface Answer {
   disapprovals: string[];
 }
 
-function normalizeQuestion(q: Record<string, unknown>): Question {
-  return {
-    id:        String(q.id        ?? ''),
-    text:      String(q.text      ?? ''),
-    createdBy: String(q.createdBy ?? ''),
-    createdAt: Number(q.createdAt ?? 0),
-  };
-}
-
-function normalizeAnswer(a: Record<string, unknown>): Answer {
-  return {
-    id:           String(a.id          ?? ''),
-    questionId:   String(a.questionId  ?? ''),
-    text:         String(a.text        ?? ''),
-    createdBy:    String(a.createdBy   ?? ''),
-    createdAt:    Number(a.createdAt   ?? 0),
-    approvals:    Array.isArray(a.approvals)    ? (a.approvals    as unknown[]).map(u => String(u)) : [],
-    disapprovals: Array.isArray(a.disapprovals) ? (a.disapprovals as unknown[]).map(u => String(u)) : [],
-  };
-}
-
 // ---------------------------------------------------------------------------
-// Reads
+// The contract (QAFlow.sol) enforces the rules: one answer per participant
+// per question, only authors change their own, no voting on your own answer.
+// Whoever signs is the participant.
 // ---------------------------------------------------------------------------
 
-export async function loadQuestions(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<Question[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_questions', values: {} } as IMethod,
-  });
-  const raw = Array.isArray(result) ? result : [];
-  return (raw as Record<string, unknown>[]).map(normalizeQuestion);
+export async function loadQuestions(contractId: string): Promise<Question[]> {
+  const result = await readSilently(contractId, 'getQuestions') as {
+    id: string; text: string; createdBy: string; createdAt: number;
+  }[];
+  return result.map((q) => ({ id: q.id, text: q.text, createdBy: q.createdBy, createdAt: Number(q.createdAt) * 1000 }));
 }
 
-export async function loadAnswers(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<Answer[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_answers', values: {} } as IMethod,
-  });
-  const raw = Array.isArray(result) ? result : [];
-  return (raw as Record<string, unknown>[]).map(normalizeAnswer);
+export async function loadAnswers(contractId: string): Promise<Answer[]> {
+  const result = await readSilently(contractId, 'getAnswers') as {
+    id: string; questionId: string; text: string; createdBy: string; createdAt: number; approvals: string[]; disapprovals: string[];
+  }[];
+  return result.map((a) => ({
+    id: a.id,
+    questionId: a.questionId,
+    text: a.text,
+    createdBy: a.createdBy,
+    createdAt: Number(a.createdAt) * 1000,
+    approvals: a.approvals,
+    disapprovals: a.disapprovals,
+  }));
 }
 
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
+// Each may open the node's approval page: call them from a click.
 
-export async function addQuestion(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  text: string,
-): Promise<void> {
-  const question: Question = {
-    id:        crypto.randomUUID(),
-    text:      text.trim(),
-    createdBy: currentUser,
-    createdAt: Date.now(),
-  };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'add_question', values: { question } } as IMethod,
-  });
+export async function addQuestion(contractId: string, text: string): Promise<void> {
+  await write(contractId, 'addQuestion', { text: text.trim() });
 }
 
-export async function deleteQuestion(
-  server: string,
-  agent: string,
-  contractId: string,
-  question: Question,
-  currentUser: string,
-): Promise<void> {
-  if (question.createdBy !== currentUser) return;
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'delete_question', values: { question_id: question.id } } as IMethod,
-  });
+export async function deleteQuestion(contractId: string, questionId: string): Promise<void> {
+  await write(contractId, 'deleteQuestion', { questionId });
 }
 
-export async function addAnswer(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  answers: Answer[],
-  questionId: string,
-  text: string,
-): Promise<void> {
-  const alreadyAnswered = answers.some(
-    a => a.questionId === questionId && a.createdBy === currentUser,
-  );
-  if (alreadyAnswered) return;
-
-  const answer: Answer = {
-    id:           crypto.randomUUID(),
-    questionId,
-    text:         text.trim(),
-    createdBy:    currentUser,
-    createdAt:    Date.now(),
-    approvals:    [],
-    disapprovals: [],
-  };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'add_answer', values: { answer } } as IMethod,
-  });
+export async function addAnswer(contractId: string, questionId: string, text: string): Promise<void> {
+  await write(contractId, 'addAnswer', { questionId, text: text.trim() });
 }
 
-export async function editAnswer(
-  server: string,
-  agent: string,
-  contractId: string,
-  answer: Answer,
-  currentUser: string,
-  text: string,
-): Promise<void> {
-  if (answer.createdBy !== currentUser) return;
-  const updated = { ...answer, text: text.trim() };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_answer', values: { answer: updated } } as IMethod,
-  });
+export async function editAnswer(contractId: string, answerId: string, text: string): Promise<void> {
+  await write(contractId, 'editAnswer', { answerId, text: text.trim() });
 }
 
-export async function deleteAnswer(
-  server: string,
-  agent: string,
-  contractId: string,
-  answer: Answer,
-  currentUser: string,
-): Promise<void> {
-  if (answer.createdBy !== currentUser) return;
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'delete_answer', values: { answer_id: answer.id } } as IMethod,
-  });
+export async function deleteAnswer(contractId: string, answerId: string): Promise<void> {
+  await write(contractId, 'deleteAnswer', { answerId });
 }
 
-export async function vote(
-  server: string,
-  agent: string,
-  contractId: string,
-  answer: Answer,
-  voteType: 'approve' | 'disapprove',
-  currentUser: string,
-): Promise<void> {
-  if (answer.createdBy === currentUser) return;
-
-  const currentVote = getMyVote(answer, currentUser);
-  let approvals    = answer.approvals.filter(u => u !== currentUser);
-  let disapprovals = answer.disapprovals.filter(u => u !== currentUser);
-
-  if (currentVote !== voteType) {
-    if (voteType === 'approve') approvals    = [...approvals, currentUser];
-    else                        disapprovals = [...disapprovals, currentUser];
-  }
-
-  const updated = { ...answer, approvals, disapprovals };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_answer', values: { answer: updated } } as IMethod,
-  });
+/** Approves or disapproves an answer; the same vote again takes it back. */
+export async function vote(contractId: string, answer: Answer, voteType: 'approve' | 'disapprove', currentUser: string): Promise<void> {
+  const value = getMyVote(answer, currentUser) === voteType ? 0 : voteType === 'approve' ? 1 : 2;
+  await write(contractId, 'vote', { answerId: answer.id, value });
 }
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setCurrentUser, clearUser, fetchContracts } from '../store/slices/userSlice';
@@ -6,31 +6,28 @@ import type { AppDispatch, RootState } from '../store';
 import { eventStreamService } from '../services/eventStream';
 import { openApp, forgetApp, isSessionGone } from '../services/ibc';
 import type { IbcApp } from '../services/ibc';
+import { AuthContext, type AuthContextType } from './useAuth';
 
-interface AuthContextType {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  bootError: string | null;
-  login: (serverUrl: string) => Promise<void>;
-  logout: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+// The node URL of the session stored in this browser, if any.
+function storedServerUrl(): string | null {
+  const storedUser = localStorage.getItem('user');
+  if (!storedUser) return null;
+  try {
+    return JSON.parse(storedUser).serverUrl ?? null;
+  } catch {
+    localStorage.removeItem('user');
+    return null;
   }
-  return context;
-};
+}
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(true);
+  // Checked once, on app load: only a stored session has anything to restore.
+  const [bootUrl] = useState(storedServerUrl);
+  const [isLoading, setIsLoading] = useState(bootUrl !== null);
   const [bootError, setBootError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const initializationRef = useRef(false);
@@ -81,13 +78,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // If it has none, or the node no longer knows the app (the user
   // disconnected it, or the node lost its data), fall through to the login
   // page, which keeps the stored node URL.
-  const restoreSession = async (serverUrl: string) => {
-    try {
-      const app = await openApp(serverUrl);
-      if (app.agent) {
-        await startSession(app, app.agent, serverUrl);
-      }
-    } catch (err) {
+  const restoreSession = useCallback((serverUrl: string) => openApp(serverUrl)
+    .then((app) => (app.agent ? startSession(app, app.agent, serverUrl) : undefined))
+    .catch((err) => {
       if (isSessionGone(err)) {
         console.warn('The node no longer knows this session; logging in again:', err);
         endSession();
@@ -95,32 +88,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       console.error('Failed to restore session:', err);
       setBootError("We couldn't connect to your node. Please check that it is running and reachable, then reload the page to try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    })
+    .finally(() => setIsLoading(false)), [startSession, endSession]);
 
   useEffect(() => {
-    // StrictMode runs effects twice in dev - bail out of the repeat run
-    // entirely (including the "nothing to do" case below) so it can't
-    // touch isLoading while the first run's restore is still in flight.
-    if (initializationRef.current) return;
+    // StrictMode runs effects twice in dev - bail out of the repeat run so
+    // the session is restored once.
+    if (initializationRef.current || !bootUrl) return;
     initializationRef.current = true;
-
-    // Check for a stored session on app load
-    const storedUser = localStorage.getItem('user');
-    if (!storedUser) {
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const { serverUrl } = JSON.parse(storedUser);
-      void restoreSession(serverUrl);
-    } catch {
-      localStorage.removeItem('user');
-      setIsLoading(false);
-    }
-  }, [dispatch]);
+    void restoreSession(bootUrl);
+  }, [bootUrl, restoreSession]);
 
   // Opens the node's approval page, where the user signs in with their
   // passkey (or creates an identity). Call it from a click.

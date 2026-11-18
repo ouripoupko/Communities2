@@ -1,170 +1,169 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Loader, X } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { Routes, Route, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
-import { FLOW_REGISTRY, FLOW_GROUPS, getFlow } from '../../components/collaboration/flows/registry';
-import { deployFlowContract, addFlow, getFlows, removeFlow } from '../../services/contracts/flows';
-import { getCommunity } from '../../services/contracts/community';
-import { useAppSelector } from '../../store/hooks';
+import { getFlow } from '../../components/collaboration/flows/registry';
+import {
+  addFlow, deployFlow, getCollaborationInfo, getFlows, joinCollaboration, removeFlow, restoreFlow,
+  type CollaborationInfo, type FlowRef, type NewFlow,
+} from '../../services/contracts/flows';
+import { needsAccess } from '../../services/ibc';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchCommunityMembers } from '../../store/slices/communitiesSlice';
 import { useEventStream } from '../../hooks/useEventStream';
-import ConfirmDialog from '../../components/community/dialogs/ConfirmDialog';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import ContractGate from '../../components/collaboration/ContractGate';
+import FlowTreeList from '../../components/collaboration/FlowTreeList';
+import FlowDrillDown from '../../components/collaboration/FlowDrillDown';
+import AddFlowDialog from '../../components/collaboration/AddFlowDialog';
+import { buildTree } from '../../components/collaboration/flowTree';
+import type { CollaborationPageProps } from '../../components/collaboration/kinds';
+import FlowPage from './FlowPage';
 import cs from '../Container.module.scss';
 import styles from './CollaborationPage.module.scss';
 
-export type CollaborationType = 'initiative' | 'wish' | 'agreement';
-
-interface CollaborationTab {
-  instanceId: string;
-  flowId: string;
-  /** Server where the flow contract lives */
-  flowServer: string;
-  /** Agent (public key) who owns the flow contract */
-  flowAgent: string;
-}
-
-interface CollaborationPageProps {
-  type: CollaborationType;
-  title: string;
-  subtitle?: string;
-  collaborationId: string;
-  /** Community id for back-navigation. If omitted, derived from the first loaded flow contract. */
-  communityId?: string;
-  collaborationServer?: string;
-  collaborationAgent?: string;
-}
-
+/**
+ * A collaboration: its flows, as a tree, and a page for each flow. On wide
+ * screens the list is the whole tree; on small ones it shows one level at a
+ * time (the level is in the URL, so the back button goes up). Its views key
+ * it by the collaboration, so another collaboration starts afresh.
+ */
 const CollaborationPage: React.FC<CollaborationPageProps> = ({
-  type,
-  title,
-  subtitle,
+  kind,
   collaborationId,
+  hostServer,
+  hostAgent,
+  listed,
   communityId: communityIdProp,
-  collaborationServer,
-  collaborationAgent,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // The collaboration's own path: the URL without the part its views match
+  // (flow/:flowId). useResolvedPath('') would keep that part, in a /* route.
+  const splat = useParams()['*'] ?? '';
+  const base = location.pathname.slice(0, location.pathname.length - encodeURI(splat).length).replace(/\/$/, '');
+  const [searchParams] = useSearchParams();
+  const isPhone = useMediaQuery('(max-width: 640px)');
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
 
-  const [tabs,             setTabs]             = useState<CollaborationTab[]>([]);
-  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null);
-  const [showAddMenu,      setShowAddMenu]       = useState(false);
-  const [isAddingTab,      setIsAddingTab]       = useState(false);
-  const [isLoadingTabs,    setIsLoadingTabs]     = useState(false);
-  const [pendingFlow,      setPendingFlow]       = useState<ReturnType<typeof getFlow> | null>(null);
-  const [communityId,      setCommunityId]       = useState<string | undefined>(communityIdProp);
-  const [tabToRemove,      setTabToRemove]       = useState<CollaborationTab | null>(null);
+  const [flows,      setFlows]      = useState<FlowRef[]>([]);
+  const [loaded,     setLoaded]     = useState(false);
+  const [info,       setInfo]       = useState<CollaborationInfo | null>(null);
+  // Where the add dialog adds: under a flow, '' for the top level; null when closed.
+  const [addParent,  setAddParent]  = useState<string | null>(null);
+  // A new flow whose type asks for its setup first.
+  const [pendingNew, setPendingNew] = useState<{ flowType: string; title: string; parent: string } | null>(null);
+  // A flow deployed, but not in the tree yet: adding it needs another approval, from its own click.
+  const [unadded,    setUnadded]    = useState<NewFlow | null>(null);
+  const [isAdding,   setIsAdding]   = useState(false);
+  const [error,      setError]      = useState<string | null>(null);
 
-  const collabServer = collaborationServer ?? serverUrl;
-  const collabAgent  = collaborationAgent  ?? publicKey;
+  const tree = useMemo(() => buildTree(flows), [flows]);
+  const communityId = communityIdProp ?? info?.communityId;
+  const title = info?.title || listed?.title || kind.label;
 
-  // Load (and reload) tabs from the collaboration contract.
-  const loadTabs = useCallback(() => {
-    if (!collabServer || !collabAgent || !collaborationId) return;
-
-    setIsLoadingTabs(true);
-    getFlows(collabServer, collabAgent, collaborationId)
-      .then((flows) => {
-        const restored = flows
-          .filter((f) => f.id && f.type)
-          .map((f) => ({
-            instanceId: f.id,
-            flowId:     f.type,
-            flowServer: f.server,
-            flowAgent:  f.agent,
-          }));
-        setTabs(restored);
-        // Keep the current tab selected if it still exists; only default to
-        // the first tab when there's no valid selection yet (initial load,
-        // or the previously active tab was removed).
-        setActiveInstanceId((prev) => {
-          if (prev && restored.some((t) => t.instanceId === prev)) return prev;
-          return restored.length > 0 ? restored[0].instanceId : null;
-        });
-      })
-      .catch((err) => console.error('Failed to load collaboration flows:', err))
-      .finally(() => setIsLoadingTabs(false));
-  }, [collabServer, collabAgent, collaborationId]);
-
-  // Restore tabs from collaboration contract on mount
-  useEffect(() => { loadTabs(); }, [loadTabs]);
-
-  // Stay in sync when another participant adds (or otherwise writes) a flow
-  // tab to this collaboration.
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === collaborationId) loadTabs();
-  }, [collaborationId, loadTabs]), collabServer ?? undefined, collabAgent ?? undefined);
-
-  // Derive community from the collaboration contract when not passed as a prop
+  // The flows name their participants by the community's members' profiles:
+  // load them, if the community page has not (a link straight to here).
+  const dispatch = useAppDispatch();
+  const membersLoaded = useAppSelector((state) => !!communityId && communityId in state.communities.communityMembers);
   useEffect(() => {
-    if (communityIdProp || !collabServer || !collabAgent || !collaborationId || !publicKey) return;
-    getCommunity(collabServer, publicKey, collaborationId)
-      .then((c) => { if (c?.id) setCommunityId(c.id); })
+    if (communityId && !membersLoaded) void dispatch(fetchCommunityMembers({ contractId: communityId }));
+  }, [communityId, membersLoaded, dispatch]);
+  const subtitle = info ? kind.subtitle?.(info) : undefined;
+
+  const loadFlows = useCallback(() => {
+    if (!collaborationId) return;
+    getFlows(collaborationId)
+      .then((loadedFlows) => { setFlows(loadedFlows); setLoaded(true); })
+      .catch((err) => console.error('Failed to load the collaboration\'s flows:', err));
+    getCollaborationInfo(collaborationId)
+      .then(setInfo)
       .catch(() => {});
-  }, [communityIdProp, collabServer, collabAgent, collaborationId, publicKey]);
+  }, [collaborationId]);
 
-  // Deploy flow contract on user's server and register reference in collaboration contract
-  const addTab = useCallback(async (flowId: string, initConfig?: Record<string, unknown>) => {
-    if (!serverUrl || !publicKey || !collabServer || !collabAgent) return;
+  // Stay in sync when another participant adds, moves or removes a flow. Its
+  // events reach the user's own stream once they joined the collaboration.
+  useEventStream('contract_write', useCallback((event) => {
+    if (event.contract === collaborationId) loadFlows();
+  }, [collaborationId, loadFlows]));
 
-    setShowAddMenu(false);
-    setIsAddingTab(true);
+  // Navigation keeps the state the community page passed (the collaboration and its host).
+  const showList = useCallback((level: string) => {
+    navigate(level ? `${base}?in=${encodeURIComponent(level)}` : base, { state: location.state });
+  }, [navigate, base, location.state]);
+  const openFlow = useCallback((flowId: string) => {
+    navigate(`${base}/flow/${encodeURIComponent(flowId)}`, { state: location.state });
+  }, [navigate, base, location.state]);
+
+  // Deploy the flow on the user's node, and add it to the tree. Both may open
+  // the node's approval page: deploying starts from the click that confirmed
+  // the flow; adding it is silent if the user let the app call addFlow, and
+  // otherwise waits for the banner's button.
+  const addNewFlow = useCallback(async (flowType: string, flowTitle: string, parent: string, config?: Record<string, unknown>) => {
+    const flowDef = getFlow(flowType);
+    if (!serverUrl || !flowDef) return;
+    setIsAdding(true);
+    setError(null);
     try {
-      const contractId = await deployFlowContract(serverUrl, publicKey, flowId);
-      const flowDef = getFlow(flowId);
-      if (initConfig && flowDef?.onInit) {
-        const community = await getCommunity(collabServer, publicKey, collaborationId).catch(() => null);
-        const enriched = { ...initConfig, _community: community };
-        await flowDef.onInit(serverUrl, publicKey, contractId, enriched, publicKey);
+      const id = await deployFlow(flowDef, { title: flowTitle, communityId: communityId ?? '' }, config);
+      const flow: NewFlow = { id, type: flowType, title: flowTitle, node: serverUrl, parent };
+      try {
+        await addFlow(collaborationId, flow, { silently: true });
+      } catch (err) {
+        if (!needsAccess(err)) throw err;
+        setUnadded(flow);
       }
-      const flow = { id: contractId, server: serverUrl, agent: publicKey, type: flowId };
-      await addFlow(collabServer, collabAgent, collaborationId, flow);
-      const newTab: CollaborationTab = {
-        instanceId: contractId,
-        flowId,
-        flowServer: serverUrl,
-        flowAgent:  publicKey,
-      };
-      setTabs((prev) => [...prev, newTab]);
-      setActiveInstanceId(contractId);
-    } catch (err) {
-      console.error('Failed to add flow tab:', err);
     } finally {
-      setIsAddingTab(false);
+      setIsAdding(false);
     }
-  }, [serverUrl, publicKey, collabServer, collabAgent, collaborationId]);
+  }, [serverUrl, collaborationId, communityId]);
 
-  const handleMenuFlowClick = useCallback((flow: NonNullable<ReturnType<typeof getFlow>>) => {
-    if (flow.setupComponent) {
-      setShowAddMenu(false);
-      setPendingFlow(flow);
-    } else {
-      void addTab(flow.id);
+  const handleAddNew = useCallback(async (flowType: string, flowTitle: string) => {
+    const parent = addParent ?? '';
+    if (getFlow(flowType)?.setupComponent) {
+      setAddParent(null);
+      setPendingNew({ flowType, title: flowTitle, parent });
+      return;
     }
-  }, [addTab]);
+    await addNewFlow(flowType, flowTitle, parent);
+    setAddParent(null);
+  }, [addParent, addNewFlow]);
 
-  // Removing a tab only takes the flow out of the collaboration's list —
-  // there's no way to delete the underlying flow contract itself, so this
-  // just hides it from every participant, for everyone, permanently.
-  const handleConfirmRemoveTab = useCallback(async () => {
-    if (!tabToRemove || !collabServer || !collabAgent) return;
-    const instanceId = tabToRemove.instanceId;
+  const handleRestore = useCallback(async (flowId: string) => {
+    await restoreFlow(collaborationId, flowId, addParent ?? '');
+    setAddParent(null);
+  }, [collaborationId, addParent]);
+
+  const handleAddUnadded = useCallback(async () => {
+    if (!unadded) return;
+    setIsAdding(true);
+    setError(null);
     try {
-      await removeFlow(collabServer, collabAgent, collaborationId, instanceId);
+      await addFlow(collaborationId, unadded);
+      setUnadded(null);
     } catch (err) {
-      console.error('Failed to remove flow tab:', err);
-      throw err; // keep the confirm dialog open so the user can retry
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsAdding(false);
     }
-    setTabs((prev) => {
-      const next = prev.filter((t) => t.instanceId !== instanceId);
-      if (activeInstanceId === instanceId)
-        setActiveInstanceId(next.length > 0 ? next[next.length - 1].instanceId : null);
-      return next;
-    });
-  }, [tabToRemove, collabServer, collabAgent, collaborationId, activeInstanceId]);
+  }, [unadded, collaborationId]);
 
-  const activeTab   = tabs.find((t) => t.instanceId === activeInstanceId);
-  const activeFlow  = activeTab ? getFlow(activeTab.flowId) : null;
-  const ActiveComponent = activeFlow?.component ?? null;
+  const handleRemove = useCallback((flowId: string) => removeFlow(collaborationId, flowId), [collaborationId]);
+
+  const isCreator = !!publicKey && !!info && info.creator.toLowerCase() === publicKey.toLowerCase();
+  const Setup = pendingNew ? getFlow(pendingNew.flowType)?.setupComponent : undefined;
+
+  const list = isPhone ? (
+    <FlowDrillDown
+      tree={tree}
+      collaborationTitle={title}
+      level={searchParams.get('in') ?? ''}
+      onLevel={showList}
+      onOpen={openFlow}
+      onAdd={setAddParent}
+    />
+  ) : (
+    <FlowTreeList tree={tree} onOpen={openFlow} onAdd={setAddParent} />
+  );
 
   return (
     <>
@@ -178,137 +177,67 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
         layout="two-row"
       />
 
-      <div className={cs.content}>
-        <nav className={cs.nav}>
-          {tabs.map((tab) => {
-            const flow = getFlow(tab.flowId);
-            if (!flow) return null;
-            const isActive = tab.instanceId === activeInstanceId;
-            return (
-              <button
-                key={tab.instanceId}
-                className={`${cs.navItem} ${isActive ? cs.active : ''} ${styles.tabItem}`}
-                onClick={() => setActiveInstanceId(tab.instanceId)}
-              >
-                <flow.icon size={20} />
-                <span>{flow.label}</span>
-                {tab.flowAgent === publicKey && (
-                  <span
-                    className={styles.removeBtn}
-                    role="button"
-                    aria-label={`Remove ${flow.label} tab`}
-                    onClick={(e) => { e.stopPropagation(); setTabToRemove(tab); }}
-                  >
-                    <X size={14} strokeWidth={3} />
-                  </span>
-                )}
+      <ContractGate
+        key={collaborationId}
+        contractId={collaborationId}
+        what="this collaboration"
+        join={() => joinCollaboration(collaborationId, hostServer, hostAgent)}
+        onReady={loadFlows}
+      >
+        <div className={styles.body}>
+          {error && <p className={styles.error}>{error}</p>}
+          {unadded && (
+            <div className={styles.unadded}>
+              <span>&ldquo;{unadded.title}&rdquo; is created on your node. Approve adding it to the collaboration.</span>
+              <button onClick={() => void handleAddUnadded()} disabled={isAdding} className="edit-button">
+                {isAdding ? 'Approve on your node…' : 'Add it'}
               </button>
-            );
-          })}
-
-          <div className={styles.addTabWrapper}>
-            <button
-              className={`${cs.navItem} ${styles.addTabBtn} ${isAddingTab ? styles.addTabBtnLoading : ''}`}
-              onClick={() => !isAddingTab && setShowAddMenu((v) => !v)}
-              title="Add a flow tab"
-              disabled={isAddingTab}
-            >
-              {isAddingTab ? <Loader size={20} className={styles.spinner} /> : <Plus size={20} />}
-              <span>{isAddingTab ? 'Adding…' : 'Add'}</span>
-            </button>
-
-            {showAddMenu && (
-              <div className={styles.addTabMenu}>
-                {FLOW_REGISTRY.filter((f) => !f.group).map((flow) => {
-                  const available = flow.isAvailable?.(tabs.map((t) => t.flowId)) ?? true;
-                  return (
-                    <button
-                      key={flow.id}
-                      className={`${styles.addTabMenuItem} ${!available ? styles.addTabMenuItemDisabled : ''}`}
-                      onClick={() => { if (available) handleMenuFlowClick(flow); }}
-                      disabled={!available}
-                      title={!available ? 'Not available with current tabs' : undefined}
-                    >
-                      <flow.icon size={16} /> {flow.label}
-                    </button>
-                  );
-                })}
-
-                {FLOW_GROUPS.map((group, groupIndex) => {
-                  const flows = FLOW_REGISTRY.filter((f) => f.group === group);
-                  if (flows.length === 0) return null;
-                  const hasUngrouped = FLOW_REGISTRY.some((f) => !f.group);
-                  const isFirst = groupIndex === 0 && !hasUngrouped;
-                  return (
-                    <React.Fragment key={group}>
-                      <div className={`${styles.addTabMenuGroupHeader} ${isFirst ? styles.addTabMenuGroupHeaderFirst : ''}`}>
-                        {group}
-                      </div>
-                      {flows.map((flow) => {
-                        const available = flow.isAvailable?.(tabs.map((t) => t.flowId)) ?? true;
-                        return (
-                          <button
-                            key={flow.id}
-                            className={`${styles.addTabMenuItem} ${!available ? styles.addTabMenuItemDisabled : ''}`}
-                            onClick={() => { if (available) handleMenuFlowClick(flow); }}
-                            disabled={!available}
-                            title={!available ? 'Not available with current tabs' : undefined}
-                          >
-                            <flow.icon size={16} /> {flow.label}
-                          </button>
-                        );
-                      })}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </nav>
-
-        <div className={cs.main}>
-          {isLoadingTabs ? (
-            <div className={styles.emptyState}>
-              <Loader size={24} className={styles.spinner} />
-              <p>Loading tabs…</p>
-            </div>
-          ) : ActiveComponent && activeTab ? (
-            <ActiveComponent
-              instanceId={activeTab.instanceId}
-              flowServer={activeTab.flowServer}
-              flowAgent={activeTab.flowAgent}
-              currentUser={publicKey ?? ''}
-              collaborationId={collaborationId}
-              collaborationType={type}
-            />
-          ) : (
-            <div className={styles.emptyState}>
-              <p>No tabs yet. Click <strong>Add</strong> to add your first flow.</p>
             </div>
           )}
+
+          <Routes>
+            <Route
+              path="flow/:flowId"
+              element={(
+                <FlowPage
+                  tree={tree}
+                  loaded={loaded}
+                  collaborationTitle={title}
+                  isCreator={isCreator}
+                  currentUser={publicKey ?? ''}
+                  onList={showList}
+                  onRemove={handleRemove}
+                />
+              )}
+            />
+            <Route path="*" element={loaded ? list : <p className={styles.loading}>Loading…</p>} />
+          </Routes>
         </div>
-      </div>
+      </ContractGate>
     </div>
 
-    {pendingFlow?.setupComponent && (
-      <pendingFlow.setupComponent
-        onDone={(config) => {
-          const flowId = pendingFlow.id;
-          setPendingFlow(null);
-          void addTab(flowId, config);
-        }}
-        onCancel={() => setPendingFlow(null)}
+    {addParent !== null && (
+      <AddFlowDialog
+        key={addParent}
+        tree={tree}
+        parent={addParent}
+        onClose={() => setAddParent(null)}
+        onAddNew={handleAddNew}
+        onRestore={handleRestore}
       />
     )}
 
-    <ConfirmDialog
-      isVisible={tabToRemove !== null}
-      title="Remove Tab"
-      message={`Are you sure you want to remove the "${tabToRemove ? getFlow(tabToRemove.flowId)?.label ?? tabToRemove.flowId : ''}" tab? This cannot be undone.`}
-      confirmLabel="Remove Tab"
-      onClose={() => setTabToRemove(null)}
-      onConfirm={handleConfirmRemoveTab}
-    />
+    {pendingNew && Setup && (
+      <Setup
+        onDone={(config) => {
+          const { flowType, title: flowTitle, parent } = pendingNew;
+          setPendingNew(null);
+          addNewFlow(flowType, flowTitle, parent, config)
+            .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+        }}
+        onCancel={() => setPendingNew(null)}
+      />
+    )}
     </>
   );
 };

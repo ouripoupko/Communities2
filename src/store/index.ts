@@ -1,13 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import communitiesReducer from './slices/communitiesSlice';
 import userReducer from './slices/userSlice';
-import policiesReducer from './slices/policiesSlice';
+import currencyReducer from './slices/currencySlice';
 
 export const store = configureStore({
   reducer: {
     communities: communitiesReducer,
     user: userReducer,
-    policies: policiesReducer,
+    currency: currencyReducer,
   },
 });
 

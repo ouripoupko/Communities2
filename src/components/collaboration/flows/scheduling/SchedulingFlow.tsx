@@ -2,10 +2,12 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Calendar } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './schedulingApi';
 import type { RangeConfig, SchedulingState } from './schedulingApi';
+import Modal from '../../../Modal';
+import form from '../../../dialogForm.module.scss';
 import styles from './SchedulingFlow.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -39,8 +41,8 @@ const SetupDialog: React.FC<{
   onClose: () => void;
   onDone: (config: Omit<RangeConfig, 'organizerId'>) => void;
 }> = ({ isOpen, onClose, onDone }) => {
-  const today    = new Date().toISOString().slice(0, 10);
-  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const [today]    = useState(() => new Date().toISOString().slice(0, 10));
+  const [nextWeek] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
 
   const [title,       setTitle]       = useState('');
   const [desc,        setDesc]        = useState('');
@@ -61,79 +63,70 @@ const SetupDialog: React.FC<{
     onClose();
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.dialog}>
-        <div className={styles.header}>
-          <h3 className={styles.dialogTitle}>Set Up Scheduling</h3>
-          <button className={styles.closeButton} onClick={onClose}>×</button>
-        </div>
-
-        <div className={styles.dialogContent}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Title *</label>
-            <input className={styles.input} type="text" value={title} autoFocus
-              placeholder="e.g. Sprint planning session"
-              onChange={e => { setTitle(e.target.value); setError(''); }}
-              onKeyDown={e => e.key === 'Enter' && submit()} />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Description <span className={styles.optional}>(optional)</span></label>
-            <textarea className={styles.textarea} rows={2} value={desc}
-              placeholder="Any context for participants?"
-              onChange={e => setDesc(e.target.value)} />
-          </div>
-
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>From date</label>
-              <input className={styles.input} type="date" value={startDate} min={today}
-                onChange={e => { setStartDate(e.target.value); setError(''); }} />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>To date</label>
-              <input className={styles.input} type="date" value={endDate} min={startDate}
-                onChange={e => { setEndDate(e.target.value); setError(''); }} />
-            </div>
-          </div>
-
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Daily from</label>
-              <input className={styles.input} type="time" value={dailyStart}
-                onChange={e => { setDailyStart(e.target.value); setError(''); }} />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Daily to</label>
-              <input className={styles.input} type="time" value={dailyEnd}
-                onChange={e => { setDailyEnd(e.target.value); setError(''); }} />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Resolution</label>
-              <select className={styles.input} value={slotMinutes}
-                onChange={e => setSlotMinutes(Number(e.target.value) as 30 | 60)}>
-                <option value={30}>30 min</option>
-                <option value={60}>1 hour</option>
-              </select>
-            </div>
-          </div>
-
-          {error && <p className={styles.errorMsg}>{error}</p>}
-        </div>
-
-        <div className={styles.dialogActions}>
-          <button className={styles.btnCreate} onClick={submit}>
+    <Modal
+      title="Set Up Scheduling"
+      onClose={onClose}
+      actions={(
+        <>
+          <button className={form.secondaryButton} onClick={onClose}>Cancel</button>
+          <button className={form.primaryButton} onClick={submit}>
             <Calendar size={15} /> Create
           </button>
-          <button className={styles.btnCancel} onClick={onClose}>Cancel</button>
+        </>
+      )}
+    >
+      <div className={form.field}>
+        <label className={form.label}>Title *</label>
+        <input className={form.input} type="text" value={title} autoFocus
+          placeholder="e.g. Sprint planning session"
+          onChange={e => { setTitle(e.target.value); setError(''); }}
+          onKeyDown={e => e.key === 'Enter' && submit()} />
+      </div>
+
+      <div className={form.field}>
+        <label className={form.label}>Description <span className={styles.optional}>(optional)</span></label>
+        <textarea className={form.input} rows={2} value={desc}
+          placeholder="Any context for participants?"
+          onChange={e => setDesc(e.target.value)} />
+      </div>
+
+      <div className={styles.formRow}>
+        <div className={form.field}>
+          <label className={form.label}>From date</label>
+          <input className={form.input} type="date" value={startDate} min={today}
+            onChange={e => { setStartDate(e.target.value); setError(''); }} />
+        </div>
+        <div className={form.field}>
+          <label className={form.label}>To date</label>
+          <input className={form.input} type="date" value={endDate} min={startDate}
+            onChange={e => { setEndDate(e.target.value); setError(''); }} />
         </div>
       </div>
-    </div>
+
+      <div className={styles.formRow}>
+        <div className={form.field}>
+          <label className={form.label}>Daily from</label>
+          <input className={form.input} type="time" value={dailyStart}
+            onChange={e => { setDailyStart(e.target.value); setError(''); }} />
+        </div>
+        <div className={form.field}>
+          <label className={form.label}>Daily to</label>
+          <input className={form.input} type="time" value={dailyEnd}
+            onChange={e => { setDailyEnd(e.target.value); setError(''); }} />
+        </div>
+        <div className={form.field}>
+          <label className={form.label}>Resolution</label>
+          <select className={form.input} value={slotMinutes}
+            onChange={e => setSlotMinutes(Number(e.target.value) as 30 | 60)}>
+            <option value={30}>30 min</option>
+            <option value={60}>1 hour</option>
+          </select>
+        </div>
+      </div>
+
+      {error && <div className={form.error}>{error}</div>}
+    </Modal>
   );
 };
 
@@ -166,7 +159,7 @@ const TimelineGrid: React.FC<{
   const dragModeRef    = useRef<'add' | 'remove' | null>(null);
   const draggedRef     = useRef<Set<number>>(new Set());
   const persistedRef   = useRef<Set<number>>(myPersistedSlots);
-  persistedRef.current = myPersistedSlots;
+  useEffect(() => { persistedRef.current = myPersistedSlots; }, [myPersistedSlots]);
 
   // Visual selection = persisted + current drag overlay
   const effectiveSlots = useMemo(() => {
@@ -270,69 +263,37 @@ export const SchedulingSetupDialog: React.FC<{
   <SetupDialog isOpen={true} onClose={onCancel} onDone={onDone} />
 );
 
-// A freshly-created scheduling task's set_config write may not be visible to
-// a read yet (contracts deploy with BFT consensus - no read-your-write
-// guarantee), and the component mounts (and starts listening for the
-// contract_write SSE event) only after that write was already submitted.
-// Without a bounded retry here, a config that's still propagating looks
-// identical to "never going to arrive" and the spinner below would never
-// resolve.
-const CONFIG_RETRY_DELAYS_MS = [800, 1500, 3000];
-
-const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
-  const [state,      setState]      = useState<SchedulingState>({ config: null, selections: [] });
+const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
+  const { data, loading, error, retry } = useFlowData(instanceId, api.loadSchedulingState);
   const [dialogOpen, setDialogOpen] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      let result = await api.loadSchedulingState(flowServer, flowAgent, instanceId);
-      for (const delay of CONFIG_RETRY_DELAYS_MS) {
-        if (result.config) break;
-        await new Promise(resolve => setTimeout(resolve, delay));
-        result = await api.loadSchedulingState(flowServer, flowAgent, instanceId);
-      }
-      setState(result);
-      if (!result.config) {
-        setError("This scheduling task hasn't finished setting up yet. Please try again in a moment.");
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load.');
-    } finally {
-      setLoading(false);
-    }
-  }, [flowServer, flowAgent, instanceId]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
-  }, [instanceId, load]), flowServer, flowAgent);
+  // A write that failed: the contract is as it was.
+  const [writeError, setWriteError] = useState<string | null>(null);
+  // My selection as I last saved it, shown until the contract's next state arrives.
+  const [mySaved, setMySaved] = useState<{ base: SchedulingState; slots: number[] } | null>(null);
 
   const handleSetup = useCallback(async (fields: Omit<RangeConfig, 'organizerId'>) => {
-    try   { await api.setupRange(flowServer, flowAgent, instanceId, fields, currentUser); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Failed to save.'); }
-  }, [flowServer, flowAgent, instanceId, currentUser]);
+    try   { await api.setupRange(instanceId, fields); }
+    catch (e) { setWriteError(e instanceof Error ? e.message : 'Failed to save.'); }
+  }, [instanceId]);
 
   const handleSave = useCallback(async (slots: number[]) => {
-    setState(prev => {
-      const others = prev.selections.filter(s => s.participantId !== currentUser);
-      return { ...prev, selections: [...others, { participantId: currentUser, slots }] };
-    });
-    try   { await api.setMySelection(flowServer, flowAgent, instanceId, currentUser, slots); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Failed to save.'); await load(); }
-  }, [flowServer, flowAgent, currentUser, instanceId, load]);
+    if (data) setMySaved({ base: data, slots });
+    try   { await api.setMySelection(instanceId, slots); }
+    catch (e) { setMySaved(null); setWriteError(e instanceof Error ? e.message : 'Failed to save.'); }
+  }, [data, instanceId]);
 
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
+  const failure = error ?? writeError;
+  if (failure) return <FlowError message={failure} onRetry={() => { setWriteError(null); retry(); }} />;
+
+  const state = data && mySaved?.base === data
+    ? { ...data, selections: [...data.selections.filter(s => s.participantId !== currentUser), { participantId: currentUser, slots: mySaved.slots }] }
+    : data;
+  if (!state?.config) return <FlowLoading />;
 
   const organizer         = api.isOrganizer(state.config, currentUser);
   const mySelection       = state.selections.find(s => s.participantId === currentUser);
   const totalParticipants = state.selections.length;
-
-  if (!state.config) return <FlowLoading />;
 
   return (
     <div className={styles.container}>

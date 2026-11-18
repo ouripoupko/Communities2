@@ -7,8 +7,8 @@ import { decodeCommunityInvitation } from '../../services/encodeDecode';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
 import { useNavigate } from 'react-router-dom';
-import { hasCommunityContract, joinCommunityContract, joinCommunity } from '../../services/contracts/community';
-import { needsAccess } from '../../services/ibc';
+import { joinCommunityContract, joinCommunity } from '../../services/contracts/community';
+import { hasContract, joinFailure, needsAccess } from '../../services/ibc';
 
 type Invite = { server: string; agent: string; contract: string };
 
@@ -76,19 +76,17 @@ const JoinCommunity: React.FC = () => {
     navigate(`/community/${contract}${page}`, { replace: true });
   };
 
-  // Becomes a member without asking, if the user allowed it in the join's
-  // approval; otherwise the Members page's button does it.
+  // Asks to become a member without asking the user again, if they allowed
+  // the app to call join() in the join's approval (otherwise the Members
+  // page's button does it), and opens the Members page: there a member sees
+  // themselves, and a nominee of the web of trust the approvals they need.
   const becomeMember = async (contract: string) => {
     try {
       await joinCommunity(contract, serverUrl!, profileContractId, { silently: true });
     } catch (err) {
-      if (needsAccess(err)) {
-        await openCommunity(contract, '/members');
-        return;
-      }
-      console.warn('Could not become a member:', err);
+      if (!needsAccess(err)) console.warn('Could not ask to become a member:', err);
     }
-    await openCommunity(contract);
+    await openCommunity(contract, '/members');
   };
 
   // Opens the node's approval page, so it must start from this click.
@@ -96,14 +94,12 @@ const JoinCommunity: React.FC = () => {
     if (!parsedInvite || !serverUrl) return;
     const { server, agent, contract } = parsedInvite;
     // The user may have joined before: then only open the community.
-    if (await hasCommunityContract(contract)) {
+    if (await hasContract(contract)) {
       await openCommunity(contract);
       return;
     }
     const outcome = await joinCommunityContract(contract, server, agent, asGuest);
-    if (!outcome.joined) {
-      throw new Error(outcome.reason ? `The join did not go through: ${outcome.reason}.` : 'The community did not accept you.');
-    }
+    if (!outcome.joined) throw new Error(joinFailure(outcome));
     if (outcome.sourceCheck === 'unchecked') {
       setUnchecked({ contract, reason: outcome.reason });
       return;

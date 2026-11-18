@@ -2,8 +2,7 @@
 // Concern resolution flow — persistent via contract
 // ---------------------------------------------------------------------------
 
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
+import { readSilently, write } from '../../../../services/ibc';
 
 export type ConcernVote = 'support' | 'reject' | 'resolved';
 
@@ -20,27 +19,6 @@ export interface Concern {
 export type ConcernStatus = 'active' | 'resolved' | 'rejected';
 
 export const MAJORITY = 3; // configurable later
-
-// ---------------------------------------------------------------------------
-// Normalization
-// ---------------------------------------------------------------------------
-
-function normalizeConcern(raw: unknown): Concern {
-  const r = raw as Record<string, unknown>;
-  const rawVotes = r['votes'];
-  const votes: Record<string, ConcernVote> =
-    rawVotes && typeof rawVotes === 'object' && !Array.isArray(rawVotes)
-      ? (rawVotes as Record<string, ConcernVote>)
-      : {};
-  return {
-    id:          String(r['id'] ?? ''),
-    title:       String(r['title'] ?? ''),
-    description: String(r['description'] ?? ''),
-    createdBy:   String(r['createdBy'] ?? ''),
-    createdAt:   Number(r['createdAt'] ?? 0),
-    votes,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Derived helpers
@@ -67,73 +45,37 @@ export function concernStatus(c: Concern): ConcernStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Async API
+// Async API — the contract (ConcernsFlow.sol). A voter is whoever signs: the
+// contract takes them from msg.sender.
 // ---------------------------------------------------------------------------
 
-export async function loadConcerns(server: string, agent: string, contractId: string): Promise<Concern[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_concerns', values: {} } as IMethod,
-  });
-  const items: unknown[] = Array.isArray(result) ? result : [];
-  return items.map(normalizeConcern);
+const VOTES: (ConcernVote | null)[] = [null, 'support', 'reject', 'resolved'];
+
+export async function loadConcerns(contractId: string): Promise<Concern[]> {
+  const result = await readSilently(contractId, 'getConcerns') as {
+    id: string; title: string; description: string; createdBy: string; createdAt: number; voters: string[]; votes: number[];
+  }[];
+  return result.map((c) => ({
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    createdBy: c.createdBy,
+    createdAt: Number(c.createdAt) * 1000,
+    votes: Object.fromEntries(c.voters.map((voter, i) => [voter, VOTES[Number(c.votes[i])]!])),
+  }));
 }
 
-export async function addConcern(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  title: string,
-  description: string,
-): Promise<void> {
-  const newConcern: Concern = {
-    id:          crypto.randomUUID(),
-    title:       title.trim(),
-    description: description.trim(),
-    createdBy:   currentUser,
-    createdAt:   Date.now(),
-    votes:       { [currentUser]: 'support' },
-  };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'add_concern', values: { concern: newConcern } } as IMethod,
-  });
+/** Raises a concern, which the user supports. May open the node's approval page: call it from a click. */
+export async function addConcern(contractId: string, title: string, description: string): Promise<void> {
+  await write(contractId, 'addConcern', { title: title.trim(), description: description.trim() });
 }
 
-export async function voteConcern(
-  server: string,
-  agent: string,
-  contractId: string,
-  concern: Concern,
-  currentUser: string,
-  v: ConcernVote,
-): Promise<void> {
-  const votes = { ...concern.votes, [currentUser]: v };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_concern_votes', values: { concern_id: concern.id, votes } } as IMethod,
-  });
+/** Votes on a concern. May open the node's approval page: call it from a click. */
+export async function voteConcern(contractId: string, concernId: string, v: ConcernVote): Promise<void> {
+  await write(contractId, 'vote', { concernId, value: VOTES.indexOf(v) });
 }
 
-export async function clearVoteConcern(
-  server: string,
-  agent: string,
-  contractId: string,
-  concern: Concern,
-  currentUser: string,
-): Promise<void> {
-  const { [currentUser]: _removed, ...votes } = concern.votes;
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_concern_votes', values: { concern_id: concern.id, votes } } as IMethod,
-  });
+/** Takes the user's vote back. May open the node's approval page: call it from a click. */
+export async function clearVoteConcern(contractId: string, concernId: string): Promise<void> {
+  await write(contractId, 'vote', { concernId, value: 0 });
 }

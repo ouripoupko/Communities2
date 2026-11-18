@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
-// Scoring flow — persisted via contract API
+// Scoring flow — its contract (ScoringFlow.sol): a topic, set when it is
+// deployed, options, and each participant's scores (0 to 10). A participant
+// is whoever signs: the contract takes them from msg.sender.
 // ---------------------------------------------------------------------------
 
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
+import { readSilently, write } from '../../../../services/ibc';
 
 export interface ScoringOption {
   id: string;
@@ -16,144 +17,50 @@ export interface ParticipantScores {
   scores: Record<string, number>;
 }
 
-// ---------------------------------------------------------------------------
-// Normalizers
-// ---------------------------------------------------------------------------
-
-function normalizeOption(o: Record<string, unknown>): ScoringOption {
-  return {
-    id: String(o['id'] ?? ''),
-    text: String(o['text'] ?? ''),
-  };
-}
-
-function normalizeScores(s: Record<string, unknown>): ParticipantScores {
-  let scores: Record<string, number>;
-  const raw = s['scores'];
-  if (typeof raw === 'string') {
-    try {
-      scores = JSON.parse(raw) as Record<string, number>;
-    } catch {
-      scores = {};
-    }
-  } else if (raw && typeof raw === 'object') {
-    scores = raw as Record<string, number>;
-  } else {
-    scores = {};
-  }
-  return {
-    participantId: String(s['participantId'] ?? ''),
-    scores,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Topic — the question participants are proposing options for and scoring
-// ---------------------------------------------------------------------------
-
 export interface TopicConfig {
   topic: string;
   description: string;
 }
 
-export async function loadTopic(server: string, agent: string, contractId: string): Promise<TopicConfig | null> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_config', values: {} } as IMethod,
-  });
-  if (result && typeof result === 'object' && !Array.isArray(result)) {
-    const r = result as Record<string, unknown>;
-    if (r['topic']) {
-      return {
-        topic: String(r['topic'] ?? ''),
-        description: String(r['description'] ?? ''),
-      };
-    }
-  }
-  return null;
+/** The deploy's constructor arguments, from the setup dialog's topic. */
+export const scoringConstructor = (config: Record<string, unknown>) => ({
+  topic_: String(config.topic ?? ''),
+  description: String(config.description ?? ''),
+});
+
+export async function loadTopic(contractId: string): Promise<TopicConfig | null> {
+  const r = await readSilently(contractId, 'getTopic') as TopicConfig;
+  return r?.topic ? { topic: r.topic, description: r.description } : null;
 }
 
-export async function setupTopic(server: string, agent: string, contractId: string, fields: TopicConfig): Promise<void> {
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_config', values: { config: fields } } as IMethod,
-  });
+export async function loadOptions(contractId: string): Promise<ScoringOption[]> {
+  const result = await readSilently(contractId, 'getOptions') as { id: string; text: string }[];
+  return result.map((o) => ({ id: o.id, text: o.text }));
 }
 
-// ---------------------------------------------------------------------------
-// API
-// ---------------------------------------------------------------------------
-
-export async function loadOptions(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<ScoringOption[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_options', values: {} } as IMethod,
-  });
-  if (!Array.isArray(result)) return [];
-  return (result as Record<string, unknown>[]).map(normalizeOption);
+export async function loadAllScores(contractId: string): Promise<ParticipantScores[]> {
+  const result = await readSilently(contractId, 'getScores') as { participant: string; optionIds: string[]; values: number[] }[];
+  return result.map((s) => ({
+    participantId: s.participant,
+    scores: Object.fromEntries(s.optionIds.map((id, i) => [id, Number(s.values[i])])),
+  }));
 }
 
-export async function loadAllScores(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<ParticipantScores[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_all_scores', values: {} } as IMethod,
-  });
-  if (!Array.isArray(result)) return [];
-  return (result as Record<string, unknown>[]).map(normalizeScores);
+/** The user's scores, from everyone's. */
+export function myScores(all: ParticipantScores[], currentUser: string): Record<string, number> {
+  return all.find((p) => p.participantId.toLowerCase() === currentUser.toLowerCase())?.scores ?? {};
 }
 
-export async function loadMyScores(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-): Promise<Record<string, number>> {
-  const all = await loadAllScores(server, agent, contractId);
-  const mine = all.find(p => p.participantId === currentUser);
-  return mine ? mine.scores : {};
+/** Proposes an option. May open the node's approval page: call it from a click. */
+export async function addOption(contractId: string, text: string): Promise<void> {
+  await write(contractId, 'addOption', { text: text.trim() });
 }
 
-export async function addOption(
-  server: string,
-  agent: string,
-  contractId: string,
-  text: string,
-): Promise<void> {
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'add_option', values: { option: { id: crypto.randomUUID(), text: text.trim() } } } as IMethod,
-  });
-}
-
-export async function saveMyScores(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  scores: Record<string, number>,
-): Promise<void> {
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_my_scores', values: { participant_id: currentUser, scores } } as IMethod,
+/** Saves the user's scores; options without a score (NaN) are left out. */
+export async function saveMyScores(contractId: string, scores: Record<string, number>): Promise<void> {
+  const scored = Object.entries(scores).filter(([, v]) => !isNaN(v));
+  await write(contractId, 'setMyScores', {
+    optionIds: scored.map(([id]) => id),
+    values: scored.map(([, v]) => Math.round(v)),
   });
 }

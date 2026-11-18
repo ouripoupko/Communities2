@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { BarChart2, List, Plus, Star } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './scoringApi';
-import type { TopicConfig } from './scoringApi';
 import { TopicSetupDialog, TopicHeader } from './Topic';
 import styles from './ScoringFlow.module.scss';
 
@@ -180,64 +179,52 @@ const AggregatedTab: React.FC<{
 // Root component
 // ---------------------------------------------------------------------------
 
-const ScoringFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+// The options, everyone's scores, and the topic.
+const loadScoring = (contractId: string) => Promise.all([
+  api.loadOptions(contractId),
+  api.loadAllScores(contractId),
+  api.loadTopic(contractId),
+]).then(([options, allScores, topic]) => ({ options, allScores, topic }));
+type ScoringData = Awaited<ReturnType<typeof loadScoring>>;
+
+const ScoringFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'scoring' | 'aggregated'>('scoring');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [options, setOptions] = useState<api.ScoringOption[]>([]);
-  const [myScores, setMyScores] = useState<Record<string, number>>({});
-  const [allScores, setAllScores] = useState<api.ParticipantScores[]>([]);
-  const [topic, setTopic] = useState<TopicConfig | null>(null);
+  const { data, loading, error, retry } = useFlowData(instanceId, loadScoring);
+  // A write that failed: the contract is as it was.
+  const [writeError, setWriteError] = useState<string | null>(null);
+  // My scores as I last saved them, shown until the contract's next state arrives.
+  const [mySaved, setMySaved] = useState<{ base: ScoringData; scores: Record<string, number> } | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [loadedOptions, loadedMyScores, loadedAllScores, loadedTopic] = await Promise.all([
-        api.loadOptions(flowServer, flowAgent, instanceId),
-        api.loadMyScores(flowServer, flowAgent, instanceId, currentUser),
-        api.loadAllScores(flowServer, flowAgent, instanceId),
-        api.loadTopic(flowServer, flowAgent, instanceId),
-      ]);
-      setOptions(loadedOptions);
-      setMyScores(loadedMyScores);
-      setAllScores(loadedAllScores);
-      setTopic(loadedTopic);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load scoring data.');
-    } finally {
-      setLoading(false);
-    }
-  }, [instanceId, flowServer, flowAgent, currentUser]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
-  }, [instanceId, load]), flowServer, flowAgent);
+  const myScores = useMemo(() => {
+    if (!data) return {};
+    return mySaved?.base === data ? mySaved.scores : api.myScores(data.allScores, currentUser);
+  }, [data, mySaved, currentUser]);
 
   const handleAddOption = useCallback(async (text: string) => {
     try {
-      await api.addOption(flowServer, flowAgent, instanceId, text);
+      await api.addOption(instanceId, text);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add option.');
+      setWriteError(e instanceof Error ? e.message : 'Failed to add option.');
     }
-  }, [flowServer, flowAgent, instanceId]);
+  }, [instanceId]);
 
   const handleScore = useCallback(async (optionId: string, score: number) => {
+    if (!data) return;
     const updatedScores = { ...myScores, [optionId]: score };
-    setMyScores(updatedScores);
+    setMySaved({ base: data, scores: updatedScores });
     try {
-      await api.saveMyScores(flowServer, flowAgent, instanceId, currentUser, updatedScores);
+      await api.saveMyScores(instanceId, updatedScores);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save scores.');
+      setMySaved(null);
+      setWriteError(e instanceof Error ? e.message : 'Failed to save scores.');
     }
-  }, [flowServer, flowAgent, currentUser, instanceId, myScores]);
+  }, [instanceId, data, myScores]);
 
   if (loading) return <FlowLoading />;
-  if (error) return <FlowError message={error} onRetry={load} />;
+  const failure = error ?? writeError;
+  if (failure) return <FlowError message={failure} onRetry={() => { setWriteError(null); retry(); }} />;
+  if (!data) return <FlowLoading />;
+  const { options, allScores, topic } = data;
 
   return (
     <div className={styles.container}>

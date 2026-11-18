@@ -1,5 +1,4 @@
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
+import { readSilently, write } from '../../../../services/ibc';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 
@@ -22,22 +21,6 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 export const STATUS_ORDER: TaskStatus[] = ['todo', 'in_progress', 'done'];
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function normalizeTask(t: Record<string, unknown>): Task {
-  return {
-    id:          String(t.id          ?? ''),
-    title:       String(t.title       ?? ''),
-    description: String(t.description ?? ''),
-    createdBy:   String(t.createdBy   ?? ''),
-    ownerId:     t.ownerId != null ? String(t.ownerId) : null,
-    status:      (t.status as TaskStatus) ?? 'todo',
-    createdAt:   Number(t.createdAt   ?? 0),
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Capability checks (pure)
 // ---------------------------------------------------------------------------
 
@@ -48,75 +31,49 @@ export function canRevert(task: Task, currentUser: string): boolean  { return ta
 export function canDelete(task: Task, currentUser: string): boolean  { return task.createdBy === currentUser && task.status !== 'done'; }
 
 // ---------------------------------------------------------------------------
-// Reads
+// The contract (TaskBoardFlow.sol) enforces the same rules: the checks above
+// only decide which buttons to show. Whoever signs is the participant.
 // ---------------------------------------------------------------------------
 
-export async function loadTasks(server: string, agent: string, contractId: string): Promise<Task[]> {
-  const result = await contractRead({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'get_tasks', values: {} } as IMethod,
-  });
-  return (Array.isArray(result) ? result : []).map(t => normalizeTask(t as Record<string, unknown>));
+const ZERO = '0x0000000000000000000000000000000000000000';
+
+export async function loadTasks(contractId: string): Promise<Task[]> {
+  const result = await readSilently(contractId, 'getTasks') as {
+    id: string; title: string; description: string; createdBy: string; owner: string; status: number; createdAt: number;
+  }[];
+  return result.map((t) => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    createdBy: t.createdBy,
+    ownerId: t.owner === ZERO ? null : t.owner,
+    status: STATUS_ORDER[Number(t.status)],
+    createdAt: Number(t.createdAt) * 1000,
+  }));
 }
 
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
+// Each may open the node's approval page: call them from a click.
 
-export async function addTask(
-  server: string, agent: string, contractId: string,
-  currentUser: string, title: string, description: string,
-): Promise<void> {
-  const task: Task = {
-    id: crypto.randomUUID(),
-    title: title.trim(),
-    description: description.trim(),
-    createdBy: currentUser,
-    ownerId: null,
-    status: 'todo',
-    createdAt: Date.now(),
-  };
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'add_task', values: { task } } as IMethod,
-  });
+export async function addTask(contractId: string, title: string, description: string): Promise<void> {
+  await write(contractId, 'addTask', { title: title.trim(), description: description.trim() });
 }
 
-export async function claimTask(server: string, agent: string, contractId: string, id: string, currentUser: string): Promise<void> {
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_task_owner', values: { task_id: id, owner_id: currentUser } } as IMethod,
-  });
+export async function claimTask(contractId: string, id: string): Promise<void> {
+  await write(contractId, 'claimTask', { id });
 }
 
-export async function releaseTask(server: string, agent: string, contractId: string, id: string): Promise<void> {
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_task_owner', values: { task_id: id, owner_id: null } } as IMethod,
-  });
+export async function releaseTask(contractId: string, id: string): Promise<void> {
+  await write(contractId, 'releaseTask', { id });
 }
 
-export async function advanceTask(server: string, agent: string, contractId: string, task: Task): Promise<void> {
-  const next = STATUS_ORDER[STATUS_ORDER.indexOf(task.status) + 1];
-  if (!next) return;
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_task_status', values: { task_id: task.id, status: next } } as IMethod,
-  });
+export async function advanceTask(contractId: string, id: string): Promise<void> {
+  await write(contractId, 'advanceTask', { id });
 }
 
-export async function revertTask(server: string, agent: string, contractId: string, task: Task): Promise<void> {
-  const prev = STATUS_ORDER[STATUS_ORDER.indexOf(task.status) - 1];
-  if (!prev) return;
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_task_status', values: { task_id: task.id, status: prev } } as IMethod,
-  });
+export async function revertTask(contractId: string, id: string): Promise<void> {
+  await write(contractId, 'revertTask', { id });
 }
 
-export async function deleteTask(server: string, agent: string, contractId: string, id: string): Promise<void> {
-  await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'delete_task', values: { task_id: id } } as IMethod,
-  });
+export async function deleteTask(contractId: string, id: string): Promise<void> {
+  await write(contractId, 'deleteTask', { id });
 }

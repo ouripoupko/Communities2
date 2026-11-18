@@ -1,16 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { useEventStream } from '../../hooks/useEventStream';
-import { fetchPolicies } from '../../store/slices/policiesSlice';
-import {
-  createPolicy,
-  getAccountDetails,
-  type Policy,
-} from '../../services/contracts/community';
-import { getMemberDisplayName } from '../../utils/memberDisplay';
+import { useAppSelector } from '../../store/hooks';
+import { useCurrency } from '../../hooks/useCurrency';
+import { createPolicy, type Policy } from '../../services/contracts/community';
 import PolicyCard from './policies/PolicyCard';
+import BalancesStatus from './BalancesStatus';
 import CreatePolicyDialog, { type CreatePolicyFormData } from './dialogs/CreatePolicyDialog';
 import styles from './Policies.module.scss';
 
@@ -20,75 +15,28 @@ interface PoliciesProps {
 
 const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const { communityMembers, membersLoading, profiles } = useAppSelector((state) => state.communities);
-  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
-  const { communityPolicies, policiesLoading } = useAppSelector((state) => state.policies);
-
+  const { communityMembers, membersLoading } = useAppSelector((state) => state.communities);
+  const { publicKey } = useAppSelector((state) => state.user);
+  const { labels, policies, currency, loading } = useCurrency(communityId);
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
   const isMember = !!publicKey && allMembers.includes(publicKey);
-
-  const [accountNames, setAccountNames] = useState<Record<string, string>>({});
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
 
   // Policies tab shows only public, community-governed policies. Personal
   // commitments (self-set) live on the Wallet tab instead - see Wallet.tsx.
   const items: Policy[] = useMemo(
-    () => (communityPolicies[communityId] ?? []).filter((p) => p.rateType === 'community-governed'),
-    [communityPolicies, communityId],
+    () => policies.filter((p) => p.rateType === 'community-governed'),
+    [policies],
   );
 
-  const loadPolicies = useCallback(() => {
-    if (!communityId || !serverUrl || !publicKey) return;
-    dispatch(fetchPolicies({ serverUrl, publicKey, contractId: communityId }));
-  }, [communityId, serverUrl, publicKey, dispatch]);
-
-  const loadAccountNames = useCallback(async () => {
-    if (!communityId || !serverUrl || !publicKey) return;
-    const details = await getAccountDetails(serverUrl, publicKey, communityId);
-    const names: Record<string, string> = {};
-    for (const [id, info] of Object.entries(details)) {
-      if (info.type === 'public' || info.type === 'fund') names[id] = info.name || id;
-    }
-    setAccountNames(names);
-  }, [communityId, serverUrl, publicKey]);
-
-  useEffect(() => {
-    loadPolicies();
-    void loadAccountNames();
-  }, [loadPolicies, loadAccountNames]);
-
-  useEventStream(
-    'contract_write',
-    useCallback(
-      (event) => {
-        if (event.contract === communityId) {
-          loadPolicies();
-          void loadAccountNames();
-        }
-      },
-      [communityId, loadPolicies, loadAccountNames],
-    ),
-  );
-
-  const accountLabels = useMemo(() => {
-    const labels: Record<string, string> = { ...accountNames };
-    for (const pubkey of allMembers) {
-      labels[pubkey] = getMemberDisplayName(profiles[pubkey]);
-    }
-    return labels;
-  }, [accountNames, allMembers, profiles]);
-
+  // Creating may open the node's approval page: it starts from the dialog's
+  // button. The page's contract_write listener reloads the policies.
   const handleCreatePolicy = async (data: CreatePolicyFormData) => {
-    if (!serverUrl || !publicKey) return;
-
     const destination: Policy['destination'] =
       data.destinationKind === 'account'
         ? { kind: 'account', account: data.destinationAccountId }
         : { kind: data.destinationKind };
-
-    await createPolicy(serverUrl, publicKey, communityId, {
-      id: crypto.randomUUID(),
+    await createPolicy(communityId, {
       name: data.name,
       description: data.description,
       source: data.source,
@@ -96,9 +44,6 @@ const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
       mode: data.mode,
       rateType: 'community-governed',
     });
-
-    // No refetch here - the contract_write SSE listener above picks this
-    // up once the server confirms it.
   };
 
   const handleCardClick = (policy: Policy) => {
@@ -134,6 +79,8 @@ const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
         <p>The monetary policies that govern this community's currency</p>
       </div>
 
+      <BalancesStatus communityId={communityId} currency={currency} />
+
       <div className={styles.gates}>
         <button className={styles.gateButton} onClick={() => setPolicyDialogOpen(true)}>
           <Plus size={20} />
@@ -141,7 +88,7 @@ const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
         </button>
       </div>
 
-      {policiesLoading[communityId] === true ? (
+      {loading && policies.length === 0 ? (
         <div className={styles.loadingState}>
           <p>Loading policies...</p>
         </div>
@@ -152,7 +99,7 @@ const Policies: React.FC<PoliciesProps> = ({ communityId }) => {
       ) : (
         <div className={styles.grid}>
           {items.map((policy) => (
-            <PolicyCard key={policy.id} policy={policy} accountLabels={accountLabels} onClick={handleCardClick} />
+            <PolicyCard key={policy.id} policy={policy} accountLabels={labels} onClick={handleCardClick} />
           ))}
         </div>
       )}

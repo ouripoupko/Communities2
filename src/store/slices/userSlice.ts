@@ -112,9 +112,6 @@ const userSlice = createSlice({
         state.serverUrl = null;
       }
     },
-    clearError: (state) => {
-      state.error = null;
-    },
     setContracts: (state, action: PayloadAction<ContractSummary[]>) => {
       state.contracts = action.payload;
     },
@@ -156,5 +153,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { setCurrentUser, clearError, setContracts, clearUser } = userSlice.actions;
+export const { setCurrentUser, setContracts, clearUser } = userSlice.actions;
 export default userSlice.reducer;

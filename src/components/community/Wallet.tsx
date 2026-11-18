@@ -1,17 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send, Handshake } from 'lucide-react';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { useEventStream } from '../../hooks/useEventStream';
-import { fetchPolicies } from '../../store/slices/policiesSlice';
-import {
-  createPolicy,
-  getAccountDetails,
-  type IAccountDetails,
-  type Policy,
-} from '../../services/contracts/community';
-import { getMemberDisplayName } from '../../utils/memberDisplay';
+import { useAppSelector } from '../../store/hooks';
+import { useCurrency } from '../../hooks/useCurrency';
+import { createPolicy, personalAccountId, type Policy } from '../../services/contracts/community';
+import { formatAmount } from './policies/policyDisplay';
 import PolicyCard from './policies/PolicyCard';
+import BalancesStatus from './BalancesStatus';
 import SendPaymentDialog from './dialogs/SendPaymentDialog';
 import CreateCommitmentDialog, { type CreateCommitmentFormData } from './dialogs/CreateCommitmentDialog';
 import styles from './Wallet.module.scss';
@@ -22,82 +17,32 @@ interface WalletProps {
 
 const Wallet: React.FC<WalletProps> = ({ communityId }) => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const { publicKey, serverUrl } = useAppSelector((state) => state.user);
-  const { communityMembers, membersLoading, profiles } = useAppSelector((state) => state.communities);
-  const { communityPolicies } = useAppSelector((state) => state.policies);
-
+  const { publicKey } = useAppSelector((state) => state.user);
+  const { communityMembers, membersLoading } = useAppSelector((state) => state.communities);
+  const { accounts, labels, policies, currency } = useCurrency(communityId);
   const allMembers: string[] = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
   const isMember = !!publicKey && allMembers.includes(publicKey);
+  const myAccountId = publicKey ? personalAccountId(publicKey) : '';
 
-  const [accountDetails, setAccountDetails] = useState<IAccountDetails>({});
-  const [sendFromAccount, setSendFromAccount] = useState<string | null>(null);
+  const [sendOpen, setSendOpen] = useState(false);
   const [commitmentDialogOpen, setCommitmentDialogOpen] = useState(false);
 
   const myCommitments: Policy[] = useMemo(
-    () =>
-      (communityPolicies[communityId] ?? []).filter(
-        (p) => p.rateType === 'self-set' && p.creator === publicKey,
-      ),
-    [communityPolicies, communityId, publicKey],
+    () => policies.filter((p) => p.rateType === 'self-set' && p.creator.toLowerCase() === myAccountId),
+    [policies, myAccountId],
   );
 
-  const accountLabels = useMemo(() => {
-    const labels: Record<string, string> = {};
-    for (const pubkey of allMembers) {
-      labels[pubkey] = getMemberDisplayName(profiles[pubkey]);
-    }
-    for (const [id, info] of Object.entries(accountDetails)) {
-      if (info.type === 'public' || info.type === 'fund') labels[id] = info.name || id;
-    }
-    return labels;
-  }, [allMembers, profiles, accountDetails]);
-
-  const loadAccounts = useCallback(async () => {
-    if (!communityId || !serverUrl || !publicKey) return;
-    const details = await getAccountDetails(serverUrl, publicKey, communityId);
-    setAccountDetails(details);
-  }, [communityId, serverUrl, publicKey]);
-
-  const loadCommitments = useCallback(() => {
-    if (!communityId || !serverUrl || !publicKey) return;
-    dispatch(fetchPolicies({ serverUrl, publicKey, contractId: communityId }));
-  }, [communityId, serverUrl, publicKey, dispatch]);
-
-  useEffect(() => {
-    void loadAccounts();
-    loadCommitments();
-  }, [loadAccounts, loadCommitments]);
-
-  useEventStream(
-    'contract_write',
-    useCallback(
-      (event) => {
-        if (event.contract === communityId) {
-          void loadAccounts();
-          loadCommitments();
-        }
-      },
-      [communityId, loadAccounts, loadCommitments],
-    ),
-  );
-
+  // Creating a commitment may open the node's approval page: it starts from
+  // the dialog's button. The page's contract_write listener reloads it.
   const handleCreateCommitment = async (data: CreateCommitmentFormData) => {
-    if (!serverUrl || !publicKey) return;
-
-    await createPolicy(serverUrl, publicKey, communityId, {
-      id: crypto.randomUUID(),
+    await createPolicy(communityId, {
       name: data.name,
-      description: '',
       source: { kind: 'account', account: data.fromAccountId },
       destination: { kind: 'account', account: data.toAccountId },
       mode: data.mode,
       rateType: 'self-set',
       selfRate: data.rate,
     });
-
-    // No refetch here - the contract_write SSE listener above picks this
-    // up once the server confirms it.
   };
 
   const handleCommitmentClick = (policy: Policy) => {
@@ -126,7 +71,7 @@ const Wallet: React.FC<WalletProps> = ({ communityId }) => {
     );
   }
 
-  const myAccount = accountDetails[publicKey];
+  const myAccount = accounts.find((a) => a.id === myAccountId);
 
   return (
     <div className={styles.container}>
@@ -135,11 +80,13 @@ const Wallet: React.FC<WalletProps> = ({ communityId }) => {
         <p>Your balance and your personal commitments</p>
       </div>
 
+      <BalancesStatus communityId={communityId} currency={currency} />
+
       <div className={styles.section}>
         <h3>My Account</h3>
         <div className={styles.accountRow}>
-          <span className={styles.balance}>{myAccount?.balance ?? 0}</span>
-          <button className={styles.sendButton} onClick={() => setSendFromAccount(publicKey)}>
+          <span className={styles.balance}>{formatAmount(myAccount?.balance ?? 0)}</span>
+          <button className={styles.sendButton} onClick={() => setSendOpen(true)}>
             <Send size={16} />
             Send
           </button>
@@ -159,18 +106,18 @@ const Wallet: React.FC<WalletProps> = ({ communityId }) => {
         ) : (
           <div className={styles.list}>
             {myCommitments.map((policy) => (
-              <PolicyCard key={policy.id} policy={policy} accountLabels={accountLabels} onClick={handleCommitmentClick} />
+              <PolicyCard key={policy.id} policy={policy} accountLabels={labels} onClick={handleCommitmentClick} />
             ))}
           </div>
         )}
       </div>
 
       <SendPaymentDialog
-        isVisible={sendFromAccount !== null}
+        isVisible={sendOpen}
         communityId={communityId}
-        fromAccountId={sendFromAccount ?? ''}
+        fromAccountId={myAccountId}
         fromAccountLabel="My personal account"
-        onClose={() => setSendFromAccount(null)}
+        onClose={() => setSendOpen(false)}
       />
 
       <CreateCommitmentDialog

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { readProfile, createProfile, fetchContracts } from '../../store/slices/userSlice';
 import { useEventStream, useEventStreamConnection } from '../../hooks/useEventStream';
@@ -10,12 +10,12 @@ const Profile: React.FC = () => {
   const user = useAppSelector((state) => state.user);
   const dispatch = useAppDispatch();
   const { isConnected } = useEventStreamConnection();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState(user.profile?.firstName || '');
+  const [lastName, setLastName] = useState(user.profile?.lastName || '');
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
-  const [imageData, setImageData] = useState<string | null>(null);
+  const [imageData, setImageData] = useState<string | null>(user.profile?.userPhoto || null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -25,15 +25,17 @@ const Profile: React.FC = () => {
   // Use the profile contract ID from the slice
   const profileContractId = user.profileContractId;
 
-  // Update local state when profile is loaded
-  useEffect(() => {
+  // Update local state when the profile is (re)loaded
+  const [shownProfile, setShownProfile] = useState(user.profile);
+  if (user.profile !== shownProfile) {
+    setShownProfile(user.profile);
     if (user.profile) {
       setFirstName(user.profile.firstName || '');
       setLastName(user.profile.lastName || '');
       setImageData(user.profile.userPhoto || null);
       setImageUploadError(null); // Clear any previous image upload errors
     }
-  }, [user.profile]);
+  }
 
   // Listen for profile contract write events
   useEventStream('contract_write', (event) => {
@@ -128,8 +130,7 @@ const Profile: React.FC = () => {
         // Store the processed image data
         setImageData(resizedImageData);
         
-      } catch (error: unknown) {
-        // console.error('Failed to process image:', error);
+      } catch {
         setImageUploadError('Failed to process image. Please try again.');
       }
     }

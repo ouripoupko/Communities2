@@ -71,32 +71,6 @@
         gap: $spacing-lg;
         min-width: 0;
         overflow-x: auto;
-
-        .detailItem {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: $spacing-md;
-          background-color: var(--color-surface-muted);
-          border-radius: $radius-md;
-          border: 1px solid var(--color-border);
-
-          .label {
-            font-weight: $font-medium;
-            color: var(--color-text-secondary);
-            font-size: $text-sm;
-          }
-
-          .value {
-            color: var(--color-text-primary);
-            font-weight: $font-semibold;
-            font-size: $text-sm;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-        }
       }
     }
 
@@ -162,16 +136,6 @@
       .actionsSection {
         .actionButtons {
           flex-direction: column;
-        }
-      }
-
-      .communityInfoSection .communityDetails .detailItem {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: $spacing-xs;
-
-        .value {
-          max-width: none;
         }
       }
     }

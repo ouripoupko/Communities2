@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MessageSquare, Reply, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
+import { useParticipants } from '../useParticipants';
 import * as api from './discussionApi';
 import type { Comment } from './discussionApi';
 import { FlowLoading, FlowError } from '../FlowShell';
@@ -33,8 +34,6 @@ function buildTree(flat: Comment[]): CommentNode[] {
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-const authorLabel = (id: string, currentUser: string) =>
-  id === currentUser ? 'You' : id;
 
 // ---------------------------------------------------------------------------
 // Compose box (used both for top-level and replies)
@@ -88,25 +87,24 @@ const CommentItem: React.FC<{
   node: CommentNode;
   depth: number;
   currentUser: string;
-  server: string;
-  agent: string;
   contractId: string;
-  flat: Comment[];
-}> = ({ node, depth, currentUser, server, agent, contractId, flat }) => {
+}> = ({ node, depth, currentUser, contractId }) => {
   const [replying,  setReplying]  = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const isOwn      = node.author === currentUser;
+  const { isMe, nameOf } = useParticipants(currentUser);
+  const isOwn      = isMe(node.author);
+  const author     = nameOf(node.author);
   const hasChildren = node.children.length > 0;
 
   const handleReply = useCallback(async (text: string) => {
-    await api.addComment(server, agent, contractId, currentUser, text, node.id);
+    await api.addComment(contractId, text, node.id);
     setReplying(false);
-  }, [server, agent, contractId, currentUser, node.id]);
+  }, [contractId, node.id]);
 
   const handleDelete = useCallback(async () => {
-    await api.deleteComment(server, agent, contractId, flat, node.id);
-  }, [server, agent, contractId, flat, node.id]);
+    await api.deleteComment(contractId, node.id);
+  }, [contractId, node.id]);
 
   return (
     <div className={`${styles.commentItem} ${depth > 0 ? styles.nested : ''}`}>
@@ -117,9 +115,9 @@ const CommentItem: React.FC<{
         {/* Header */}
         <div className={styles.commentHeader}>
           <span className={`${styles.avatar} ${isOwn ? styles.avatarMe : ''}`}>
-            {authorLabel(node.author, currentUser)[0].toUpperCase()}
+            {author[0].toUpperCase()}
           </span>
-          <span className={styles.authorName}>{authorLabel(node.author, currentUser)}</span>
+          <span className={styles.authorName}>{author}</span>
           <span className={styles.timestamp}>{formatTime(node.timestamp)}</span>
           {hasChildren && (
             <button
@@ -158,7 +156,7 @@ const CommentItem: React.FC<{
         {/* Reply compose */}
         {replying && (
           <ComposeBox
-            placeholder={`Replying to ${authorLabel(node.author, currentUser)}…`}
+            placeholder={`Replying to ${author}…`}
             onSubmit={text => { void handleReply(text); }}
             onCancel={() => setReplying(false)}
             autoFocus
@@ -175,10 +173,7 @@ const CommentItem: React.FC<{
               node={child}
               depth={depth + 1}
               currentUser={currentUser}
-              server={server}
-              agent={agent}
               contractId={contractId}
-              flat={flat}
             />
           ))}
         </div>
@@ -190,36 +185,18 @@ const CommentItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Root flow component
 // ---------------------------------------------------------------------------
-const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [flat,    setFlat]    = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await api.loadComments(flowServer, flowAgent, instanceId);
-      setFlat(data);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [instanceId, flowServer, flowAgent]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
-  }, [instanceId, load]), flowServer, flowAgent);
+const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
+  const { data, loading, error, retry } = useFlowData(instanceId, api.loadComments);
 
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
+  if (error)   return <FlowError message={error} onRetry={retry} />;
+
+  const flat = data ?? [];
 
   const tree = buildTree(flat);
 
   const handleTopLevel = async (text: string) => {
-    await api.addComment(flowServer, flowAgent, instanceId, currentUser, text, null);
+    await api.addComment(instanceId, text, null);
   };
 
   return (
@@ -247,10 +224,7 @@ const DiscussionFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent
               node={node}
               depth={0}
               currentUser={currentUser}
-              server={flowServer}
-              agent={flowAgent}
               contractId={instanceId}
-              flat={flat}
             />
           ))}
         </div>

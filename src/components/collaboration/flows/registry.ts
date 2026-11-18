@@ -1,26 +1,23 @@
 import { BarChart2, Star, FileText, Heart, MessageSquare, CalendarDays, KanbanSquare, AlertTriangle, HelpCircle, Award } from 'lucide-react';
 import RankingFlow, { RankingSetupDialog } from './voting/RankingFlow';
-import { setupTopic as setupRankingTopic } from './voting/rankingApi';
+import { rankingConstructor } from './voting/rankingApi';
 import ScoringFlow, { ScoringSetupDialog } from './voting/ScoringFlow';
-import { setupTopic as setupScoringTopic } from './voting/scoringApi';
+import { scoringConstructor } from './voting/scoringApi';
 import DocFlow from './document/DocFlow';
+import { documentConstructor } from './document/docApi';
 import FundingFlow, { FundingSetupDialog } from './funding/FundingFlow';
-import { configureFund } from './funding/fundingApi';
-import type { FundConfig } from './funding/fundingApi';
-import { contractWrite } from '../../../services/api';
-import type { IMethod } from '../../../services/interfaces';
-import { createFundAccount } from '../../../services/contracts/community';
+import { fundingConstructor } from './funding/fundingApi';
 import DiscussionFlow from './discussion/DiscussionFlow';
 import SchedulingFlow, { SchedulingSetupDialog } from './scheduling/SchedulingFlow';
-import { setupRange } from './scheduling/schedulingApi';
-import type { RangeConfig } from './scheduling/schedulingApi';
+import { schedulingConstructor } from './scheduling/schedulingApi';
 import TaskboardFlow from './taskboard/TaskboardFlow';
 import ConcernsFlow from './concerns/ConcernsFlow';
 import QAFlow from './qa/QAFlow';
 import RolesFlow from './roles/RolesFlow';
+import { sourceOf } from '../../../services/contracts/sources';
 import type { FlowDefinition } from './types';
 
-/** Ordered list of group names as they appear in the Add Tab menu. */
+/** Ordered list of group names as they appear in the Add flow dialog. */
 export const FLOW_GROUPS = [
   'Decision Making',
   'Planning & Execution',
@@ -28,6 +25,9 @@ export const FLOW_GROUPS = [
   'Communication',
 ] as const;
 
+// Each flow is a contract (source) its creator deploys on their node, with
+// constructorArgs from its setup dialog and from where it is (its title and
+// community).
 export const FLOW_REGISTRY: FlowDefinition[] = [
   // ── Decision Making ────────────────────────────────────────────────────────
   {
@@ -37,9 +37,8 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     component: RankingFlow,
     group: 'Decision Making',
     setupComponent: RankingSetupDialog,
-    onInit: async (server, agent, contractId, config) => {
-      await setupRankingTopic(server, agent, contractId, config as { topic: string; description: string });
-    },
+    source: sourceOf('RankingFlow.sol'),
+    constructorArgs: rankingConstructor,
   },
   {
     id: 'scoring',
@@ -48,9 +47,8 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     component: ScoringFlow,
     group: 'Decision Making',
     setupComponent: ScoringSetupDialog,
-    onInit: async (server, agent, contractId, config) => {
-      await setupScoringTopic(server, agent, contractId, config as { topic: string; description: string });
-    },
+    source: sourceOf('ScoringFlow.sol'),
+    constructorArgs: scoringConstructor,
   },
   {
     id: 'concerns',
@@ -58,6 +56,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: AlertTriangle,
     component: ConcernsFlow,
     group: 'Decision Making',
+    source: sourceOf('ConcernsFlow.sol'),
   },
 
   // ── Planning & Execution ───────────────────────────────────────────────────
@@ -68,9 +67,8 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     component: SchedulingFlow,
     group: 'Planning & Execution',
     setupComponent: SchedulingSetupDialog,
-    onInit: async (server, agent, contractId, config, currentUser) => {
-      await setupRange(server, agent, contractId, config as Omit<RangeConfig, 'organizerId'>, currentUser);
-    },
+    source: sourceOf('SchedulingFlow.sol'),
+    constructorArgs: schedulingConstructor,
   },
   {
     id: 'task-board',
@@ -78,6 +76,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: KanbanSquare,
     component: TaskboardFlow,
     group: 'Planning & Execution',
+    source: sourceOf('TaskBoardFlow.sol'),
   },
   {
     id: 'roles',
@@ -85,6 +84,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: Award,
     component: RolesFlow,
     group: 'Planning & Execution',
+    source: sourceOf('RolesFlow.sol'),
   },
 
   // ── Governance & Finance ───────────────────────────────────────────────────
@@ -95,23 +95,8 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     component: FundingFlow,
     group: 'Governance & Finance',
     setupComponent: FundingSetupDialog,
-    onInit: async (server, agent, contractId, config) => {
-      const { name, description, goal } = config as unknown as FundConfig;
-      const community = config._community as { server: string; agent: string; id: string } | null;
-      await configureFund(server, agent, contractId, name, description ?? '', goal ?? null);
-      if (community?.id) {
-        await contractWrite({
-          serverUrl: server, publicKey: agent, contractId,
-          method: { name: 'set_community_and_fund', values: {
-            community_server: community.server,
-            community_agent:  community.agent,
-            community_id:     community.id,
-            fund_account_name: name,
-          } } as IMethod,
-        });
-        await createFundAccount(community.server, agent, community.id, name, agent);
-      }
-    },
+    source: sourceOf('FundingFlow.sol'),
+    constructorArgs: fundingConstructor,
   },
 
   // ── Communication ──────────────────────────────────────────────────────────
@@ -121,6 +106,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: MessageSquare,
     component: DiscussionFlow,
     group: 'Communication',
+    source: sourceOf('DiscussionFlow.sol'),
   },
   {
     id: 'qa',
@@ -128,6 +114,7 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: HelpCircle,
     component: QAFlow,
     group: 'Communication',
+    source: sourceOf('QAFlow.sol'),
   },
   {
     id: 'document',
@@ -135,6 +122,8 @@ export const FLOW_REGISTRY: FlowDefinition[] = [
     icon: FileText,
     component: DocFlow,
     group: 'Communication',
+    source: sourceOf('DocumentFlow.sol'),
+    constructorArgs: documentConstructor,
   },
 ];
 

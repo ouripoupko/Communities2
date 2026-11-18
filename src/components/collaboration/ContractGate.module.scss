@@ -1,0 +1,35 @@
+@use '../../styles/variables' as *;
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-3xl;
+  text-align: center;
+
+  h2 {
+    margin: 0;
+    color: var(--color-text-primary);
+  }
+
+  p {
+    margin: 0;
+    max-width: 480px;
+    color: var(--color-text-secondary);
+  }
+
+  .error {
+    color: var(--color-error);
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

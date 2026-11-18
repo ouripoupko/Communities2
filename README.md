@@ -67,22 +67,27 @@ Existing platforms for coordination all fall short in one way or another:
 
 ## Technical Overview
 
-The frontend is a **React 19 / TypeScript** single-page application built with Vite. State is managed via Redux Toolkit. Smart contracts are written in **Python** and run on each member's personal agent.
+The frontend is a **React 19 / TypeScript** single-page application built with Vite. State is managed via Redux Toolkit. Smart contracts are written in **Solidity** and run on the members' **ibc-go** nodes, each contract with its own state, replicated among the nodes of its partners. The app talks to the user's node through the `@ouripoupko/ibc` client library, and never holds the user's keys: the node asks the user, with their passkey, to approve what the app may not do by itself.
 
 **Stack:**
 - React 19, TypeScript, Vite
 - Redux Toolkit, React Router v7
 - SCSS modules
-- Python smart contracts (deployed per-member on their PDA)
+- Solidity contracts (in `src/assets/contracts/`), deployed by the app on ibc-go nodes
+- `@ouripoupko/ibc` client library
 
 ### Getting Started
+
+The app needs an ibc-go node, and its client library, from the [ibc-go repository](https://github.com/ouripoupko/ibc-go). Clone it next to this repository, build its JavaScript library (`ibc-go/js`), and run a node (by default at `http://localhost:2611`). Then:
 
 ```bash
 npm install
 npm run dev
+npm run test:contracts   # the contract tests, on a throwaway node (see docs/TESTING_GUIDE.md)
+npm run test:e2e         # the app in a browser, as two people use it
 ```
 
-The app connects to a Personal Digital Agent server. Each user runs their own agent — see the [agent repository](https://github.com/ouripoupko/ibc) for setup instructions.
+Log in with your node's address. See [docs/SDD.md](docs/SDD.md) for the design, and [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for using the app.
 
 ---
 

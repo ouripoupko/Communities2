@@ -1,67 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { openApp } from '../services/ibc';
 import { Server, ArrowRight } from 'lucide-react';
 import styles from './LoginPage.module.scss';
 
+// If we land here with a stored node URL, the app was disconnected from
+// the user's agent (or this browser forgot it) — prefill the form so the
+// user can just click Connect again.
+function storedServerUrl(): string {
+  try {
+    const userData = JSON.parse(localStorage.getItem('user') ?? 'null');
+    if (typeof userData?.serverUrl === 'string') return userData.serverUrl;
+  } catch {
+    // Ignore malformed stored data — the field just stays empty.
+  }
+  return '';
+}
+
+// The server URLs used before, the latest first.
+function loadServerUrlHistory(): string[] {
+  try {
+    const history: unknown = JSON.parse(localStorage.getItem('serverUrlHistory') ?? '[]');
+    return Array.isArray(history) ? history.filter((url): url is string => typeof url === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
-  const [serverUrl, setServerUrl] = useState('');
-  const [serverUrlHistory, setServerUrlHistory] = useState<string[]>([]);
+  const [serverUrl, setServerUrl] = useState(storedServerUrl);
+  const [serverUrlHistory, setServerUrlHistory] = useState(loadServerUrlHistory);
   const [showHistory, setShowHistory] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  // Why the last login attempt failed
   const [loginError, setLoginError] = useState<string | null>(null);
   const [serverUrlError, setServerUrlError] = useState<string | null>(null);
 
-  // Check for stored error messages on component mount
-  useEffect(() => {
-    const storedError = localStorage.getItem('loginError');
-    if (storedError) {
-      setLoginError(storedError);
-      localStorage.removeItem('loginError'); // Clear the stored error
-    }
-  }, []);
-
-  // If we land here with a stored node URL, the app was disconnected from
-  // the user's agent (or this browser forgot it) — prefill the form so the
-  // user can just click Connect again.
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (!storedUser) return;
-    try {
-      const userData = JSON.parse(storedUser);
-      if (typeof userData.serverUrl === 'string') setServerUrl(userData.serverUrl);
-    } catch {
-      // Ignore malformed stored data — fields just stay empty.
-    }
-  }, []);
-
-  useEffect(() => {
-    // Default server URL
-    const defaultServer = 'http://localhost:2611';
-    
-    // Load server URL history from localStorage
-    const history = localStorage.getItem('serverUrlHistory');
-    let historyArray: string[] = [];
-    
-    if (history) {
-      try {
-        historyArray = JSON.parse(history);
-      } catch (error) {
-        historyArray = [];
-      }
-    }
-    
-    // Always ensure default server is in the list
-    if (!historyArray.includes(defaultServer)) {
-      historyArray = [defaultServer, ...historyArray];
-    } else {
-      // Move default server to the top if it's already in the list
-      historyArray = [defaultServer, ...historyArray.filter(url => url !== defaultServer)];
-    }
-    
-    setServerUrlHistory(historyArray);
-  }, []);
 
   const validateServerUrl = (value: string): string | null => {
     if (value.length === 0) return null;

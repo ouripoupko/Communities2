@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import Modal from '../../../Modal';
+import form from '../../../dialogForm.module.scss';
 import styles from './Topic.module.scss';
 
 // ---------------------------------------------------------------------------
@@ -28,54 +30,45 @@ export const TopicSetupDialog: React.FC<{
     onDone({ topic: topic.trim(), description: description.trim() });
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onCancel();
-  };
-
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.dialog}>
-        <div className={styles.header}>
-          <h3 className={styles.dialogTitle}>{heading}</h3>
-          <button className={styles.closeButton} onClick={onCancel}>×</button>
-        </div>
-
-        <div className={styles.dialogContent}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Topic *</label>
-            <input
-              className={styles.input}
-              type="text"
-              value={topic}
-              autoFocus
-              placeholder="What are people deciding on?"
-              onChange={(e) => { setTopic(e.target.value); setError(''); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Description <span className={styles.optional}>(optional)</span></label>
-            <textarea
-              className={styles.textarea}
-              rows={3}
-              value={description}
-              placeholder="Any context participants should know?"
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
-          {error && <p className={styles.errorMsg}>{error}</p>}
-        </div>
-
-        <div className={styles.dialogActions}>
-          <button className={styles.btnCreate} onClick={submit}>
+    <Modal
+      title={heading}
+      onClose={onCancel}
+      actions={(
+        <>
+          <button className={form.secondaryButton} onClick={onCancel}>Cancel</button>
+          <button className={form.primaryButton} onClick={submit}>
             <Icon size={15} /> Create
           </button>
-          <button className={styles.btnCancel} onClick={onCancel}>Cancel</button>
-        </div>
+        </>
+      )}
+    >
+      <div className={form.field}>
+        <label className={form.label}>Topic *</label>
+        <input
+          className={form.input}
+          type="text"
+          value={topic}
+          autoFocus
+          placeholder="What are people deciding on?"
+          onChange={(e) => { setTopic(e.target.value); setError(''); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+        />
       </div>
-    </div>
+
+      <div className={form.field}>
+        <label className={form.label}>Description <span className={styles.optional}>(optional)</span></label>
+        <textarea
+          className={form.input}
+          rows={3}
+          value={description}
+          placeholder="Any context participants should know?"
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+
+      {error && <div className={form.error}>{error}</div>}
+    </Modal>
   );
 };
 

@@ -1,21 +1,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import type { InitiativeData } from '../../types/initiative';
-import CreateFlowDialog, { type CollaborationType } from './dialogs/CreateFlowDialog';
+import CreateCollaborationDialog from './dialogs/CreateCollaborationDialog';
 import CollaborationCard from './collaborations/CollaborationCard';
-import CollaborationFilterBar, { type FilterType, type SortType } from './collaborations/CollaborationFilterBar';
+import CollaborationFilterBar, { type FilterType } from './collaborations/CollaborationFilterBar';
 import CreateCollaborationButtons from './collaborations/CreateCollaborationButtons';
 import styles from './Collaborations.module.scss';
 import { fetchCollaborations } from '../../store/slices/communitiesSlice';
 import {
-  createInitiative,
-  createWish,
-  createAgreement,
+  deployCollaboration,
+  listCollaboration,
   type Collaboration,
+  type CollaborationFields,
+  type CollaborationType,
 } from '../../services/contracts/community';
-
-export type { CollaborationItemType } from './collaborations/CollaborationCard';
+import { needsAccess } from '../../services/ibc';
+import { collaborationPath, type CollaborationKind } from '../collaboration/kinds';
 
 interface CollaborationsProps {
   communityId: string;
@@ -39,89 +39,56 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
   );
 
   const [filter, setFilter] = useState<FilterType>('all');
-  const [sort, setSort] = useState<SortType>('newest');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [createType, setCreateType] = useState<CollaborationType | null>(null);
+  // The kind being created, while its dialog is open.
+  const [creating, setCreating] = useState<CollaborationKind | null>(null);
+  // A collaboration deployed, but not listed in the community yet: listing
+  // it needs another approval, from its own click.
+  const [unlisted, setUnlisted] = useState<{ id: string; type: CollaborationType; fields: CollaborationFields } | null>(null);
+  const [isListing, setIsListing] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!communityId || !serverUrl || !publicKey) return;
-    dispatch(fetchCollaborations({ serverUrl, publicKey, contractId: communityId }));
+    dispatch(fetchCollaborations({ contractId: communityId }));
   }, [communityId, serverUrl, publicKey, dispatch]);
 
-  const handleOpenCreate = (type: CollaborationType) => {
-    setCreateType(type);
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setCreateType(null);
-  };
-
-  const handleSubmit = async (data: Record<string, string>) => {
-    if (!serverUrl || !publicKey || !createType) {
-      throw new Error('Not logged in or missing data');
-    }
-
-    if (createType === 'initiative') {
-      await createInitiative(serverUrl, publicKey, communityId, {
-        title: data.title || 'Untitled',
-        description: data.description,
-      });
-    } else if (createType === 'wish') {
-      await createWish(serverUrl, publicKey, communityId, {
-        title: data.title || 'Untitled',
-        dreamNeed: data.dreamNeed,
-      });
-    } else if (createType === 'agreement') {
-      await createAgreement(serverUrl, publicKey, communityId, {
-        title: data.rule || 'Untitled',
-        rule: data.rule,
-        protection: data.protection,
-      });
+  // Deploying opens the node's approval page: it starts from the dialog's
+  // button. Listing it in the community is silent if the user let the app
+  // call addCollaboration; otherwise it waits for the banner's button.
+  const handleSubmit = async (fields: CollaborationFields) => {
+    if (!serverUrl || !creating) throw new Error('Not logged in or missing data');
+    const { type } = creating;
+    const id = await deployCollaboration(communityId, type, fields.title);
+    try {
+      await listCollaboration(communityId, id, type, fields, serverUrl, { silently: true });
+    } catch (err) {
+      if (!needsAccess(err)) throw err;
+      setUnlisted({ id, type, fields });
     }
   };
 
-  const filteredItems = useMemo(() => {
-    let list = filter === 'all' ? items : items.filter((i) => i.type === filter);
-    if (sort === 'newest') {
-      list = [...list].sort((a, b) => b.createdAt - a.createdAt);
-    } else {
-      list = [...list].sort((a, b) => (b.activityCount ?? 0) - (a.activityCount ?? 0));
+  const handleList = async () => {
+    if (!unlisted || !serverUrl) return;
+    try {
+      setIsListing(true);
+      setListError(null);
+      await listCollaboration(communityId, unlisted.id, unlisted.type, unlisted.fields, serverUrl);
+      setUnlisted(null);
+    } catch (err) {
+      setListError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsListing(false);
     }
-    return list;
-  }, [items, filter, sort]);
-
-  const handleWishClick = (item: Collaboration) => {
-    if (item.title === 'I want to build a community self governance descentralized application') {
-      window.open('https://www.wellofwishes.org/wishes/b33f1810-9c04-484a-9339-9d6d7f9f730b', '_blank');
-      return;
-    }
-    navigate(`/wish/${item.id}/related`, { state: { wish: item, communityId } });
   };
 
-  const handleAgreementClick = (item: Collaboration) => {
-    navigate(`/agreement/${item.id}`, { state: { agreement: item, communityId } });
-  };
+  const filteredItems = useMemo(
+    () => [...(filter === 'all' ? items : items.filter((i) => i.type === filter))]
+      .sort((a, b) => b.createdAt - a.createdAt),
+    [items, filter],
+  );
 
-  const handleInitiativeClick = (item: Collaboration) => {
-    const hostServer = item.hostServer || serverUrl || 'local';
-    const hostAgent = item.hostAgent || publicKey || 'local';
-    const initiativeData: InitiativeData = {
-      id: item.id,
-      title: item.title,
-      description: item.description,
-      currencyGathered: item.currencyGathered,
-      currencyGoal: item.currencyGoal,
-      createdAt: item.createdAt,
-      activityCount: item.activityCount,
-      hostServer,
-      hostAgent,
-    };
-    navigate(
-      `/initiative/${encodeURIComponent(hostServer)}/${encodeURIComponent(hostAgent)}/${item.id}/roadmap`,
-      { state: { initiative: initiativeData, communityId } },
-    );
+  const handleOpen = (item: Collaboration) => {
+    navigate(collaborationPath(item), { state: { listed: item, communityId } });
   };
 
   if (membersLoading[communityId] === true) {
@@ -153,14 +120,22 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
         <p>Initiatives, wishes, and agreements that shape community life</p>
       </div>
 
-      <CreateCollaborationButtons onOpenCreate={handleOpenCreate} />
+      <CreateCollaborationButtons onOpenCreate={setCreating} />
 
-      <CollaborationFilterBar
-        filter={filter}
-        sort={sort}
-        onFilterChange={setFilter}
-        onSortChange={setSort}
-      />
+      {unlisted && (
+        <div className={styles.unlisted}>
+          <span>
+            &ldquo;{unlisted.fields.title}&rdquo; is created on your node. Approve listing it in the
+            community, so others see it.
+          </span>
+          <button onClick={() => void handleList()} disabled={isListing} className="edit-button">
+            {isListing ? 'Approve on your node…' : 'List it in the community'}
+          </button>
+          {listError && <span className={styles.unlistedError}>{listError}</span>}
+        </div>
+      )}
+
+      <CollaborationFilterBar filter={filter} onFilterChange={setFilter} />
 
       <div className={styles.list}>
         {collaborationsLoading[communityId] === true ? (
@@ -173,21 +148,14 @@ const Collaborations: React.FC<CollaborationsProps> = ({ communityId }) => {
           </div>
         ) : (
           filteredItems.map((item) => (
-            <CollaborationCard
-              key={item.id}
-              item={item}
-              onInitiativeClick={handleInitiativeClick}
-              onWishClick={handleWishClick}
-              onAgreementClick={handleAgreementClick}
-            />
+            <CollaborationCard key={item.id} item={item} onOpen={handleOpen} />
           ))
         )}
       </div>
 
-      <CreateFlowDialog
-        isVisible={dialogOpen}
-        onClose={handleCloseDialog}
-        collaborationType={createType}
+      <CreateCollaborationDialog
+        kind={creating}
+        onClose={() => setCreating(null)}
         onSubmit={handleSubmit}
       />
     </div>

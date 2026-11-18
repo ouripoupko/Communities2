@@ -52,17 +52,6 @@
     }
   }
 
-  .section {
-    margin-bottom: $spacing-2xl;
-
-    h3 {
-      font-size: $text-xl;
-      font-weight: $font-semibold;
-      color: var(--color-text-secondary);
-      margin-bottom: $spacing-lg;
-    }
-  }
-
   .list {
     display: flex;
     flex-direction: column;
@@ -225,3 +214,11 @@
   }
 }
 
+.nomineeNote {
+  margin: 0 0 $spacing-lg 0;
+  padding: $spacing-md;
+  border: 1px solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: var(--color-text-secondary);
+}
