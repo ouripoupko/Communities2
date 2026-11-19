@@ -7,22 +7,19 @@ const bob = await newUser('Bob');
 
 /**
  * Adds a flow at the top level of the open collaboration (the phone's list):
- * its kind and title, then its setup dialog if it has one (setup fills it and
- * names its button). Deploying it opens the approval window; adding it to
- * the tree, if not silent, the "Add it" banner.
+ * picks its kind, then fills its setup form, title first (setup fills the
+ * rest, if the form asks for more; submit names its button). Deploying it
+ * opens the approval window; adding it to the tree, if not silent, the
+ * "Add it" banner.
  */
-async function addFlow(user, kind, title, { setup = null, shot = null } = {}) {
+async function addFlow(user, kind, title, { setup = null, submit = 'Create', shot = null } = {}) {
   const { page } = user;
   await (await page.waitForSelector('[aria-label="Add a flow"]', { visible: true })).click();
-  await fill(page, '#flowTitle', title);
-  await click(page, kind, { selector: '[role=dialog] button' });
   if (shot) await shoot(page, shot);
-  if (setup) {
-    await click(page, 'Next', { selector: '[role=dialog] button' });
-    await approving(user, () => setup(page));
-  } else {
-    await approving(user, () => click(page, 'Add', { selector: '[role=dialog] button' }));
-  }
+  await click(page, kind, { selector: '[role=dialog] button' });
+  await fill(page, '#flowTitle', title);
+  if (setup) await setup(page);
+  await approving(user, () => click(page, submit, { selector: '[role=dialog] button' }));
   if (await page.waitForSelector('button::-p-text(Add it)', { visible: true, timeout: 5000 }).catch(() => null)) {
     await act(user, () => click(page, 'Add it'));
   }
@@ -143,8 +140,9 @@ try {
     await shoot(page, 'policies-tab');
     await click(page, 'Personal Minting', { selector: 'h3' });
     await fill(page, '#rate', 10);
-    await act(alice, () => click(page, 'Update Preference'), { until: () => sees(page, 'Community median: 10') });
-    check('the community rate is the members\' median', true);
+    // Bob has set none, so he counts as 0: the median of 10 and 0
+    await act(alice, () => click(page, 'Update Preference'), { until: () => sees(page, 'Community median: 5') });
+    check('the community rate is the median of every member\'s preference', true);
     await shoot(page, 'policy-detail-page');
     await click(page, 'Back');
   });
@@ -170,11 +168,10 @@ try {
     await addFlow(alice, 'Funding', 'Lumber fund', {
       shot: 'add-flow-dialog',
       setup: async (p) => {
-        await fill(p, '#fund-name', 'Lumber fund');
         await fill(p, '#fund-desc', 'Untreated cedar boards and screws for six beds.');
         await fill(p, '#fund-goal', 300);
-        await click(p, 'Launch Fund', { selector: '[role=dialog] button' });
       },
+      submit: 'Launch Fund',
     });
     await openFlow(page, 'Lumber fund');
     await act(alice, () => click(page, 'Open the fund'), { until: () => sees(page, 'Contribute') });
@@ -187,12 +184,7 @@ try {
   await step('Alice adds a ranking vote, and ranks its proposals', async () => {
     const { page } = alice;
     await click(page, 'Build raised beds', { selector: 'nav button' });
-    await addFlow(alice, 'Ranking Vote', 'Which beds first?', {
-      setup: async (p) => {
-        await fill(p, 'input[placeholder="What are people deciding on?"]', 'Which beds do we build first?');
-        await click(p, 'Create', { selector: '[role=dialog] button' });
-      },
-    });
+    await addFlow(alice, 'Ranking Vote', 'Which beds first?');
     await openFlow(page, 'Which beds first?');
     for (const proposal of ['Herbs by the gate', 'Tomatoes in the sun', 'Squash at the back']) {
       await fill(page, 'input[placeholder="Add a new proposal…"]', proposal);

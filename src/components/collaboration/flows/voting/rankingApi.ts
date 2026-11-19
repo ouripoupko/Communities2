@@ -12,9 +12,9 @@ export interface TopicConfig {
   description: string;
 }
 
-/** The deploy's constructor arguments, from the setup dialog's topic. */
+/** The deploy's constructor arguments: the flow's title is its topic. */
 export const rankingConstructor = (config: Record<string, unknown>) => ({
-  topic_: String(config.topic ?? ''),
+  topic_: String(config.title ?? ''),
   description: String(config.description ?? ''),
 });
 

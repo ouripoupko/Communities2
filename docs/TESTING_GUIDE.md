@@ -94,7 +94,7 @@ With person A in a community, and person B not:
 - [ ] A payment of more than the balance fails with a clear message.
 - [ ] Setting preferences on a community-governed policy changes its median (shown on its card and its page).
 - [ ] A commitment from the Wallet pays from the creator's account, at the rate they set.
-- [ ] "Balances calculated up to …" shows a time; **Update balances** brings it to now, and the balances reflect the days that passed.
+- [ ] "Balances calculated up to …" shows a time with its time zone (e.g. "GMT+2"); **Update balances** brings it to now, and the balances reflect the days that passed.
 - [ ] A policy can't be deleted while its median rate is above zero.
 
 ### 7. Collaborations and flows
@@ -134,4 +134,4 @@ For each flow type, with two people:
 ## Notes
 
 - The manual tests leave agents and contracts on the node they run on. Use a node you can reset (the automated tests use a throwaway node).
-- In development, the browser console traces every contract call (`[read]` with its reply, `[write]`, `[deploy]`) and every event received (`[event]`), which helps to see where a step stopped. In a build, turn it on with `localStorage.setItem('trace', '1')` and reload.
+- In development, the browser console traces every write and deploy (`[write]`, `[deploy]`) and every event received (`[event]`), which helps to see where a step stopped. Reads (`[read]` with its reply) are left out, since the app reads all the time: to see them, run `localStorage.setItem('trace', 'all')` and reload. In a build, turn the default tracing on with `localStorage.setItem('trace', '1')`; `'0'` turns it off.

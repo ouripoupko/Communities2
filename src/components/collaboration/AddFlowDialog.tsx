@@ -10,20 +10,19 @@ interface AddFlowDialogProps {
   /** Where the flow goes: under this flow, or '' for the top level. */
   parent: string;
   onClose: () => void;
-  /** A new flow, of a type and with a title. Deploying starts from this click. */
-  onAddNew: (flowType: string, title: string) => Promise<void>;
+  /** A new flow of this type: its setup form takes it from here. */
+  onPick: (flowType: string) => void;
   /** A branch from the bin, put back here. */
   onRestore: (flowId: string) => Promise<void>;
 }
 
 /**
- * Adds a flow at a place in the tree: a new one, or one from the bin. Shown
- * while open, keyed by the place, so each opening starts afresh.
+ * Adds a flow at a place in the tree: a new one, of the type the user
+ * clicks (its setup form then asks for its title and the rest), or one from
+ * the bin. Shown while open, keyed by the place, so each opening starts afresh.
  */
-const AddFlowDialog: React.FC<AddFlowDialogProps> = ({ tree, parent, onClose, onAddNew, onRestore }) => {
+const AddFlowDialog: React.FC<AddFlowDialogProps> = ({ tree, parent, onClose, onPick, onRestore }) => {
   const [mode, setMode] = useState<'new' | 'bin'>('new');
-  const [title, setTitle] = useState('');
-  const [flowType, setFlowType] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,26 +39,13 @@ const AddFlowDialog: React.FC<AddFlowDialogProps> = ({ tree, parent, onClose, on
     }
   };
 
-  const handleAdd = () => {
-    if (!title.trim()) return setError('Please give the flow a title');
-    if (!flowType) return setError('Please choose what kind of flow it is');
-    void run(() => onAddNew(flowType, title.trim()));
-  };
-
   const groups = [...FLOW_GROUPS, undefined];
   return (
     <Modal
       title="Add a flow"
       onClose={onClose}
       locked={busy}
-      actions={mode === 'new' && (
-        <>
-          <button className={form.secondaryButton} onClick={onClose} disabled={busy}>Cancel</button>
-          <button className={form.primaryButton} onClick={handleAdd} disabled={busy}>
-            {busy ? 'Approve on your node…' : getFlow(flowType)?.setupComponent ? 'Next' : 'Add'}
-          </button>
-        </>
-      )}
+      actions={<button className={form.secondaryButton} onClick={onClose} disabled={busy}>Cancel</button>}
     >
       <p className={styles.place}>{parentTitle ? <>Under <strong>{parentTitle}</strong></> : 'At the top level'}</p>
 
@@ -74,33 +60,25 @@ const AddFlowDialog: React.FC<AddFlowDialogProps> = ({ tree, parent, onClose, on
 
       {mode === 'new' ? (
         <>
-          <div className={form.field}>
-            <label htmlFor="flowTitle" className={form.label}>Title *</label>
-            <input id="flowTitle" type="text" className={form.input} value={title}
-              onChange={(e) => setTitle(e.target.value)} placeholder="What is this flow for?" disabled={busy} autoFocus />
-          </div>
-          <div className={form.field}>
-            <span className={form.label}>Kind *</span>
-            {groups.map((group) => {
-              const flows = FLOW_REGISTRY.filter((f) => f.group === group);
-              if (flows.length === 0) return null;
-              return (
-                <div key={group ?? 'other'}>
-                  {group && <p className={styles.place}>{group}</p>}
-                  <div className={styles.types}>
-                    {flows.map((flow) => (
-                      <button key={flow.id} type="button" disabled={!flow.source || busy}
-                        className={`${styles.type} ${flowType === flow.id ? styles.selectedType : ''}`}
-                        onClick={() => setFlowType(flow.id)}
-                        title={!flow.source ? 'Not on the new node yet' : undefined}>
-                        <flow.icon size={16} /> {flow.label}
-                      </button>
-                    ))}
-                  </div>
+          {groups.map((group) => {
+            const flows = FLOW_REGISTRY.filter((f) => f.group === group);
+            if (flows.length === 0) return null;
+            return (
+              <div key={group ?? 'other'} className={styles.group}>
+                {group && <p className={styles.place}>{group}</p>}
+                <div className={styles.types}>
+                  {flows.map((flow) => (
+                    <button key={flow.id} type="button" disabled={!flow.source}
+                      className={styles.type}
+                      onClick={() => onPick(flow.id)}
+                      title={!flow.source ? 'Not on the new node yet' : undefined}>
+                      <flow.icon size={16} /> {flow.label}
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </>
       ) : (
         <ul className={styles.binList}>

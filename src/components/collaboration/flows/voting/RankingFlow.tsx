@@ -11,7 +11,7 @@ import { TouchBackend } from 'react-dnd-touch-backend';
 import { usePreview } from 'react-dnd-preview';
 import { BarChart2, List, Plus } from 'lucide-react';
 
-import type { FlowProps } from '../types';
+import type { FlowProps, SetupProps } from '../types';
 import { useFlowData } from '../useFlowData';
 import { trace } from '../../../../services/trace';
 import { FlowLoading, FlowError } from '../FlowShell';
@@ -23,11 +23,8 @@ import { TopicSetupDialog, TopicHeader } from './Topic';
 import styles from './RankingFlow.module.scss';
 
 /** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
-export const RankingSetupDialog: React.FC<{
-  onDone: (config: Record<string, unknown>) => void;
-  onCancel: () => void;
-}> = ({ onDone, onCancel }) => (
-  <TopicSetupDialog heading="Set Up Ranking Vote" icon={BarChart2} onDone={onDone} onCancel={onCancel} />
+export const RankingSetupDialog: React.FC<SetupProps> = ({ onDone, onCancel }) => (
+  <TopicSetupDialog heading="New Ranking Vote" icon={BarChart2} onDone={onDone} onCancel={onCancel} />
 );
 
 // ---------------------------------------------------------------------------

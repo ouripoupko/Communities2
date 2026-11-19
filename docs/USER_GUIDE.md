@@ -285,12 +285,12 @@ A collaboration holds **flows**: tools for voting, scheduling, tasks, discussion
 <tr>
 <td width="240" valign="top">
 
-<img src="screenshots/add-flow-dialog.png" width="220" alt="The Add a flow dialog, with a title field and the kinds of flows grouped by category">
+<img src="screenshots/add-flow-dialog.png" width="220" alt="The Add a flow dialog, with the kinds of flows as buttons, grouped by category">
 
 </td>
 <td valign="top">
 
-**Adding a flow.** Click **Add flow** (on a phone, the round **+** button), or the **+** next to a flow, to add one under it. Give it a title, choose its kind, and click **Add** (some kinds ask a few setup questions first, under **Next**). Approve on your node: the flow is kept on your node. If the app couldn't add it to the collaboration on its own, a banner says the flow is created on your node, with an **Add it** button.
+**Adding a flow.** Click **Add flow** (on a phone, the round **+** button), or the **+** next to a flow, to add one under it. Click the kind of flow you want. Its form opens: give the flow a title (the name it has in the collaboration's list), answer anything else the kind asks, and click its button (**Create**, or **Launch Fund** for a fund). Approve on your node: the flow is kept on your node. If the app couldn't add it to the collaboration on its own, a banner says the flow is created on your node, with an **Add it** button.
 
 **Using someone else's flow.** The first time you open a flow someone else added, click **Join** (and approve) to use it as a guest, through their node.
 
@@ -418,7 +418,7 @@ Two starter policies are commonly used: **Personal Minting** (issues new currenc
 
 Open any policy to see its detail page. This is where you set **your own preference** for its rate — a standing input, not a one-time vote, which you can change any time.
 
-The policy doesn't run on your number alone: it runs on the **median** of every member's preference. As people set or update their own preference, the median — and so the policy's actual rate — updates. The median is shown on the policy's card in the **Policies** tab, and at the top of its own detail page. A policy can't be deleted while its median rate is still above zero.
+The policy doesn't run on your number alone: it runs on the **median** of every member's preference. A member who hasn't set a preference counts as 0, so a policy only runs once more than half the members want it to. As people set or update their own preference, the median — and so the policy's actual rate — updates. The median is shown on the policy's card in the **Policies** tab, and at the top of its own detail page. A policy can't be deleted while its median rate is still above zero.
 
 Personal commitments work differently — you set a fixed rate yourself, and it isn't governed by a median. They're created and managed from the **Wallet** tab, not from here (see below).
 

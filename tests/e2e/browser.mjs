@@ -94,7 +94,7 @@ async function syncPasskeys(from, to) {
 /**
  * Clicks something that opens the node's approval window, and approves there:
  * creating the user's identity the first time (create: their name), signing
- * in otherwise. allow: functions to let the app call silently.
+ * in otherwise. allow: the functions to let the app call silently (the rest are unticked).
  */
 export async function approving(user, click, options = {}) {
   const t = await clickOpening(user, click, 30000);
@@ -141,10 +141,11 @@ async function approveIn(user, t, { create = null, allow = [], shot = null } = {
     await popup.waitForSelector('#buttons:not(.hidden)', { timeout: 90000 });
     if (create) await syncPasskeys(passkey, user.passkey);
   }
-  for (const fn of allow) {
-    const box = await popup.$(`#perm-writes input[value^="${fn}("]`);
-    if (box && !(await box.evaluate((b) => b.checked))) await box.click();
-  }
+  // allow: exactly the functions to let the app call silently, by name (the
+  // page starts with every one ticked).
+  await popup.$$eval('#perm-writes input[value]', (boxes, names) => boxes.forEach((b) => {
+    if (b.checked !== names.includes(b.value.slice(0, b.value.indexOf('(')))) b.click();
+  }), allow);
   const title = await popup.$eval('#title', (n) => n.textContent);
   if (shot) await shoot(popup, shot);
   await popup.click('#approve');

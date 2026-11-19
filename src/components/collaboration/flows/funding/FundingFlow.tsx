@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Heart, Target, Users, List, PieChart, Plus } from 'lucide-react';
 
-import type { FlowProps } from '../types';
+import type { FlowProps, SetupProps } from '../types';
+import { TitleField } from '../FlowTitle';
 import { useFlowData } from '../useFlowData';
 import { useParticipants } from '../useParticipants';
 import * as api from './fundingApi';
@@ -14,27 +15,27 @@ import styles from './FundingFlow.module.scss';
 // Setup dialog (exported for pre-create use)
 // ---------------------------------------------------------------------------
 export const FundingSetupDialog: React.FC<{
-  onDone:   (config: Record<string, unknown>) => void;
+  onDone:   SetupProps['onDone'];
   onCancel: () => void;
 }> = ({ onDone, onCancel }) => {
-  const [name,        setName]        = useState('');
+  const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
   const [goalInput,   setGoalInput]   = useState('');
   const [error,       setError]       = useState('');
 
   const handleSubmit = () => {
-    if (!name.trim()) { setError('Please give the fund a name.'); return; }
+    if (!title.trim()) { setError('Please give the flow a title.'); return; }
     const goal = goalInput.trim() ? Number(goalInput) : null;
     if (goalInput.trim() && (isNaN(goal!) || goal! <= 0)) {
       setError('Goal must be a positive number.');
       return;
     }
-    onDone({ name: name.trim(), description: description.trim(), goal });
+    onDone({ title: title.trim(), description: description.trim(), goal });
   };
 
   return (
     <Modal
-      title="Set Up Funding"
+      title="New Funding"
       onClose={onCancel}
       actions={(
         <>
@@ -45,19 +46,12 @@ export const FundingSetupDialog: React.FC<{
         </>
       )}
     >
-      <div className={form.field}>
-        <label className={form.label} htmlFor="fund-name">Fund name *</label>
-        <input
-          id="fund-name"
-          className={form.input}
-          type="text"
-          placeholder="e.g. Community Garden Renovation"
-          value={name}
-          autoFocus
-          onChange={e => { setName(e.target.value); setError(''); }}
-          onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
-        />
-      </div>
+      <TitleField
+        value={title}
+        placeholder="e.g. Community Garden Renovation"
+        onChange={v => { setTitle(v); setError(''); }}
+        onEnter={handleSubmit}
+      />
 
       <div className={form.field}>
         <label className={form.label} htmlFor="fund-desc">

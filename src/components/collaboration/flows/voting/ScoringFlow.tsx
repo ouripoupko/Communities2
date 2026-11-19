@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { BarChart2, List, Plus, Star } from 'lucide-react';
 
-import type { FlowProps } from '../types';
+import type { FlowProps, SetupProps } from '../types';
 import { useFlowData } from '../useFlowData';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './scoringApi';
@@ -9,11 +9,8 @@ import { TopicSetupDialog, TopicHeader } from './Topic';
 import styles from './ScoringFlow.module.scss';
 
 /** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
-export const ScoringSetupDialog: React.FC<{
-  onDone: (config: Record<string, unknown>) => void;
-  onCancel: () => void;
-}> = ({ onDone, onCancel }) => (
-  <TopicSetupDialog heading="Set Up Scoring Vote" icon={Star} onDone={onDone} onCancel={onCancel} />
+export const ScoringSetupDialog: React.FC<SetupProps> = ({ onDone, onCancel }) => (
+  <TopicSetupDialog heading="New Scoring Vote" icon={Star} onDone={onDone} onCancel={onCancel} />
 );
 
 // ---------------------------------------------------------------------------

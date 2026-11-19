@@ -15,6 +15,7 @@ import ContractGate from '../../components/collaboration/ContractGate';
 import FlowTreeList from '../../components/collaboration/FlowTreeList';
 import FlowDrillDown from '../../components/collaboration/FlowDrillDown';
 import AddFlowDialog from '../../components/collaboration/AddFlowDialog';
+import { TitleSetupDialog } from '../../components/collaboration/flows/FlowTitle';
 import { buildTree } from '../../components/collaboration/flowTree';
 import type { CollaborationPageProps } from '../../components/collaboration/kinds';
 import FlowPage from './FlowPage';
@@ -50,8 +51,8 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const [info,       setInfo]       = useState<CollaborationInfo | null>(null);
   // Where the add dialog adds: under a flow, '' for the top level; null when closed.
   const [addParent,  setAddParent]  = useState<string | null>(null);
-  // A new flow whose type asks for its setup first.
-  const [pendingNew, setPendingNew] = useState<{ flowType: string; title: string; parent: string } | null>(null);
+  // A new flow of the type the user picked, while its setup form is open.
+  const [pendingNew, setPendingNew] = useState<{ flowType: string; parent: string } | null>(null);
   // A flow deployed, but not in the tree yet: adding it needs another approval, from its own click.
   const [unadded,    setUnadded]    = useState<NewFlow | null>(null);
   const [isAdding,   setIsAdding]   = useState(false);
@@ -96,9 +97,11 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
 
   // Deploy the flow on the user's node, and add it to the tree. Both may open
   // the node's approval page: deploying starts from the click that confirmed
-  // the flow; adding it is silent if the user let the app call addFlow, and
-  // otherwise waits for the banner's button.
-  const addNewFlow = useCallback(async (flowType: string, flowTitle: string, parent: string, config?: Record<string, unknown>) => {
+  // the flow's setup form; adding it is silent if the user let the app call
+  // addFlow, and otherwise waits for the banner's button. The tree lists it
+  // by the title its form asked for.
+  const addNewFlow = useCallback(async (flowType: string, parent: string, config: { title: string } & Record<string, unknown>) => {
+    const flowTitle = config.title;
     const flowDef = getFlow(flowType);
     if (!serverUrl || !flowDef) return;
     setIsAdding(true);
@@ -117,16 +120,11 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
     }
   }, [serverUrl, collaborationId, communityId]);
 
-  const handleAddNew = useCallback(async (flowType: string, flowTitle: string) => {
-    const parent = addParent ?? '';
-    if (getFlow(flowType)?.setupComponent) {
-      setAddParent(null);
-      setPendingNew({ flowType, title: flowTitle, parent });
-      return;
-    }
-    await addNewFlow(flowType, flowTitle, parent);
+  // A type picked in the add dialog: its setup form takes over.
+  const handlePick = useCallback((flowType: string) => {
+    setPendingNew({ flowType, parent: addParent ?? '' });
     setAddParent(null);
-  }, [addParent, addNewFlow]);
+  }, [addParent]);
 
   const handleRestore = useCallback(async (flowId: string) => {
     await restoreFlow(collaborationId, flowId, addParent ?? '');
@@ -150,7 +148,7 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
   const handleRemove = useCallback((flowId: string) => removeFlow(collaborationId, flowId), [collaborationId]);
 
   const isCreator = !!publicKey && !!info && info.creator.toLowerCase() === publicKey.toLowerCase();
-  const Setup = pendingNew ? getFlow(pendingNew.flowType)?.setupComponent : undefined;
+  const pendingDef = pendingNew ? getFlow(pendingNew.flowType) : undefined;
 
   const list = isPhone ? (
     <FlowDrillDown
@@ -222,22 +220,26 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
         tree={tree}
         parent={addParent}
         onClose={() => setAddParent(null)}
-        onAddNew={handleAddNew}
+        onPick={handlePick}
         onRestore={handleRestore}
       />
     )}
 
-    {pendingNew && Setup && (
-      <Setup
-        onDone={(config) => {
-          const { flowType, title: flowTitle, parent } = pendingNew;
+    {pendingNew && pendingDef && (() => {
+      const setup = {
+        onDone: (config: { title: string } & Record<string, unknown>) => {
+          const { flowType, parent } = pendingNew;
           setPendingNew(null);
-          addNewFlow(flowType, flowTitle, parent, config)
+          addNewFlow(flowType, parent, config)
             .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-        }}
-        onCancel={() => setPendingNew(null)}
-      />
-    )}
+        },
+        onCancel: () => setPendingNew(null),
+      };
+      const Setup = pendingDef.setupComponent;
+      return Setup
+        ? <Setup {...setup} />
+        : <TitleSetupDialog heading={`New ${pendingDef.label}`} icon={pendingDef.icon} {...setup} />;
+    })()}
     </>
   );
 };

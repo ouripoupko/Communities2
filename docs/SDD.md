@@ -100,7 +100,9 @@ src/
 │   │   ├── Community.sol       the root ibc deploys: properties, join hooks, creates the parts
 │   │   ├── Membership.sol      members and the web of trust
 │   │   ├── Collaborations.sol  the collaborations list
-│   │   └── Currency.sol        accounts, payments, funds, policies, settlement
+│   │   ├── Currency.sol        the currency's settlement; the contract, built on the two below
+│   │   ├── CurrencyPolicies.sol  its policies and preferences (abstract)
+│   │   └── CurrencyAccounts.sol  its accounts, payments and funds (abstract)
 │   ├── Collaboration.sol
 │   └── *Flow.sol               one per flow type
 ├── contexts/AuthContext.tsx    login, session restore, logout
@@ -193,7 +195,7 @@ When a node joins a contract with a source, it compiles the source (its files, a
 | `joinFailure(outcome)` | The message for a rejected join |
 | `forgetApp()` | Deletes the app key from the browser, so the next login asks again |
 
-**Tracing.** These four (`readSilently`, `writeSilently`, `write`, `deploy`) are the only way the app calls a contract, and each logs the call through `services/trace.ts` (a read also logs its reply); the event stream logs each event the same way. Tracing is on in development; in a build, run `localStorage.setItem('trace', '1')` in the console and reload.
+**Tracing.** These four (`readSilently`, `writeSilently`, `write`, `deploy`) are the only way the app calls a contract, and each logs the call through `services/trace.ts` (a read also logs its reply); the event stream logs each event the same way. Each log has a topic (`read`, `write`, `deploy`, `event`). In development, every topic but `read` is traced, since the app reads all the time. To choose otherwise, set `localStorage` key `trace` in the console and reload: `'1'` for the default topics (also in a build), `'all'` for every topic, a list such as `'read,write'`, or `'0'` for none.
 
 **Silent-or-banner pattern.** A step that follows an await (for example, adding a flow to the tree after deploying it) can no longer open a popup. The app tries it with `writeSilently`. If that fails with `needsAccess`, it shows a banner with a button ("Add it", "Allow Access", "Become a Member"), whose click makes the call that may ask.
 
@@ -243,11 +245,11 @@ A community is one ibc **agreement**: one deploy, one join, one approval, one gr
 - **`Community.sol`**, the root: the community's properties (`getProperties()`), the ibc join hooks (`approve_partner`, `approve_guest`: anyone may join the agreement, and then asks to become a member), and `getParts()`, the parts' addresses. Its constructor creates the parts, connects them, and makes its deployer the first member.
 - **`Membership.sol`**: the members, and the web of trust (nominations, vouchers, approvals, the drawing and rewiring of the graph). In an open community, `join` makes a member at once. Admitting a member opens their personal account in `Currency`.
 - **`Collaborations.sol`**: the collaborations list; members only (it asks `Membership.isMember`).
-- **`Currency.sol`**: accounts, payments and fund contributions, policies and preferences, and the settlement of balances. Its members are the owners of the personal accounts (each member has one, and only `Membership` opens them), so it checks membership, and takes the median of the members' preferences, without asking `Membership`.
+- **`Currency.sol`**: accounts, payments and fund contributions, policies and preferences, and the settlement of balances. Its members are the owners of the personal accounts (each member has one, and only `Membership` opens them), so it checks membership, and takes the median of the members' preferences, without asking `Membership`. It is one contract written in three files, each layer inheriting the one before: `CurrencyAccounts` (accounts, payments, funds), `CurrencyPolicies` (policies and preferences), and `Currency` (the settlement, which applies the policies to the accounts). The two lower layers are abstract: only `Currency` is created, with one storage and no calls between the layers. A layer that needs the settlement calls a function `Currency` implements (`bringUpToDate` for the `upToDate` modifier, `currentTick`).
 
 Each part keeps its own storage and checks who may call it. The calls among them are few and fixed at creation: the root adds the founder (`Membership.addFounder`) and tells `Currency` which `Membership` opens accounts (`setMembership`, once).
 
-A function's signature means one function in the whole source (the node refuses a source where it does not), so the parts' functions have distinct names.
+A function's signature means one function in the whole source (the node refuses a source where it does not), so the parts' functions have distinct names. An inherited function is the same function in every contract that has it, which the node accepts.
 
 **Size.** The root's creation code includes the parts' (it creates them), and must stay under 49,152 bytes: it is about 34,000. Each part's runtime code is well under 24,576 bytes (`Currency`, the largest, about 15,500). A part that grows much needs splitting again.
 
@@ -343,11 +345,11 @@ Each flow page has its own `ContractGate` for the flow's contract, joined as a g
 
 ### 7.4 Adding a flow
 
-`AddFlowDialog` asks for a title and a flow type (grouped as in `FLOW_GROUPS`), or offers to restore a branch from the bin ("Put it here").
+`AddFlowDialog` shows the flow types as buttons (grouped as in `FLOW_GROUPS`), or offers to restore a branch from the bin ("Put it here"). It asks nothing else: clicking a type opens that type's setup form.
 
-1. If the flow type has a `setupComponent`, its dialog collects the config.
-2. `deployFlow` deploys the flow's source with `constructorArgs(config, { title, communityId })`.
-3. `addFlow` adds it to the tree, silently. If that fails with `needsAccess`, the page shows "… is created on your node. Approve adding it to the collaboration." with an **Add it** button.
+1. The setup form collects the config: the flow type's `setupComponent`, or, for a type without one, `TitleSetupDialog`, which asks for the title only. Every form asks for the title with the same field (`TitleField`, in `flows/FlowTitle.tsx`), so `config.title` is always set.
+2. `deployFlow` deploys the flow's source with `constructorArgs(config, { title, communityId })`. A flow whose contract has a topic or a name (ranking, scoring, funding) gets the title as it.
+3. `addFlow` adds it to the tree, under the same title, silently. If that fails with `needsAccess`, the page shows "… is created on your node. Approve adding it to the collaboration." with an **Add it** button.
 
 ### 7.5 The flow registry
 
@@ -358,7 +360,7 @@ export interface FlowDefinition {
   icon: React.ComponentType<{ size?: number }>;
   component: React.ComponentType<FlowProps>;
   group?: string;                     // section in the Add flow dialog
-  setupComponent?: React.ComponentType<{ onDone: (config) => void; onCancel: () => void }>;
+  setupComponent?: React.ComponentType<SetupProps>; // onDone({ title, … }), onCancel; default: title only
   source?: string;                    // the contract's Solidity source
   constructorArgs?: (config, context: FlowContext) => Record<string, unknown>;
 }
@@ -370,7 +372,7 @@ export interface FlowProps {
 }
 ```
 
-To add a flow type: write its contract, its `*Api.ts`, its component (and setup dialog if needed), and its registry entry. No other change is needed.
+To add a flow type: write its contract, its `*Api.ts`, its component (and a setup form if it needs more than a title, with `TitleField` for the title), and its registry entry. No other change is needed.
 
 Two hooks give every flow what flows share:
 
@@ -391,7 +393,7 @@ All amounts are in millionths: `UNIT = 1e6`. The app converts them with `toUnits
 - **Policies** move currency once a day, a **tick** counted from the community's creation:
   - Each has a source (void = mint, an account, every personal account, or every account) and a destination (void = burn, or the same choices).
   - Its mode is units per tick, or a percentage of the source's balance per tick.
-  - A **community-governed** policy's rate is the median of the members' preferences. A **commitment** (self-set) is created from the creator's own account, and the creator sets its rate.
+  - A **community-governed** policy's rate is the median of every member's preference, a member who has not set one counting as 0 (so a rate is above 0 only once more than half the members want it). A **commitment** (self-set) is created from the creator's own account, and the creator sets its rate.
 - **Settlement:** balances are calculated up to a tick (`settledTick`).
   - `updateBalances()`, and every write that depends on balances (the `upToDate` modifier), settle up to `MAX_TICKS_PER_UPDATE` (366) ticks at a time.
   - Ticks are applied one at a time, every policy in turn on the same tick's balances. Each tick, a policy mints its rate into each destination (units only), or takes its rate (units, or a percentage of the balance) from each source and burns it or splits it equally among the destinations.
@@ -526,7 +528,7 @@ Contract sources are read with `import.meta.glob` (as raw text) in `services/con
 
 ```typescript
 source: sourceOf('RankingFlow.sol')   // { 'RankingFlow.sol': '…' }
-source: communitySource               // { 'Community.sol': '…', 'Currency.sol': '…', … }
+source: communitySource               // { 'Community.sol': '…', 'Currency.sol': '…', 'CurrencyPolicies.sol': '…', … }
 ```
 
 The app deploys these sources itself, and nodes that join compile them to check them against the running code.

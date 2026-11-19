@@ -139,6 +139,17 @@ describe('a web-of-trust community', () => {
     await b.write(c.id, 'pay', { to: lower(a.agent), amount: String(UNIT) }, { at: c.currency });
   });
 
+  it('takes the median of every member\'s preference, counting a member without one as 0', async () => {
+    const minting = async () => (await a.read(c.id, 'getPolicies', {}, { at: c.currency })).find((p) => Number(p.id) === 0);
+    let policy = await minting();
+    assert.equal(Number(policy.preferences), 1);
+    assert.equal(n(policy.currentRate), 7n * UNIT / 2n); // a's 7 and b's 0
+    await b.write(c.id, 'setPolicyPreference', { policyId: 0, value: String(3n * UNIT) }, { at: c.currency });
+    policy = await minting();
+    assert.equal(Number(policy.preferences), 2);
+    assert.equal(n(policy.currentRate), 5n * UNIT);
+  });
+
   it('lets a nominee or a voucher cancel a nomination', async () => {
     const d = await newAgent();
     try {

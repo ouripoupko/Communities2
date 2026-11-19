@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import Modal from '../../../Modal';
 import form from '../../../dialogForm.module.scss';
+import { TitleField } from '../FlowTitle';
+import type { SetupProps } from '../types';
 import styles from './Topic.module.scss';
 
 // ---------------------------------------------------------------------------
 // Shared by RankingFlow and ScoringFlow — both ask for the same thing before
-// their tab is created: the topic (mandatory) people are proposing options
-// for and voting on, plus an optional description.
+// the flow is created: its title (mandatory), what people are proposing
+// options for and voting on, plus an optional description.
 // ---------------------------------------------------------------------------
 
 type TopicIcon = React.ComponentType<{ size?: number; className?: string }>;
@@ -15,19 +17,17 @@ type TopicIcon = React.ComponentType<{ size?: number; className?: string }>;
 // Pre-create setup dialog
 // ---------------------------------------------------------------------------
 
-export const TopicSetupDialog: React.FC<{
+export const TopicSetupDialog: React.FC<SetupProps & {
   heading: string;
   icon: TopicIcon;
-  onDone: (config: Record<string, unknown>) => void;
-  onCancel: () => void;
 }> = ({ heading, icon: Icon, onDone, onCancel }) => {
-  const [topic,       setTopic]       = useState('');
+  const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
   const [error,        setError]      = useState('');
 
   const submit = () => {
-    if (!topic.trim()) { setError('Topic is required.'); return; }
-    onDone({ topic: topic.trim(), description: description.trim() });
+    if (!title.trim()) { setError('Please give the flow a title.'); return; }
+    onDone({ title: title.trim(), description: description.trim() });
   };
 
   return (
@@ -43,18 +43,12 @@ export const TopicSetupDialog: React.FC<{
         </>
       )}
     >
-      <div className={form.field}>
-        <label className={form.label}>Topic *</label>
-        <input
-          className={form.input}
-          type="text"
-          value={topic}
-          autoFocus
-          placeholder="What are people deciding on?"
-          onChange={(e) => { setTopic(e.target.value); setError(''); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-        />
-      </div>
+      <TitleField
+        value={title}
+        placeholder="What are people deciding on?"
+        onChange={(v) => { setTitle(v); setError(''); }}
+        onEnter={submit}
+      />
 
       <div className={form.field}>
         <label className={form.label}>Description <span className={styles.optional}>(optional)</span></label>

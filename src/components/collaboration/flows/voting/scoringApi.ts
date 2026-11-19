@@ -24,7 +24,7 @@ export interface TopicConfig {
 
 /** The deploy's constructor arguments, from the setup dialog's topic. */
 export const scoringConstructor = (config: Record<string, unknown>) => ({
-  topic_: String(config.topic ?? ''),
+  topic_: String(config.title ?? ''), // the flow's title is its topic
   description: String(config.description ?? ''),
 });
 

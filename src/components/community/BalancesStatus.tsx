@@ -31,12 +31,17 @@ const BalancesStatus: React.FC<BalancesStatusProps> = ({ communityId, currency }
     }
   };
 
+  // With the time zone: ticks fall at the community's creation time of day,
+  // and members may live in different zones.
+  const settledUntil = new Date(currency.settledUntil).toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  });
   const pending = currency.pendingTicks;
   const steps = Math.ceil(pending / currency.maxTicksPerUpdate);
   return (
     <div className={styles.status}>
       <span>
-        Balances calculated up to {new Date(currency.settledUntil).toLocaleString()}
+        Balances calculated up to {settledUntil}
         {pending > 0 && (
           <>
             {' · '}

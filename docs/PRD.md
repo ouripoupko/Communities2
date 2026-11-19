@@ -216,7 +216,7 @@ The rules of each flow (who may edit what, when a proposal passes) are enforced 
 **FR-CU-01** Every member has a personal account, credited with the community's starting balance when they join.
 **FR-CU-02** Members can pay any account: another member's, or a fund's.
 **FR-CU-03** Monetary policies move currency once a day: they mint into accounts, burn from them, or transfer between them, in units or as a percentage of the balance.
-**FR-CU-04** A community-governed policy's rate is the median of the members' preferences. Each member can set and change their preference at any time.
+**FR-CU-04** A community-governed policy's rate is the median of every member's preference; a member who has not set one counts as 0. Each member can set and change their preference at any time.
 **FR-CU-05** A member can create commitments: policies paying from their own account, at a rate they set.
 **FR-CU-06** Balances are calculated by the contract up to a given time, shown with that time. Any member can bring them up to date; writes that depend on balances do so first.
 

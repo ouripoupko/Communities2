@@ -70,7 +70,7 @@ export interface CommunityInfo {
 
 /** The deploy's constructor arguments, from the setup dialog, and the collaboration's community. */
 export const fundingConstructor = (config: Record<string, unknown>, context: { communityId: string }) => ({
-  name: String(config.name ?? ''),
+  name: String(config.title ?? ''), // the flow's title is the fund's name
   description: String(config.description ?? ''),
   goal: toUnits(typeof config.goal === 'number' ? config.goal : 0),
   communityId: context.communityId,

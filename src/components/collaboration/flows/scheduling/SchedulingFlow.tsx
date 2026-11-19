@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Calendar } from 'lucide-react';
 
-import type { FlowProps } from '../types';
+import type { FlowProps, SetupProps } from '../types';
+import { TitleField } from '../FlowTitle';
 import { useFlowData } from '../useFlowData';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './schedulingApi';
@@ -38,9 +39,10 @@ function heatStyle(count: number, total: number): string {
 
 const SetupDialog: React.FC<{
   isOpen: boolean;
+  heading: string;
   onClose: () => void;
   onDone: (config: Omit<RangeConfig, 'organizerId'>) => void;
-}> = ({ isOpen, onClose, onDone }) => {
+}> = ({ isOpen, heading, onClose, onDone }) => {
   const [today]    = useState(() => new Date().toISOString().slice(0, 10));
   const [nextWeek] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
 
@@ -56,7 +58,7 @@ const SetupDialog: React.FC<{
   if (!isOpen) return null;
 
   const submit = () => {
-    if (!title.trim())          { setError('Title is required.');                   return; }
+    if (!title.trim())          { setError('Please give the flow a title.');        return; }
     if (startDate > endDate)    { setError('Start date must be before end date.');  return; }
     if (dailyStart >= dailyEnd) { setError('Daily end must be after daily start.'); return; }
     onDone({ title: title.trim(), description: desc.trim(), startDate, endDate, dailyStart, dailyEnd, slotMinutes });
@@ -65,7 +67,7 @@ const SetupDialog: React.FC<{
 
   return (
     <Modal
-      title="Set Up Scheduling"
+      title={heading}
       onClose={onClose}
       actions={(
         <>
@@ -76,13 +78,8 @@ const SetupDialog: React.FC<{
         </>
       )}
     >
-      <div className={form.field}>
-        <label className={form.label}>Title *</label>
-        <input className={form.input} type="text" value={title} autoFocus
-          placeholder="e.g. Sprint planning session"
-          onChange={e => { setTitle(e.target.value); setError(''); }}
-          onKeyDown={e => e.key === 'Enter' && submit()} />
-      </div>
+      <TitleField value={title} placeholder="e.g. Sprint planning session"
+        onChange={v => { setTitle(v); setError(''); }} onEnter={submit} />
 
       <div className={form.field}>
         <label className={form.label}>Description <span className={styles.optional}>(optional)</span></label>
@@ -256,11 +253,8 @@ const TimelineGrid: React.FC<{
 // ---------------------------------------------------------------------------
 
 /** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
-export const SchedulingSetupDialog: React.FC<{
-  onDone: (config: Record<string, unknown>) => void;
-  onCancel: () => void;
-}> = ({ onDone, onCancel }) => (
-  <SetupDialog isOpen={true} onClose={onCancel} onDone={onDone} />
+export const SchedulingSetupDialog: React.FC<SetupProps> = ({ onDone, onCancel }) => (
+  <SetupDialog isOpen={true} heading="New Scheduling" onClose={onCancel} onDone={onDone} />
 );
 
 const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
@@ -329,6 +323,7 @@ const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
 
       <SetupDialog
         isOpen={dialogOpen}
+        heading="Edit Scheduling"
         onClose={() => setDialogOpen(false)}
         onDone={handleSetup}
       />

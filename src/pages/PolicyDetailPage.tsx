@@ -177,8 +177,9 @@ const PolicyDetailPage: React.FC = () => {
               <h4>Your preference</h4>
               <p className={styles.hint}>
                 This is a standing value, not a one-time vote — you can change it at any time. The
-                community rate shown above is the median of the current preferences of the members
-                who set one ({policy.preferences === 1 ? '1 member' : `${policy.preferences} members`} so far).
+                community rate shown above is the median of every member's current preference; a member
+                who hasn't set one counts as 0 ({policy.preferences === 1 ? '1 member has' : `${policy.preferences} members have`} set
+                one so far).
               </p>
               <div className={styles.inlineForm}>
                 <RateInput

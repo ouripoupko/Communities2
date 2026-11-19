@@ -16,6 +16,15 @@ export interface FlowContext {
   communityId: string;
 }
 
+/**
+ * A setup form's props. onDone receives the config, which always has the
+ * flow's title (config.title); onCancel aborts creating it.
+ */
+export interface SetupProps {
+  onDone: (config: { title: string } & Record<string, unknown>) => void;
+  onCancel: () => void;
+}
+
 export interface FlowDefinition {
   id: string;
   label: string;
@@ -24,21 +33,19 @@ export interface FlowDefinition {
   /** Group name shown as a section header in the Add flow dialog */
   group?: string;
   /**
-   * If defined, this dialog is shown before the flow is created.
-   * onDone receives the config; onCancel aborts creating it.
+   * The flow's own setup form, shown when the user picks its type: it asks
+   * for the title (with TitleField) and whatever else the flow needs. A flow
+   * without one gets a form that asks for the title only.
    */
-  setupComponent?: React.ComponentType<{
-    onDone: (config: Record<string, unknown>) => void;
-    onCancel: () => void;
-  }>;
+  setupComponent?: React.ComponentType<SetupProps>;
   /**
    * The flow contract's Solidity source. A flow without one is not on the new
    * ibc node yet: it cannot be added.
    */
   source?: Sources;
   /**
-   * The flow contract's constructor arguments: from setupComponent's config,
-   * and the flow's title and community.
+   * The flow contract's constructor arguments: from its setup form's config
+   * (with its title), and its community.
    */
   constructorArgs?: (config: Record<string, unknown>, context: FlowContext) => Record<string, unknown>;
 }
