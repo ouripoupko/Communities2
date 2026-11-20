@@ -27,9 +27,13 @@ jobs:
 
       - run: npm ci
 
+      # base_path is '' with a custom domain, '/<repo>' without one
+      - id: pages
+        uses: actions/configure-pages@v5
+
       - run: npm run build:prod
         env:
-          BASE_PATH: /${{ github.event.repository.name }}/
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
 
       # BrowserRouter: let deep links fall back to the app
       - run: cp dist/index.html dist/404.html
