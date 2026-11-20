@@ -1,48 +1,41 @@
+import type { IbcApp } from './ibc';
+import { trace } from './trace';
+
 export interface BlockchainEvent {
-  action: 'contract_write' | 'deploy_contract' | 'a2a_connect' | string;
-  contract?: string;
-  [key: string]: unknown;
+  action: 'contract_write' | 'deploy_contract' | 'join_contract' | string;
+  contract?: string | null;
+  request?: string;
+  reply?: unknown;
+  // Set when the transaction failed (a revert, a wrong argument, an unknown
+  // function), to the same text as reply.
+  error?: string;
+  // join_contract only: the user's node's check of the contract's source
+  // against its code ('verified', 'unchecked' or 'mismatch'), and why.
+  source_check?: string;
+  reason?: string;
 }
 
 export type EventListener = (event: BlockchainEvent) => void;
 
-export type EventType = 'contract_write' | 'deploy_contract' | 'a2a_connect';
+export type EventType = 'contract_write' | 'deploy_contract' | 'join_contract';
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-
-interface StreamConnection {
-  eventSource: EventSource | null;
-  isConnected: boolean;
-  reconnectAttempts: number;
-  listeners: Map<EventType, Set<EventListener>>;
-}
-
-function createConnection(): StreamConnection {
-  return { eventSource: null, isConnected: false, reconnectAttempts: 0, listeners: new Map() };
-}
-
-function agentKey(serverUrl: string, agent: string): string {
-  return `${serverUrl}::${agent}`;
-}
-
+/**
+ * The user's event stream, through the ibc app's signed stream on their own
+ * node, which reopens by itself when it breaks. It carries the events of
+ * every contract the app may read, including the ones the user is a guest
+ * of. AuthContext opens it on login and closes it on logout; its status
+ * drives the "connected" indicator on the profile page.
+ */
 class EventStreamService {
-  // The current user's own connection, opened/closed explicitly by
-  // AuthContext on login/logout. It stays open independent of whether
-  // anything is currently listening on it, and its status drives the
-  // "SSE Connected" indicator on the profile page.
-  private main: StreamConnection = createConnection();
+  private isConnected = false;
+  private stop: (() => void) | null = null;
+  private listeners: Map<EventType, Set<EventListener>> = new Map();
   private connectionListeners: Set<(isConnected: boolean) => void> = new Set();
-
-  // On-demand connections to other agents (e.g. the owner of a
-  // collaboration flow being viewed), keyed by "serverUrl::agent". Each is
-  // opened lazily on its first listener and closed once its last listener
-  // is removed.
-  private connections: Map<string, StreamConnection> = new Map();
 
   private notifyConnectionListeners() {
     this.connectionListeners.forEach(listener => {
       try {
-        listener(this.main.isConnected);
+        listener(this.isConnected);
       } catch (e) {
         console.error('Error in connection status listener:', e);
       }
@@ -57,151 +50,61 @@ class EventStreamService {
     this.connectionListeners.delete(listener);
   }
 
-  // ---------------------------------------------------------------------
-  // Main connection — the current user's own agent.
-  // ---------------------------------------------------------------------
-  connect(serverUrl: string, agent: string) {
-    this.closeEventSource(this.main);
-    this.openEventSource(this.main, serverUrl, agent, () => this.notifyConnectionListeners());
+  connect(app: IbcApp) {
+    this.close();
+    const stopStatus = app.onStatus((status, error) => {
+      if (error) console.error(`Event stream ${status}:`, error);
+      const isConnected = status === 'open';
+      if (this.isConnected !== isConnected) {
+        this.isConnected = isConnected;
+        this.notifyConnectionListeners();
+      }
+    });
+    const stopEvents = app.onEvent((event) => this.dispatch(event));
+    this.stop = () => {
+      stopEvents();
+      stopStatus();
+    };
   }
 
   disconnect() {
-    console.log('Disconnecting from SSE stream');
-    this.closeEventSource(this.main);
+    trace('event', 'stream closed');
+    this.close();
     this.notifyConnectionListeners();
   }
 
   isConnectedToStream(): boolean {
-    return this.main.isConnected;
+    return this.isConnected;
   }
 
-  // ---------------------------------------------------------------------
-  // Listener registration. Omit serverUrl/agent to target the current
-  // user's own (main) connection — this preserves all existing call sites.
-  // Pass them to listen for events from another agent (e.g. a
-  // collaboration flow's owner); a connection to that agent is opened
-  // automatically on the first listener and closed once the last one for
-  // it is removed.
-  // ---------------------------------------------------------------------
-  addEventListener(eventType: EventType, listener: EventListener, serverUrl?: string, agent?: string) {
-    const conn = serverUrl && agent
-      ? this.getOrCreateAgentConnection(serverUrl, agent)
-      : this.main;
-
-    if (!conn.listeners.has(eventType)) {
-      conn.listeners.set(eventType, new Set());
-    }
-    conn.listeners.get(eventType)!.add(listener);
+  addEventListener(eventType: EventType, listener: EventListener) {
+    if (!this.listeners.has(eventType)) this.listeners.set(eventType, new Set());
+    this.listeners.get(eventType)!.add(listener);
   }
 
-  removeEventListener(eventType: EventType, listener: EventListener, serverUrl?: string, agent?: string) {
-    const key = serverUrl && agent ? agentKey(serverUrl, agent) : null;
-    const conn = key ? this.connections.get(key) : this.main;
-    if (!conn) return;
-
-    const listeners = conn.listeners.get(eventType);
-    if (listeners) {
-      listeners.delete(listener);
-      if (listeners.size === 0) {
-        conn.listeners.delete(eventType);
-      }
-    }
-
-    if (key) this.closeAgentConnectionIfIdle(key);
+  removeEventListener(eventType: EventType, listener: EventListener) {
+    const listeners = this.listeners.get(eventType);
+    if (!listeners) return;
+    listeners.delete(listener);
+    if (listeners.size === 0) this.listeners.delete(eventType);
   }
 
-  private getOrCreateAgentConnection(serverUrl: string, agent: string): StreamConnection {
-    const key = agentKey(serverUrl, agent);
-    let conn = this.connections.get(key);
-    if (!conn) {
-      conn = createConnection();
-      this.connections.set(key, conn);
-      this.openEventSource(conn, serverUrl, agent);
-    }
-    return conn;
-  }
-
-  private closeAgentConnectionIfIdle(key: string) {
-    const conn = this.connections.get(key);
-    if (!conn) return;
-    const hasListeners = [...conn.listeners.values()].some(set => set.size > 0);
-    if (!hasListeners) {
-      this.closeEventSource(conn);
-      this.connections.delete(key);
-    }
-  }
-
-  // ---------------------------------------------------------------------
-  // Shared EventSource plumbing, used by both the main and on-demand
-  // connections.
-  // ---------------------------------------------------------------------
-  private openEventSource(conn: StreamConnection, serverUrl: string, agent: string, onStatusChange?: () => void) {
-    const streamUrl = `${serverUrl}/stream?agent=${agent}&contract=`;
-    console.log('Connecting to SSE stream:', streamUrl);
-
-    try {
-      conn.eventSource = new EventSource(streamUrl);
-    } catch (error) {
-      console.error('Failed to create EventSource:', error);
-      conn.isConnected = false;
-      onStatusChange?.();
-      return;
-    }
-
-    conn.eventSource.onopen = () => {
-      console.log('SSE connection established:', streamUrl);
-      conn.isConnected = true;
-      conn.reconnectAttempts = 0;
-      onStatusChange?.();
-    };
-
-    conn.eventSource.onmessage = (event) => {
-      if (!event.data || event.data.trim() === "") {
-        // Server sends an empty keep-alive message every 10s; not an error.
-        return;
-      }
+  private dispatch(data: BlockchainEvent) {
+    trace('event', data);
+    if (!data.action) return;
+    this.listeners.get(data.action as EventType)?.forEach(listener => {
       try {
-        const data = JSON.parse(event.data) as BlockchainEvent;
-        console.log('SSE Event received:', data);
-
-        if (data.action) {
-          const listeners = conn.listeners.get(data.action as EventType);
-          listeners?.forEach(listener => {
-            try {
-              listener(data);
-            } catch (error) {
-              console.error('Error in event listener:', error);
-            }
-          });
-        }
+        listener(data);
       } catch (error) {
-        console.error('Failed to parse SSE event data:', error, 'Raw data:', event.data);
+        console.error('Error in event listener:', error);
       }
-    };
-
-    // The browser's EventSource already retries the same connection on its
-    // own (with Last-Event-ID resume support) unless we close() it — so we
-    // only track/report state here and never touch conn.eventSource.
-    conn.eventSource.onerror = () => {
-      console.error('SSE connection error, browser will retry automatically:', streamUrl);
-      conn.isConnected = false;
-      onStatusChange?.();
-
-      if (conn.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        conn.reconnectAttempts++;
-      } else {
-        console.error(`SSE connection degraded: ${MAX_RECONNECT_ATTEMPTS} consecutive errors, still retrying in background:`, streamUrl);
-      }
-    };
+    });
   }
 
-  private closeEventSource(conn: StreamConnection) {
-    if (conn.eventSource) {
-      conn.eventSource.close();
-      conn.eventSource = null;
-    }
-    conn.isConnected = false;
-    conn.reconnectAttempts = 0;
+  private close() {
+    this.stop?.();
+    this.stop = null;
+    this.isConnected = false;
   }
 }
 

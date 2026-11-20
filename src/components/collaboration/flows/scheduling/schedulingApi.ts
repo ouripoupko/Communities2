@@ -1,14 +1,4 @@
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
-
-/** Logs every call this file makes to the scheduling flow contract, and the
- * raw reply, so a stuck/broken flow can be diagnosed from the console. */
-function logSchedulingCall(tsFunction: string, contractMethod: string, params: unknown): void {
-  console.log(`[schedulingApi.ts] ${tsFunction} -> SchedulingFlow.${contractMethod}`, params);
-}
-function logSchedulingResult(tsFunction: string, contractMethod: string, result: unknown): void {
-  console.log(`[schedulingApi.ts] ${tsFunction} <- SchedulingFlow.${contractMethod}`, result);
-}
+import { readSilently, write } from '../../../../services/ibc';
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -36,94 +26,53 @@ export interface SchedulingState {
 }
 
 // ---------------------------------------------------------------------------
-// Normalizers
+// Async API — the contract (SchedulingFlow.sol): its organizer, who deploys
+// it, sets the range; each participant (whoever signs) selects slots.
 // ---------------------------------------------------------------------------
 
-function normalizeConfig(r: Record<string, unknown>): RangeConfig {
-  return {
-    title:        String(r['title']        ?? ''),
-    description:  String(r['description']  ?? ''),
-    organizerId:  String(r['organizerId']  ?? ''),
-    startDate:    String(r['startDate']    ?? ''),
-    endDate:      String(r['endDate']      ?? ''),
-    dailyStart:   String(r['dailyStart']   ?? '09:00'),
-    dailyEnd:     String(r['dailyEnd']     ?? '18:00'),
-    slotMinutes:  Number(r['slotMinutes']  ?? 30),
-  };
-}
+type RawRange = Omit<RangeConfig, 'organizerId'> & { organizer: string };
 
-function normalizeSelection(r: Record<string, unknown>): ParticipantSelection {
-  const rawSlots = r['slots'];
-  return {
-    participantId: String(r['participantId'] ?? ''),
-    slots: Array.isArray(rawSlots) ? rawSlots.map(Number) : [],
-  };
-}
+/** The deploy's constructor arguments, from the setup dialog. */
+export const schedulingConstructor = (config: Record<string, unknown>) => rangeValues(config as Omit<RangeConfig, 'organizerId'>);
 
-// ---------------------------------------------------------------------------
-// Async API
-// ---------------------------------------------------------------------------
+const rangeValues = (fields: Omit<RangeConfig, 'organizerId'>) => ({
+  title: fields.title,
+  description: fields.description,
+  startDate: fields.startDate,
+  endDate: fields.endDate,
+  dailyStart: fields.dailyStart,
+  dailyEnd: fields.dailyEnd,
+  slotMinutes: fields.slotMinutes,
+});
 
-export async function loadSchedulingState(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<SchedulingState> {
-  logSchedulingCall('loadSchedulingState', 'get_config', {});
-  logSchedulingCall('loadSchedulingState', 'get_all_selections', {});
-  const [rawConfig, rawSelections] = await Promise.all([
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_config',         values: {} } as IMethod }),
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_all_selections', values: {} } as IMethod }),
+export async function loadSchedulingState(contractId: string): Promise<SchedulingState> {
+  const [range, rawSelections] = await Promise.all([
+    readSilently(contractId, 'getRange') as Promise<RawRange>,
+    readSilently(contractId, 'getSelections') as Promise<{ participant: string; slots: number[] }[]>,
   ]);
-  logSchedulingResult('loadSchedulingState', 'get_config', rawConfig);
-  logSchedulingResult('loadSchedulingState', 'get_all_selections', rawSelections);
-
-  let config: RangeConfig | null = null;
-  if (rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig)) {
-    const c = rawConfig as Record<string, unknown>;
-    if (c['title']) config = normalizeConfig(c);
-  }
-
-  const selections: ParticipantSelection[] = Array.isArray(rawSelections)
-    ? (rawSelections as Record<string, unknown>[])
-        .map(normalizeSelection)
-        .filter(s => s.participantId !== '')
-    : [];
-
-  console.log('[schedulingApi.ts] loadSchedulingState normalized ->', { config, selections });
+  const config: RangeConfig = {
+    title: range.title,
+    description: range.description,
+    organizerId: range.organizer,
+    startDate: range.startDate,
+    endDate: range.endDate,
+    dailyStart: range.dailyStart,
+    dailyEnd: range.dailyEnd,
+    slotMinutes: Number(range.slotMinutes),
+  };
+  const selections = rawSelections.map((s) => ({ participantId: s.participant, slots: s.slots.map(Number) }));
   return { config, selections };
 }
 
-export async function setupRange(
-  server: string,
-  agent: string,
-  contractId: string,
-  fields: Omit<RangeConfig, 'organizerId'>,
-  currentUser: string,
-): Promise<void> {
-  const values = { config: { ...fields, organizerId: currentUser } };
-  logSchedulingCall('setupRange', 'set_config', values);
-  const result = await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_config', values } as IMethod,
-  });
-  logSchedulingResult('setupRange', 'set_config', result);
+/** Changes the range: its organizer only. May open the node's approval page: call it from a click. */
+export async function setupRange(contractId: string, fields: Omit<RangeConfig, 'organizerId'>): Promise<void> {
+  const values = rangeValues(fields);
+  await write(contractId, 'setRange', values);
 }
 
-export async function setMySelection(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  slots: number[],
-): Promise<void> {
-  const values = { participant_id: currentUser, slots };
-  logSchedulingCall('setMySelection', 'set_my_selection', values);
-  const result = await contractWrite({
-    serverUrl: server, publicKey: agent, contractId,
-    method: { name: 'set_my_selection', values } as IMethod,
-  });
-  logSchedulingResult('setMySelection', 'set_my_selection', result);
+/** Saves the user's slots. May open the node's approval page: call it from a click. */
+export async function setMySelection(contractId: string, slots: number[]): Promise<void> {
+  await write(contractId, 'setMySelection', { slots });
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +80,7 @@ export async function setMySelection(
 // ---------------------------------------------------------------------------
 
 export function isOrganizer(config: RangeConfig | null, currentUser: string): boolean {
-  return config?.organizerId === currentUser;
+  return !!config && config.organizerId.toLowerCase() === currentUser.toLowerCase();
 }
 
 export function computeSlotsPerDay(config: RangeConfig): number {

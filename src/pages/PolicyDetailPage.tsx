@@ -6,35 +6,26 @@ import PageHeader from '../components/PageHeader';
 import containerStyles from './Container.module.scss';
 import styles from './PolicyDetailPage.module.scss';
 import { fetchCommunityMembers } from '../store/slices/communitiesSlice';
-import { fetchPolicies } from '../store/slices/policiesSlice';
+import { useCurrency } from '../hooks/useCurrency';
 import {
-  getContractParameters,
   setPolicyPreference,
   setCommitmentRate,
   setPolicyDetails,
   deletePolicy,
-  getAccountDetails,
-  policyParameterKey,
   type Policy,
-  type IAccountDetails,
 } from '../services/contracts/community';
-import { getMemberDisplayName } from '../utils/memberDisplay';
-import { describeSide, formatRate } from '../components/community/policies/policyDisplay';
-import SignersPanel from '../components/community/SignersPanel';
+import { describeSide, formatRate, sideCount } from '../components/community/policies/policyDisplay';
+import RateInput from '../components/community/policies/RateInput';
 import ConfirmDialog from '../components/community/dialogs/ConfirmDialog';
-import { useEventStream } from '../hooks/useEventStream';
 
 const PolicyDetailPage: React.FC = () => {
-  const { communityId, policyId } = useParams<{ communityId: string; policyId: string }>();
+  const { communityId = '', policyId = '' } = useParams<{ communityId: string; policyId: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { publicKey, serverUrl } = useAppSelector((state) => state.user);
-  const { communityMembers, profiles } = useAppSelector((state) => state.communities);
-  const { communityPolicies } = useAppSelector((state) => state.policies);
+  const { accounts, labels, policies } = useCurrency(communityId);
 
-  const [accountDetails, setAccountDetails] = useState<IAccountDetails>({});
   const [myPreference, setMyPreference] = useState('');
-  const [median, setMedian] = useState(0);
   const [rateInput, setRateInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [descriptionInput, setDescriptionInput] = useState('');
@@ -43,77 +34,53 @@ const PolicyDetailPage: React.FC = () => {
   const [savingRate, setSavingRate] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const allMembers = communityId && Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const policy: Policy | undefined = useMemo(
-    () => (communityId ? (communityPolicies[communityId] ?? []).find((p) => p.id === policyId) : undefined),
-    [communityPolicies, communityId, policyId],
+    () => policies.find((p) => p.id === policyId),
+    [policies, policyId],
   );
 
-  const loadPolicies = useCallback(() => {
+  useEffect(() => {
     if (!communityId || !serverUrl || !publicKey) return;
-    dispatch(fetchPolicies({ serverUrl, publicKey, contractId: communityId }));
+    dispatch(fetchCommunityMembers({ contractId: communityId }));
   }, [communityId, serverUrl, publicKey, dispatch]);
 
-  const loadAccountDetails = useCallback(async () => {
-    if (!communityId || !serverUrl || !publicKey) return;
-    const details = await getAccountDetails(serverUrl, publicKey, communityId);
-    setAccountDetails(details);
-  }, [communityId, serverUrl, publicKey]);
-
-  const loadParameters = useCallback(async () => {
-    if (!communityId || !serverUrl || !publicKey || !policyId) return;
-    const params = await getContractParameters(serverUrl, publicKey, communityId);
-    const key = policyParameterKey(policyId);
-    setMedian(params.medians[key] ?? 0);
-    setMyPreference(String(params.parameters[key] ?? 0));
-  }, [communityId, serverUrl, publicKey, policyId]);
-
-  useEffect(() => {
-    if (!communityId || !serverUrl || !publicKey) return;
-    dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
-  }, [communityId, serverUrl, publicKey, dispatch]);
-
-  useEffect(() => {
-    loadPolicies();
-    void loadAccountDetails();
-  }, [loadPolicies, loadAccountDetails]);
-
-  useEffect(() => {
-    void loadParameters();
-  }, [loadParameters]);
-
-  useEffect(() => {
+  // Reset the inputs to the policy when what they show changes. Not on every
+  // reload: any member's write to the community reloads the policies, and
+  // must not erase what the user is typing.
+  const shownKey = policy
+    ? JSON.stringify([policy.id, policy.name, policy.description, policy.selfRate, policy.myPreference])
+    : '';
+  const [shownPolicy, setShownPolicy] = useState('');
+  if (shownKey !== shownPolicy) {
+    setShownPolicy(shownKey);
     if (policy) {
       setNameInput(policy.name);
       setDescriptionInput(policy.description || '');
-      setRateInput(String(policy.selfRate ?? 0));
+      setRateInput(String(policy.selfRate));
+      setMyPreference(policy.myPreference === null ? '' : String(policy.myPreference));
     }
-  }, [policy]);
-
-  useEventStream(
-    'contract_write',
-    useCallback(
-      (event) => {
-        if (event.contract === communityId) {
-          loadPolicies();
-          void loadAccountDetails();
-          void loadParameters();
-        }
-      },
-      [communityId, loadPolicies, loadAccountDetails, loadParameters],
-    ),
-  );
+  }
 
   const resolveAccountLabel = useCallback(
-    (id: string) => {
-      if (accountDetails[id]?.name) return accountDetails[id].name as string;
-      if (allMembers.includes(id)) return getMemberDisplayName(profiles[id]);
-      return `${id.slice(0, 8)}...`;
-    },
-    [accountDetails, allMembers, profiles],
+    (id: string) => labels[id] ?? `${id.slice(0, 8)}...`,
+    [labels],
   );
+
+  // Each change may open the node's approval page, so each starts from its
+  // button. The page's contract_write listener (useCurrency) reloads the policy.
+  const act = async (setBusy: (busy: boolean) => void, action: () => Promise<void>) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await action();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!communityId || !policyId) {
     return (
@@ -137,70 +104,34 @@ const PolicyDetailPage: React.FC = () => {
   }
 
   const isCommitment = policy.rateType === 'self-set';
-  const isCreator = !!publicKey && publicKey === policy.creator;
-  const involvedAccountId =
-    policy.source.kind === 'account'
-      ? policy.source.account
-      : policy.destination.kind === 'account'
-        ? policy.destination.account
-        : undefined;
-  const involvedAccount = involvedAccountId ? accountDetails[involvedAccountId] : undefined;
-  const isSigner = !!publicKey && !!involvedAccount?.signers?.includes(publicKey);
-  const canEditDetails = isCreator || isSigner;
-  const currentRate = isCommitment ? policy.selfRate ?? 0 : median;
-  const canDelete = isCreator && (isCommitment || median === 0);
+  const isCreator = !!publicKey && publicKey.toLowerCase() === policy.creator.toLowerCase();
+  const canDelete = isCreator && (isCommitment || policy.currentRate === 0);
+  const destinationCount = sideCount(policy.destination, accounts);
 
   const fromLabel = describeSide(policy.source, true, resolveAccountLabel);
   const toLabel = describeSide(policy.destination, false, resolveAccountLabel);
 
-  const handleSavePreference = async () => {
-    if (!serverUrl || !publicKey) return;
+  const handleSavePreference = () => act(setSavingPreference, async () => {
     const value = parseFloat(myPreference);
-    if (isNaN(value)) return;
-    setSavingPreference(true);
-    try {
-      await setPolicyPreference(serverUrl, publicKey, communityId, policyId, value);
-      // No refetch here - the contract_write SSE listener above picks this
-      // up once the server confirms it.
-    } finally {
-      setSavingPreference(false);
-    }
-  };
+    if (isNaN(value) || value < 0) throw new Error('Please enter a rate of zero or more.');
+    await setPolicyPreference(communityId, policyId, value);
+  });
 
-  const handleSaveRate = async () => {
-    if (!serverUrl || !publicKey) return;
+  const handleSaveRate = () => act(setSavingRate, async () => {
     const value = parseFloat(rateInput);
-    if (isNaN(value)) return;
-    setSavingRate(true);
-    try {
-      await setCommitmentRate(serverUrl, publicKey, communityId, policyId, value);
-      // No refetch here - the contract_write SSE listener above picks this
-      // up once the server confirms it.
-    } finally {
-      setSavingRate(false);
-    }
-  };
+    if (isNaN(value) || value < 0) throw new Error('Please enter a rate of zero or more.');
+    await setCommitmentRate(communityId, policyId, value);
+  });
 
-  const handleSaveDetails = async () => {
-    if (!serverUrl || !publicKey) return;
-    setSavingDetails(true);
-    try {
-      await setPolicyDetails(serverUrl, publicKey, communityId, policyId, nameInput.trim(), descriptionInput.trim());
-      setEditingDetails(false);
-      // No refetch here - the contract_write SSE listener above picks this
-      // up once the server confirms it.
-    } finally {
-      setSavingDetails(false);
-    }
-  };
+  const handleSaveDetails = () => act(setSavingDetails, async () => {
+    await setPolicyDetails(communityId, policyId, nameInput.trim(), descriptionInput.trim());
+    setEditingDetails(false);
+  });
 
-  const handleDelete = async () => {
-    if (!serverUrl || !publicKey) return;
-    const ok = await deletePolicy(serverUrl, publicKey, communityId, policyId);
-    if (ok) {
-      navigate(`/community/${communityId}/policies`);
-    }
-  };
+  const handleDelete = () => act(() => {}, async () => {
+    await deletePolicy(communityId, policyId);
+    navigate(`/community/${communityId}/${isCommitment ? 'wallet' : 'policies'}`);
+  });
 
   return (
     <div className={containerStyles.container}>
@@ -218,20 +149,24 @@ const PolicyDetailPage: React.FC = () => {
         <div className={containerStyles.main}>
           <div className={styles.rateHeader}>
             <span className={styles.rateLabel}>Current rate</span>
-            <span className={styles.rateValue}>{formatRate(policy.mode, currentRate)}</span>
+            <span className={styles.rateValue}>{formatRate(policy.mode, policy.currentRate)}</span>
           </div>
+
+          {actionError && <p className={styles.error}>{actionError}</p>}
 
           {isCommitment ? (
             <div className={styles.section}>
               <h4>Rate</h4>
               {isCreator ? (
                 <div className={styles.inlineForm}>
-                  <input
-                    type="number"
-                    className="input-field"
+                  <RateInput
                     value={rateInput}
-                    onChange={(e) => setRateInput(e.target.value)}
-                    step="any"
+                    onChange={setRateInput}
+                    source={policy.source}
+                    destination={policy.destination}
+                    mode={policy.mode}
+                    destinationCount={destinationCount}
+                    className="input-field"
                   />
                   <button className="save-button" onClick={() => void handleSaveRate()} disabled={savingRate}>
                     {savingRate ? 'Saving...' : 'Update Rate'}
@@ -240,46 +175,39 @@ const PolicyDetailPage: React.FC = () => {
               ) : (
                 <p className={styles.hint}>Only the owner of this commitment can change its rate.</p>
               )}
-              <p className={styles.hint}>Changes take effect at the next tick.</p>
+              <p className={styles.hint}>Changes take effect from the next day.</p>
             </div>
           ) : (
             <div className={styles.section}>
               <h4>Your preference</h4>
               <p className={styles.hint}>
                 This is a standing value, not a one-time vote — you can change it at any time. The
-                community rate shown above is the live median of everyone&apos;s current preference.
+                community rate shown above is the median of every member's current preference; a member
+                who hasn't set one counts as 0 ({policy.preferences === 1 ? '1 member has' : `${policy.preferences} members have`} set
+                one so far).
               </p>
               <div className={styles.inlineForm}>
-                <input
-                  type="number"
-                  className="input-field"
+                <RateInput
                   value={myPreference}
-                  onChange={(e) => setMyPreference(e.target.value)}
-                  step="any"
+                  onChange={setMyPreference}
+                  source={policy.source}
+                  destination={policy.destination}
+                  mode={policy.mode}
+                  destinationCount={destinationCount}
+                  className="input-field"
                 />
                 <button className="save-button" onClick={() => void handleSavePreference()} disabled={savingPreference}>
                   {savingPreference ? 'Saving...' : 'Update Preference'}
                 </button>
               </div>
-              <p className={styles.hint}>Community median: {formatRate(policy.mode, median)}</p>
-            </div>
-          )}
-
-          {involvedAccountId && involvedAccount && (
-            <div className={styles.section}>
-              <SignersPanel
-                communityId={communityId}
-                accountId={involvedAccountId}
-                signers={involvedAccount.signers ?? []}
-                threshold={involvedAccount.threshold ?? 1}
-              />
+              <p className={styles.hint}>Community median: {formatRate(policy.mode, policy.currentRate)}</p>
             </div>
           )}
 
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <h4>Details</h4>
-              {canEditDetails && !editingDetails && (
+              {isCreator && !editingDetails && (
                 <button className={styles.editLink} onClick={() => setEditingDetails(true)}>
                   Edit
                 </button>

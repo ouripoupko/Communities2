@@ -66,6 +66,12 @@
   margin: $spacing-xs 0;
 }
 
+.error {
+  font-size: $text-sm;
+  color: var(--color-error);
+  margin: $spacing-sm 0;
+}
+
 .inlineForm {
   display: flex;
   gap: $spacing-sm;

@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FileText, MessageSquare, Download } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
+import { useParticipants } from '../useParticipants';
 import * as api from './docApi';
 import type { DocElement, DocumentState, ElementType } from './docApi';
 import { downloadDocumentPDF } from './docPdf';
@@ -37,8 +38,9 @@ const TypeBadge: React.FC<{ type: ElementType }> = ({ type }) => (
 );
 
 const OwnerBadge: React.FC<{ owner: string; currentUser: string }> = ({ owner, currentUser }) => {
-  if (owner === currentUser || owner === 'system') return null;
-  return <span className={styles.ownerBadge}>{owner}</span>;
+  const { isMe, nameOf } = useParticipants(currentUser);
+  if (isMe(owner) || owner === 'system') return null;
+  return <span className={styles.ownerBadge}>{nameOf(owner)}</span>;
 };
 
 // ---------------------------------------------------------------------------
@@ -81,13 +83,11 @@ interface NodeProps {
   ui: UIMode;
   setUI: (m: UIMode) => void;
   currentUser: string;
-  flowServer: string;
-  flowAgent: string;
   instanceId: string;
 }
 
-const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, currentUser, flowServer, flowAgent, instanceId }) => {
-  const { elements, proposals } = docState;
+const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, currentUser, instanceId }) => {
+  const { elements } = docState;
 
   const isEditing       = ui.tag === 'editing'       && ui.id       === el.id;
   const isProposingEdit = ui.tag === 'proposingEdit' && ui.targetId === el.id;
@@ -105,21 +105,21 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, currentUser
   const confirmEdit = async () => {
     if (ui.tag !== 'editing') return;
     if (!ui.text.trim()) return;
-    await api.updateElement(flowServer, flowAgent, instanceId, elements, el.id, currentUser, ui.text);
+    await api.updateElement(instanceId, el.id, ui.text);
     setUI({ tag: 'idle' });
   };
 
   const confirmProposeEdit = async () => {
     if (ui.tag !== 'proposingEdit') return;
     if (!ui.text.trim()) return;
-    await api.proposeEdit(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser, ui.text);
+    await api.proposeEdit(instanceId, el.id, ui.text);
     setUI({ tag: 'idle' });
   };
 
   const confirmAdd = async () => {
     if (ui.tag !== 'adding') return;
     if (!ui.text.trim()) return;
-    await api.addElement(flowServer, flowAgent, instanceId, elements, currentUser, ui.childType, ui.parentId, ui.text);
+    await api.addElement(instanceId, ui.childType, ui.parentId, ui.text);
     setUI({ tag: 'idle' });
   };
 
@@ -152,7 +152,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, currentUser
             {directDelete && (
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
                 onClick={async () => {
-                  await api.deleteElement(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser);
+                  await api.deleteElement(instanceId, el.id);
                 }}>
                 Delete
               </button>
@@ -166,7 +166,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, currentUser
             {propDelete && (
               <button className={`${styles.btnAction} ${styles.btnDanger}`}
                 onClick={async () => {
-                  await api.proposeDelete(flowServer, flowAgent, instanceId, elements, proposals, el.id, currentUser);
+                  await api.proposeDelete(instanceId, el.id);
                 }}>
                 Propose Delete
               </button>
@@ -199,7 +199,7 @@ const ElementNode: React.FC<NodeProps> = ({ el, docState, ui, setUI, currentUser
           {children.map(child => (
             <ElementNode key={child.id} el={child} docState={docState}
               ui={ui} setUI={setUI}
-              currentUser={currentUser} flowServer={flowServer} flowAgent={flowAgent} instanceId={instanceId} />
+              currentUser={currentUser} instanceId={instanceId} />
           ))}
         </div>
       )}
@@ -231,10 +231,8 @@ const DocumentTab: React.FC<{
   ui: UIMode;
   setUI: (m: UIMode) => void;
   currentUser: string;
-  flowServer: string;
-  flowAgent: string;
   instanceId: string;
-}> = ({ docState, ui, setUI, currentUser, flowServer, flowAgent, instanceId }) => {
+}> = ({ docState, ui, setUI, currentUser, instanceId }) => {
   const { elements } = docState;
 
   const title    = elements.find(e => e.type === 'title');
@@ -245,13 +243,13 @@ const DocumentTab: React.FC<{
 
   const confirmTitleEdit = async () => {
     if (ui.tag !== 'editing') return;
-    await api.updateElement(flowServer, flowAgent, instanceId, elements, 'title', currentUser, ui.text);
+    await api.updateElement(instanceId, 'title', ui.text);
     setUI({ tag: 'idle' });
   };
 
   const confirmAddSection = async () => {
     if (ui.tag !== 'adding' || !ui.text.trim()) return;
-    await api.addElement(flowServer, flowAgent, instanceId, elements, currentUser, 'section', null, ui.text);
+    await api.addElement(instanceId, 'section', null, ui.text);
     setUI({ tag: 'idle' });
   };
 
@@ -283,7 +281,7 @@ const DocumentTab: React.FC<{
       {sections.map(s => (
         <ElementNode key={s.id} el={s} docState={docState}
           ui={ui} setUI={setUI}
-          currentUser={currentUser} flowServer={flowServer} flowAgent={flowAgent} instanceId={instanceId} />
+          currentUser={currentUser} instanceId={instanceId} />
       ))}
 
       {/* Add section */}
@@ -314,10 +312,8 @@ const DocumentTab: React.FC<{
 const ProposalsTab: React.FC<{
   docState: DocumentState;
   currentUser: string;
-  flowServer: string;
-  flowAgent: string;
   instanceId: string;
-}> = ({ docState, currentUser, flowServer, flowAgent, instanceId }) => {
+}> = ({ docState, currentUser, instanceId }) => {
   const { elements, proposals } = docState;
 
   if (proposals.length === 0) {
@@ -369,14 +365,14 @@ const ProposalsTab: React.FC<{
               <button
                 className={`${styles.btnVote} ${myVote === 'support' ? styles.btnVoteActive : ''}`}
                 onClick={async () => {
-                  await api.voteProposal(flowServer, flowAgent, instanceId, elements, proposals, p.id, currentUser, 'support');
+                  await api.voteProposal(instanceId, p.id, 'support');
                 }}>
                 Support ({p.supporters.length})
               </button>
               <button
                 className={`${styles.btnVote} ${styles.btnVoteReject} ${myVote === 'reject' ? styles.btnVoteActive : ''}`}
                 onClick={async () => {
-                  await api.voteProposal(flowServer, flowAgent, instanceId, elements, proposals, p.id, currentUser, 'reject');
+                  await api.voteProposal(instanceId, p.id, 'reject');
                 }}>
                 Reject ({p.rejecters.length})
               </button>
@@ -391,35 +387,15 @@ const ProposalsTab: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+const DocFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'document' | 'proposals'>('document');
-  const [docState,  setDocState]  = useState<DocumentState | null>(null);
-  const [error,     setError]     = useState<string | null>(null);
   const [ui,        setUI]        = useState<UIMode>({ tag: 'idle' });
 
-  const reload = useCallback(async () => {
-    try {
-      const state = await api.loadDocument(flowServer, flowAgent, instanceId);
-      setDocState(state);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load document');
-    }
-  }, [flowServer, flowAgent, instanceId]);
+  const { data: docState, loading, error, retry } = useFlowData(instanceId, api.loadDocument);
 
-  useEffect(() => { reload(); }, [reload]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void reload();
-  }, [instanceId, reload]), flowServer, flowAgent);
-
-  if (error) {
-    return <FlowError message={error} onRetry={reload} />;
-  }
-
-  if (!docState) {
-    return <FlowLoading />;
-  }
+  if (loading) return <FlowLoading />;
+  if (error)   return <FlowError message={error} onRetry={retry} />;
+  if (!docState) return <FlowLoading />;
 
   return (
     <div className={styles.container}>
@@ -450,8 +426,6 @@ const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curre
           ui={ui}
           setUI={setUI}
           currentUser={currentUser}
-          flowServer={flowServer}
-          flowAgent={flowAgent}
           instanceId={instanceId}
         />
       )}
@@ -459,8 +433,6 @@ const DocFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, curre
         <ProposalsTab
           docState={docState}
           currentUser={currentUser}
-          flowServer={flowServer}
-          flowAgent={flowAgent}
           instanceId={instanceId}
         />
       )}

@@ -1,72 +1,12 @@
 @use '../../../styles/variables' as *;
 
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: $spacing-md;
+// MessageDialog: its message.
 
-  .dialog {
-    background: var(--color-surface-muted);
-    border-radius: $radius-lg;
-    box-shadow: $shadow-lg;
-    max-width: 500px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-
-    .content {
-      padding: $spacing-xl;
-      display: flex;
-      flex-direction: column;
-      gap: $spacing-lg;
-
-      .messageSection {
-        text-align: center;
-
-        .message {
-          font-size: $text-lg;
-          line-height: 1.6;
-          color: var(--color-text-primary);
-          margin: 0;
-          word-wrap: break-word;
-        }
-      }
-
-      .actions {
-        display: flex;
-        gap: $spacing-md;
-        justify-content: center;
-
-        .okButton {
-          padding: $spacing-md $spacing-xl;
-          border-radius: $radius-md;
-          font-size: $text-base;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          border: none;
-          min-width: 120px;
-          background: var(--color-primary);
-          color: white;
-          
-          &:hover {
-            background: var(--color-primary-dark);
-          }
-          
-          &:active {
-            transform: translateY(1px);
-          }
-        }
-      }
-    }
-  }
+.message {
+  font-size: $text-lg;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  margin: 0;
+  text-align: center;
+  word-wrap: break-word;
 }
-

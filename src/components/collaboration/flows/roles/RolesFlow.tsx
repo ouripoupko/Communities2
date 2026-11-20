@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Award, Plus, Trash2, UserPlus, UserMinus, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, Pencil, Check, X } from 'lucide-react';
 
 import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import { useFlowData } from '../useFlowData';
+import { useParticipants } from '../useParticipants';
 import * as api from './rolesApi';
 import type { Role, RoleItem, RoleSection, VoteValue } from './rolesApi';
 import { FlowLoading, FlowError } from '../FlowShell';
@@ -64,7 +65,11 @@ const PurposeSection: React.FC<{
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState(purpose);
 
-  useEffect(() => { if (!editing) setDraft(purpose); }, [purpose, editing]);
+  // Editing starts from the purpose as it is now.
+  const startEditing = () => {
+    setDraft(purpose);
+    setEditing(true);
+  };
 
   const save = async () => {
     await onSave(draft.trim());
@@ -76,7 +81,7 @@ const PurposeSection: React.FC<{
       <div className={styles.sectionHeader}>
         <span className={styles.sectionTitle}>Purpose</span>
         {isHolder && !editing && (
-          <button className={styles.iconBtn} onClick={() => setEditing(true)} title="Edit purpose">
+          <button className={styles.iconBtn} onClick={startEditing} title="Edit purpose">
             <Pencil size={12} />
           </button>
         )}
@@ -306,6 +311,7 @@ const RoleCard: React.FC<{
   onAddItem:    (section: RoleSection, item: RoleItem) => Promise<void>;
   onSetSection: (section: RoleSection, items: RoleItem[]) => Promise<void>;
 }> = ({ role, currentUser, onJoin, onLeave, onDelete, onVote, onClear, onSetPurpose, onAddItem, onSetSection }) => {
+  const { isMe, nameOf } = useParticipants(currentUser);
   const [expanded, setExpanded] = useState(false);
   const assigned = api.isAssigned(role, currentUser);
   const isHolder = assigned;
@@ -346,8 +352,8 @@ const RoleCard: React.FC<{
         ) : (
           role.assignees.map(a => (
             <div key={a} className={styles.holderEntry}>
-              <span className={`${styles.chip} ${a === currentUser ? styles.chipMe : ''}`}>
-                {a === currentUser ? 'you' : a}
+              <span className={`${styles.chip} ${isMe(a) ? styles.chipMe : ''}`}>
+                {nameOf(a)}
               </span>
               {expanded && !isHolder && (
                 <VoteButtons
@@ -398,32 +404,18 @@ const RoleCard: React.FC<{
 // ---------------------------------------------------------------------------
 // Root
 // ---------------------------------------------------------------------------
-const RolesFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
-  const [roles,   setRoles]   = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+// Roles, oldest first.
+const loadRoles = (contractId: string) =>
+  api.loadRoles(contractId).then((roles) => roles.sort((a, b) => a.createdAt - b.createdAt));
+
+const RolesFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
+  const { data, loading, error, retry } = useFlowData(instanceId, loadRoles);
   const [adding,  setAdding]  = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await api.loadRoles(flowServer, flowAgent, instanceId);
-      setRoles(data.sort((a, b) => a.createdAt - b.createdAt));
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [instanceId, flowServer, flowAgent]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract === instanceId) void load();
-  }, [instanceId, load]), flowServer, flowAgent);
-
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={load} />;
+  if (error)   return <FlowError message={error} onRetry={retry} />;
+
+  const roles = data ?? [];
 
   return (
     <div className={styles.container}>
@@ -435,7 +427,7 @@ const RolesFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, cur
       {adding ? (
         <AddRoleForm
           onSubmit={async (name, desc) => {
-            await api.addRole(flowServer, flowAgent, instanceId, currentUser, name, desc);
+            await api.addRole(instanceId, name, desc);
             setAdding(false);
           }}
           onCancel={() => setAdding(false)}
@@ -455,14 +447,14 @@ const RolesFlow: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, cur
               key={r.id}
               role={r}
               currentUser={currentUser}
-              onJoin={async ()   => { await api.joinRole(flowServer, flowAgent, instanceId, r, currentUser); }}
-              onLeave={async ()  => { await api.leaveRole(flowServer, flowAgent, instanceId, r.id, currentUser); }}
-              onDelete={async () => { await api.deleteRole(flowServer, flowAgent, instanceId, r.id); }}
-              onVote={async (key, v)  => { await api.voteRole(flowServer, flowAgent, instanceId, r, key, currentUser, v); }}
-              onClear={async key      => { await api.clearVoteRole(flowServer, flowAgent, instanceId, r, key, currentUser); }}
-              onSetPurpose={async text        => { await api.setPurpose(flowServer, flowAgent, instanceId, r.id, text); }}
-              onAddItem={async (section, item) => { await api.setSection(flowServer, flowAgent, instanceId, r.id, section, [...r[section], item]); }}
-              onSetSection={async (section, items) => { await api.setSection(flowServer, flowAgent, instanceId, r.id, section, items); }}
+              onJoin={async ()   => { await api.joinRole(instanceId, r.id); }}
+              onLeave={async ()  => { await api.leaveRole(instanceId, r.id); }}
+              onDelete={async () => { await api.deleteRole(instanceId, r.id); }}
+              onVote={async (key, v)  => { await api.voteRole(instanceId, r.id, key, v); }}
+              onClear={async key      => { await api.clearVoteRole(instanceId, r.id, key); }}
+              onSetPurpose={async text        => { await api.setPurpose(instanceId, r.id, text); }}
+              onAddItem={async (section, item) => { await api.setSection(instanceId, r.id, section, [...r[section], item]); }}
+              onSetSection={async (section, items) => { await api.setSection(instanceId, r.id, section, items); }}
             />
           ))}
         </div>

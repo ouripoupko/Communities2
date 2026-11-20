@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { QrCode, Camera, CheckCircle, AlertCircle } from 'lucide-react';
 import styles from './JoinCommunity.module.scss';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -6,62 +6,31 @@ import { decodeCommunityInvitation } from '../../services/encodeDecode';
 
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
-import { eventStreamService } from '../../services/eventStream';
-import type { BlockchainEvent } from '../../services/eventStream';
 import { useNavigate } from 'react-router-dom';
-import { joinContract } from '../../services/api';
+import { joinCommunityContract, joinCommunity } from '../../services/contracts/community';
+import { hasContract, joinFailure, needsAccess } from '../../services/ibc';
 
-// No longer using CommunityInvite type; use plain object with server, agent, contract
+type Invite = { server: string; agent: string; contract: string };
+
+// Joining takes one approval on the user's node: the join of the community's
+// contract (as a partner or as a guest), and this app's permissions. Then the
+// user becomes a member: silently, if they let the app call join(), or else
+// with the Members page's button.
+
 const JoinCommunity: React.FC = () => {
-  const { publicKey, serverUrl, profileContractId } = useAppSelector(state => state.user);
+  const { serverUrl, profileContractId } = useAppSelector(state => state.user);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [scannedData, setScannedData] = useState<string>('');
-  const [parsedInvite, setParsedInvite] = useState<{ server: string; agent: string; contract: string } | null>(null);
-  const [isJoining, setIsJoining] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [joinSuccess, setJoinSuccess] = useState(false);
+  const [parsedInvite, setParsedInvite] = useState<Invite | null>(null);
+  const [asGuest, setAsGuest] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // A join whose source the user's node could not check: the contract to open, and why.
+  const [unchecked, setUnchecked] = useState<{ contract: string; reason?: string } | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   // Store decoded data for display and editing
   const [decodedData, setDecodedData] = useState('');
-  const a2aListenerRef = React.useRef<((event: BlockchainEvent) => void) | null>(null);
-
-  // Register a2a_connect listener on mount and cleanup on unmount
-  useEffect(() => {
-    const handleA2AConnect = async () => {
-      if (isJoining && parsedInvite) {
-        setIsResetting(true);
-        setIsJoining(false);
-        
-        try {
-          // Refresh contracts list from server and wait for it to complete
-          if (serverUrl && publicKey) {
-            await dispatch(fetchContracts());
-          }
-        } catch (error) {
-          console.error('Failed to refresh contracts:', error);
-          // Continue with the flow even if refresh fails
-        }
-        
-        // Reset all fields
-        setScannedData('');
-        setParsedInvite(null); // This disables the button
-        setDecodedData('');
-        setJoinSuccess(false);
-        setIsResetting(false);
-        // Redirect to communities tab using react-router
-        navigate('/identity/communities', { replace: true });
-      }
-    };
-    a2aListenerRef.current = handleA2AConnect;
-    eventStreamService.addEventListener('a2a_connect', handleA2AConnect);
-    return () => {
-      if (a2aListenerRef.current) {
-        eventStreamService.removeEventListener('a2a_connect', a2aListenerRef.current);
-      }
-    };
-     
-  }, [isJoining, parsedInvite, dispatch, navigate, publicKey, serverUrl]);
 
   const handleScanQR = () => {
     setShowScanner(true);
@@ -71,7 +40,7 @@ const JoinCommunity: React.FC = () => {
     if (codes && codes.length > 0 && codes[0].rawValue) {
       const result = codes[0].rawValue;
       setShowScanner(false);
-      
+
       // Use the shared decoding function
       const decoded = decodeCommunityInvitation(result);
       if (decoded) {
@@ -89,28 +58,58 @@ const JoinCommunity: React.FC = () => {
     setShowScanner(false);
   };
 
-  const handleJoinCommunity = async () => {
-    if (!parsedInvite || !serverUrl || !publicKey) return;
-    const { server, agent, contract } = parsedInvite;
-    if (!server || !agent || !contract) return;
-    setIsJoining(true);
-    setJoinSuccess(false);
+  // Runs one step, showing its error, if any.
+  const run = async (action: () => Promise<void>) => {
+    setIsBusy(true);
+    setError(null);
     try {
-      await joinContract({
-        serverUrl: serverUrl,
-        publicKey: publicKey,
-        address: server,
-        agent,
-        contract,
-        profile: profileContractId || ''
-      });
-      // Button remains disabled until a2a_connect is received
-    } catch (error) {
-      setIsJoining(false);
-      setJoinSuccess(false);
-      alert('Failed to join community: ' + (error instanceof Error ? error.message : error));
+      await action();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsBusy(false);
     }
   };
+
+  const openCommunity = async (contract: string, page = '') => {
+    await dispatch(fetchContracts());
+    navigate(`/community/${contract}${page}`, { replace: true });
+  };
+
+  // Asks to become a member without asking the user again, if they allowed
+  // the app to call join() in the join's approval (otherwise the Members
+  // page's button does it), and opens the Members page: there a member sees
+  // themselves, and a nominee of the web of trust the approvals they need.
+  const becomeMember = async (contract: string) => {
+    try {
+      await joinCommunity(contract, serverUrl!, profileContractId, { silently: true });
+    } catch (err) {
+      if (!needsAccess(err)) console.warn('Could not ask to become a member:', err);
+    }
+    await openCommunity(contract, '/members');
+  };
+
+  // Opens the node's approval page, so it must start from this click.
+  const handleJoinContract = () => run(async () => {
+    if (!parsedInvite || !serverUrl) return;
+    const { server, agent, contract } = parsedInvite;
+    // The user may have joined before: then only open the community.
+    if (await hasContract(contract)) {
+      await openCommunity(contract);
+      return;
+    }
+    const outcome = await joinCommunityContract(contract, server, agent, asGuest);
+    if (!outcome.joined) throw new Error(joinFailure(outcome));
+    if (outcome.sourceCheck === 'unchecked') {
+      setUnchecked({ contract, reason: outcome.reason });
+      return;
+    }
+    await becomeMember(contract);
+  });
+
+  const handleContinueUnchecked = () => run(async () => {
+    if (unchecked) await becomeMember(unchecked.contract);
+  });
 
   // When user manually enters data, treat it as decoded JSON with only the three fields
   const handleManualInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -123,10 +122,17 @@ const JoinCommunity: React.FC = () => {
       } else {
         setParsedInvite(null);
       }
-    } catch (error) {
+    } catch {
       setParsedInvite(null);
     }
   };
+
+  const busyLabel = (
+    <>
+      <div className={styles.loadingSpinnerSmall}></div>
+      Joining… approve on your node
+    </>
+  );
 
   return (
     <div className={styles.container}>
@@ -161,12 +167,19 @@ const JoinCommunity: React.FC = () => {
           </div>
         </div>
 
+        <label className={styles.roleOption}>
+          <input type="checkbox" checked={asGuest} onChange={(e) => setAsGuest(e.target.checked)} />
+          <span>
+            Join as a guest: your node keeps no copy of the community, and uses the inviting member's
+            node instead, which you trust with your reads and transactions.
+          </span>
+        </label>
+
         <div className={styles.joinActions}>
           <button
-            onClick={handleJoinCommunity}
+            onClick={handleJoinContract}
             disabled={
-              isJoining ||
-              isResetting ||
+              isBusy ||
               !parsedInvite ||
               !parsedInvite?.server ||
               !parsedInvite?.agent ||
@@ -174,17 +187,7 @@ const JoinCommunity: React.FC = () => {
             }
             className={styles.joinButton}
           >
-            {isJoining ? (
-              <>
-                <div className={styles.loadingSpinnerSmall}></div>
-                Joining... Waiting for confirmation
-              </>
-            ) : isResetting ? (
-              <>
-                <div className={styles.loadingSpinnerSmall}></div>
-                Resetting...
-              </>
-            ) : (
+            {isBusy ? busyLabel : (
               <>
                 <CheckCircle size={16} />
                 Join Community
@@ -208,11 +211,26 @@ const JoinCommunity: React.FC = () => {
           </div>
         </div>
 
-        {joinSuccess && (
-          <div className={styles.successMessage}>
-            <CheckCircle size={24} />
-            <h4>Successfully joined community!</h4>
-            <p>You can now access the community from your Communities page.</p>
+        {unchecked && (
+          <div className={styles.errorMessage}>
+            <AlertCircle size={24} />
+            <h4>You joined, but your node could not check the community's code</h4>
+            <p>
+              It could not compile the community's source to compare it with the code that runs
+              {unchecked.reason ? ` (${unchecked.reason})` : ''}. The members accepted the source
+              you approved, but your node has not verified that the code matches it.
+            </p>
+            <button onClick={handleContinueUnchecked} className="edit-button" disabled={isBusy}>
+              Continue to the community
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className={styles.errorMessage}>
+            <AlertCircle size={24} />
+            <h4>Could not join</h4>
+            <p>{error}</p>
           </div>
         )}
 
@@ -228,4 +246,4 @@ const JoinCommunity: React.FC = () => {
   );
 };
 
-export default JoinCommunity; 
+export default JoinCommunity;

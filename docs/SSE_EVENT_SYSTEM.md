@@ -1,157 +1,63 @@
-# SSE Event System Implementation
+# Event Stream
 
 ## Overview
 
-This implementation provides a generic Server-Sent Events (SSE) listener mechanism for blockchain events. The system connects to the blockchain's SSE stream and allows components to register for specific event types.
+The app gets live updates from the user's own ibc node through the `@ouripoupko/ibc` library's event stream. The stream is signed by the app's key, and reconnects by itself when it breaks. It carries the events of every contract the app may read, including the contracts the user is a guest of. The app opens one stream per session; there are no per-contract or per-agent connections.
 
 ## Architecture
 
-### 1. Event Stream Service (`src/services/eventStream.ts`)
+### 1. `EventStreamService` (`src/services/eventStream.ts`)
 
-The core service that manages the SSE connection and event distribution:
+A singleton, `eventStreamService`:
 
-- **Singleton Pattern**: Single instance manages the connection
-- **Event Type Registration**: Components can register for specific event types
-- **Automatic Cleanup**: Listeners are automatically removed when components unmount
-- **Reconnection Logic**: Handles connection failures with exponential backoff
+- `connect(app)` subscribes to `app.onEvent` and `app.onStatus`. `AuthContext` calls it when a session starts.
+- `disconnect()` unsubscribes. `AuthContext` calls it when the session ends.
+- `addEventListener(type, listener)` and `removeEventListener(type, listener)` manage listeners for one event type.
+- `addConnectionListener(listener)` and `isConnectedToStream()` report the status. Connected means the library reports the stream `open`.
 
-### 2. React Hook (`src/hooks/useEventStream.ts`)
+The service dispatches each event to the listeners of its `action`. An error in one listener is logged and doesn't stop the others.
 
-Provides a React-friendly interface for components:
+### 2. React hooks (`src/hooks/useEventStream.ts`)
 
-- **useEventStream**: Register for specific event types
-- **useEventStreamConnection**: Get connection status and control methods
+- `useEventStream(eventType, listener)` subscribes while the component is mounted. Pass a stable listener (wrapped in `useCallback`): a new listener re-subscribes.
+- `useEventStreamConnection()` returns `{ isConnected }`, which the Profile page shows as "SSE Connected" or "SSE Disconnected".
 
-### 3. Integration with AuthContext
+## Event types
 
-The SSE connection is automatically managed by the authentication flow:
+| `action` | When | Used by |
+|----------|------|---------|
+| `contract_write` | A write to a contract the app may read was agreed on (by the user or anyone else) | Flows, Profile, communities and currency, to refetch |
+| `deploy_contract` | The user deployed a contract | Communities list, user contracts |
+| `join_contract` | A join the user requested finished | `joinAndWait` in `services/ibc.ts` |
 
-- **Connect on Login**: Establishes connection when user logs in
-- **Connect on App Load**: Reconnects when app loads with stored credentials
-- **Disconnect on Logout**: Cleans up connection when user logs out
-
-## Event Types
-
-The system handles three main event types from the blockchain:
-
-1. **contract_write**: Triggered when a contract is written to
-2. **deploy_contract**: Triggered when a new contract is deployed
-3. **a2a_connect**: Triggered when agent-to-agent connections are established
-
-## Usage Examples
-
-### Basic Event Listener
+## Event data
 
 ```typescript
-import { useEventStream } from '../hooks/useEventStream';
-
-const MyComponent = () => {
-  useEventStream('contract_write', (event) => {
-    console.log('Contract write detected:', event);
-    // Handle the event
-  });
-
-  return <div>My Component</div>;
-};
-```
-
-### Profile Component Integration
-
-The Profile component demonstrates how to use the event system for real-time updates:
-
-```typescript
-// Listen for profile contract write events
-useEventStream('contract_write', (event) => {
-  if (user && contracts.length > 0) {
-    const profileContract = contracts.find(contract => 
-      contract.name === PROFILE_CONTRACT_NAME
-    );
-    if (profileContract && event.contract === profileContract.id) {
-      console.log('Profile contract write detected, refreshing profile data');
-      // Refresh profile data from the contract
-      dispatch(readProfile({
-        serverUrl: user.serverUrl,
-        publicKey: user.publicKey,
-        contractId: profileContract.id
-      }));
-    }
-  }
-});
-```
-
-## Connection Management
-
-### Automatic Connection
-
-The SSE connection is automatically established when:
-
-1. User logs in successfully
-2. App loads with valid stored credentials
-3. User navigates to authenticated pages
-
-### Connection Status
-
-Components can check connection status:
-
-```typescript
-import { useEventStreamConnection } from '../hooks/useEventStream';
-
-const MyComponent = () => {
-  const { isConnected } = useEventStreamConnection();
-  
-  return (
-    <div>
-      Status: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-    </div>
-  );
-};
-```
-
-## Event Data Structure
-
-Events from the blockchain follow this structure:
-
-```typescript
-interface BlockchainEvent {
-  action: 'contract_write' | 'deploy_contract' | 'a2a_connect' | string;
-  contract?: string; // Contract ID when applicable
-  [key: string]: any; // Additional event-specific data
+export interface BlockchainEvent {
+  action: string;          // one of the types above
+  contract?: string;       // the contract's id
+  request?: string;        // join_contract: the id that app.join() returned
+  reply?: unknown;         // join_contract: true when the contract accepted the user
+  error?: string;          // a write that failed
+  source_check?: string;   // join_contract: 'verified', 'unchecked' or 'mismatch'
+  reason?: string;         // join_contract: why it failed, or why the source is unchecked
 }
 ```
 
-## Logging and Debugging
+## Usage
 
-The system includes comprehensive logging:
+### Refetch when a contract changes
 
-- **Connection Events**: Logs when SSE connection is established/lost
-- **Event Reception**: Logs all incoming events with full data
-- **Listener Registration**: Logs when components register/unregister listeners
-- **Error Handling**: Logs parsing errors and listener execution errors
-
-### Console Output Examples
-
-```
-Connecting to SSE stream: https://server.com/stream?agent=abc123&contract=
-SSE connection established
-Event listener registered for: contract_write. Total listeners: 1
-SSE Event received: {action: "contract_write", contract: "profile-123"}
-Notifying 1 listeners for action: contract_write
-Profile contract write detected, refreshing profile data
+```typescript
+useEventStream('contract_write', useCallback((event) => {
+  if (event.contract === instanceId) void load();
+}, [instanceId, load]));
 ```
 
-## Benefits
+### Waiting for a join
 
-1. **Real-time Updates**: Components automatically update when blockchain data changes
-2. **Decoupled Architecture**: Components don't need to know about polling or manual refresh
-3. **Automatic Cleanup**: No memory leaks from event listeners
-4. **Type Safety**: Full TypeScript support for event types and data
-5. **Error Resilience**: Handles connection failures gracefully
-6. **Scalable**: Easy to add new event types and listeners
+`app.join()` resolves with a request id, and the outcome arrives later as a `join_contract` event with that `request`. The outcome can arrive before `join()` resolves, so `joinAndWait` starts listening before it calls `join()`, keeps the events it sees meanwhile, and then matches them by id. It gives up after 5 minutes: joining can take that long when the node first downloads a compiler to check the source.
 
-## Future Enhancements
+## Debugging
 
-1. **Reconnection Logic**: Implement automatic reconnection with exponential backoff
-2. **Event Filtering**: Add contract-specific filtering capabilities
-3. **Event History**: Cache recent events for offline scenarios
-4. **Batch Updates**: Group multiple events for efficient UI updates
-5. **WebSocket Fallback**: Add WebSocket support as an alternative to SSE 
+Every event received is traced to the console as `[event] …` (on in development; in a build, after `localStorage.setItem('trace', '1')` and a reload). Stream status changes with an error are logged as `Event stream <status>: …`.

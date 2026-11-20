@@ -1,7 +1,9 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/useAuth';
+import { COLLABORATION_KINDS } from './components/collaboration/kinds';
 
 // Get the base path from Vite's import.meta.env.BASE_URL
 const getBasename = () => {
@@ -14,10 +16,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
 const PolicyDetailPage = lazy(() => import('./pages/PolicyDetailPage'));
-const IssueView = lazy(() => import('./pages/IssueView'));
-const InitiativeView = lazy(() => import('./pages/collaboration/InitiativeView'));
-const WishView = lazy(() => import('./pages/collaboration/WishView'));
-const AgreementView = lazy(() => import('./pages/collaboration/AgreementView'));
+const CollaborationView = lazy(() => import('./pages/collaboration/CollaborationView'));
 
 function AppContent() {
   const { isAuthenticated, isLoading, bootError } = useAuth();
@@ -58,10 +57,13 @@ function AppContent() {
           <Route path="/identity/*" element={<IdentityView />} />
           <Route path="/community/:communityId/policy/:policyId" element={<PolicyDetailPage />} />
           <Route path="/community/:communityId/*" element={<CommunityView />} />
-          <Route path="/issue/:issueHostServer/:issueHostAgent/:communityId/:issueId/*" element={<IssueView />} />
-          <Route path="/initiative/:initiativeHostServer/:initiativeHostAgent/:initiativeId/*" element={<InitiativeView />} />
-          <Route path="/wish/:wishId/*" element={<WishView />} />
-          <Route path="/agreement/:agreementId" element={<AgreementView />} />
+          {COLLABORATION_KINDS.map((kind) => (
+            <Route
+              key={kind.type}
+              path={`/${kind.type}/:hostServer/:hostAgent/:collaborationId/*`}
+              element={<CollaborationView kind={kind} />}
+            />
+          ))}
         </Routes>
       </Suspense>
     </Router>

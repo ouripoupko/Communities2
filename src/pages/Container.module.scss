@@ -179,3 +179,14 @@
   }
 }
 
+
+// A figure beside a page's title (a community's member count).
+.stat {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  color: var(--color-text-secondary);
+  font-size: $text-sm;
+  flex-shrink: 0;
+  white-space: nowrap;
+}

@@ -1,639 +1,325 @@
-import { contractRead, contractWrite, deployContract } from '../api';
-import type { IMethod } from '../interfaces';
-import communityContractCode from '../../assets/contracts/community_contract.py?raw';
-import initiativeContractCode from '../../assets/contracts/initiative_contract.py?raw';
-import wishContractCode from '../../assets/contracts/wish_contract.py?raw';
-import agreementContractCode from '../../assets/contracts/agreement_contract.py?raw';
+import { joinAndWait, readSilently, writeSilently, write, deploy } from '../ibc';
+import type { CallOptions, JoinOutcome } from '../ibc';
+import { COMMUNITY_CONTRACT, communitySource, sourceOf } from './sources';
 
 /**
- * Community contract interface
- * Handles all community-specific contract calls
+ * The community contract's calls. A community is one ibc agreement: the
+ * Community contract, which ibc deploys and joins, and the parts it creates
+ * (Membership, Collaborations, Currency), which members call by their
+ * addresses (at). Its source is the files of contracts/community/.
  */
 
-/** Logs every call this file makes to the community contract: the wrapper
- * function in community.ts, the Python method it invokes, and the
- * parameters sent. */
-function logCommunityCall(tsFunction: string, contractMethod: string, params: unknown): void {
-  console.log(`[community.ts] ${tsFunction} -> community_contract.${contractMethod}`, params);
+type Part = 'membership' | 'collaborations' | 'currency';
+
+// Each community's parts' addresses, read once (they never change).
+const parts = new Map<string, Promise<Record<Part, string>>>();
+
+/** Where a community's part is, to call it. */
+async function at(communityId: string, part: Part): Promise<CallOptions> {
+  let found = parts.get(communityId);
+  if (!found) {
+    found = readSilently(communityId, 'getParts') as Promise<Record<Part, string>>;
+    parts.set(communityId, found);
+    found.catch(() => parts.delete(communityId)); // read again next time
+  }
+  return { at: (await found)[part] };
 }
 
-/** Logs the return value of a read call to the community contract. */
-function logCommunityResult(tsFunction: string, contractMethod: string, result: unknown): void {
-  console.log(`[community.ts] ${tsFunction} <- community_contract.${contractMethod}`, result);
+/** The label community contracts are deployed with, by which they are found again. */
+export const COMMUNITY_CONTRACT_NAME = 'communities-community';
+
+export interface CommunityProperties {
+  name: string;
+  description: string;
+  createdAt: number; // unix seconds
+  creator: string;
+  initialBalance: number; // what a new member's account starts with
+  openJoin: boolean; // anyone joins at once; otherwise through the web of trust
 }
 
+/** A member, and where others find them: their node, and their profile contract there. */
+export interface CommunityMember {
+  agent: string;
+  node: string;
+  profile: string;
+}
+
+/**
+ * Deploys a community contract, with the user as its first member. Opens the
+ * node's approval page, so call it from a click.
+ */
 export async function createCommunity(
-  serverUrl: string,
-  publicKey: string,
-  communityName: string,
-  communityDescription: string,
+  node: string,
   profile: string | null,
-  initialBalance: number = 1000,
-  openJoin: boolean = false,
-): Promise<string | undefined> {
-  // Deploy the community contract
-  const contractId = await deployContract({
-    serverUrl,
-    publicKey,
-    name: communityName,
-    contract: 'community_contract.py',
-    code: communityContractCode,
-    profile: profile || undefined,
+  name: string,
+  description: string,
+  initialBalance: number,
+  starterPolicies: boolean,
+  openJoin: boolean,
+): Promise<string> {
+  const values = {
+    name, description, node, profile: profile ?? '', initialBalance: toUnits(initialBalance), starterPolicies, openJoin,
+  };
+  return await deploy({
+    source: communitySource, contract: COMMUNITY_CONTRACT, name: COMMUNITY_CONTRACT_NAME, constructor: values,
   });
-
-  // Set properties: name, description, createdAt
-  if (contractId) {
-    logCommunityCall('createCommunity', 'set_property', { key: 'name', value: communityName });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'name',
-          value: communityName
-        },
-      } as IMethod
-    });
-
-    logCommunityCall('createCommunity', 'set_property', { key: 'description', value: communityDescription });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'description',
-          value: communityDescription
-        },
-      } as IMethod,
-    });
-
-    const createdAt = new Date().toISOString();
-    logCommunityCall('createCommunity', 'set_property', { key: 'createdAt', value: createdAt });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'createdAt',
-          value: createdAt
-        },
-      } as IMethod,
-    });
-
-    logCommunityCall('createCommunity', 'set_property', { key: 'initial_balance', value: initialBalance });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'initial_balance',
-          value: initialBalance
-        },
-      } as IMethod,
-    });
-
-    logCommunityCall('createCommunity', 'set_property', { key: 'open_join', value: openJoin });
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'set_property',
-        values: {
-          key: 'open_join',
-          value: openJoin
-        },
-      } as IMethod,
-    });
-
-    // Call request_join to join the community as the creator
-    logCommunityCall('createCommunity', 'request_join', {});
-    await contractWrite({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: {
-        name: 'request_join',
-        values: {},
-      } as IMethod,
-    });
-  }
-
-  return contractId;
 }
 
 /**
- * Get partners from the community contract
+ * Joins a community's contract through a member's node, as a partner or as
+ * a guest (see joinAndWait). Call it from a click.
  */
-export async function getPartners(
-  serverUrl: string,
-  publicKey: string,
+export async function joinCommunityContract(
   contractId: string,
-) {
-  logCommunityCall('getPartners', 'get_partners', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_partners',
-      values: {},
-    } as IMethod,
+  memberNode: string,
+  memberAgent: string,
+  guest: boolean,
+): Promise<JoinOutcome> {
+  return await joinAndWait(contractId, memberNode, memberAgent, {
+    source: communitySource, guest, contractName: COMMUNITY_CONTRACT,
   });
-  logCommunityResult('getPartners', 'get_partners', result);
-  return result;
 }
 
 /**
- * Get all people from the community contract (tasks, members, nominates)
+ * Asks to become a member of a community whose contract the user joined: a
+ * member at once with open join, or else a nominee of the web of trust. With
+ * silently, never asks: it fails (needsAccess) unless the user let the app
+ * call join() without asking; otherwise it asks if needed, so call it from a
+ * click.
  */
-export async function getAllPeople(
-  serverUrl: string,
-  publicKey: string,
+export async function joinCommunity(
   contractId: string,
-) {
-  logCommunityCall('getAllPeople', 'get_all_people', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_all_people',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getAllPeople', 'get_all_people', result);
+  node: string,
+  profile: string | null,
+  { silently = false } = {},
+): Promise<void> {
+  const values = { node, profile: profile ?? '' };
+  if (silently) await writeSilently(contractId, 'join', values, await at(contractId, 'membership'));
+  else await write(contractId, 'join', values, await at(contractId, 'membership'));
+}
+
+export async function getProperties(contractId: string): Promise<CommunityProperties> {
+  const result = await readSilently(contractId, 'getProperties') as CommunityProperties;
+  return { ...result, initialBalance: fromUnits(result.initialBalance) };
+}
+
+export async function getMembers(contractId: string): Promise<CommunityMember[]> {
+  const result = await readSilently(contractId, 'getMembers', {}, await at(contractId, 'membership')) as CommunityMember[];
   return result;
 }
+
+/** The kinds of collaboration, in the order the contracts number them. */
+export const COLLABORATION_TYPES = ['initiative', 'wish', 'agreement'] as const;
+export type CollaborationType = typeof COLLABORATION_TYPES[number];
 
 /**
- * Get community properties
+ * What the user writes of a collaboration: the community keeps the same
+ * three texts for every kind, and each kind says what they mean (an
+ * agreement's title is its rule, and its detail what harm it prevents).
  */
-export async function getProperties(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  logCommunityCall('getProperties', 'get_properties', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_properties',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getProperties', 'get_properties', result);
-  return result;
-}
-
-export interface Collaboration {
-  id: string;
-  type: 'initiative' | 'wish' | 'agreement';
+export interface CollaborationFields {
   title: string;
-  description?: string;
-  dreamNeed?: string;
-  rule?: string;
-  protection?: string;
-  currencyGathered?: number;
-  currencyGoal?: number;
-  consensusStatus?: string;
-  createdAt: number;
-  activityCount?: number;
-  hostServer?: string;
-  hostAgent?: string;
-  author?: string;
+  description: string;
+  detail: string;
 }
 
 /**
- * Read the parent community credentials stored in a collaboration contract
- * (initiative, wish, or agreement). Note: this targets the collaboration's
- * own contract, not the community contract, so it is not logged here.
+ * A collaboration, as the community lists it. Its contract (id) is on its
+ * creator's node (hostServer, hostAgent), and holds its flows.
  */
-export async function getCommunity(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-): Promise<{ server: string; agent: string; id: string } | null> {
-  try {
-    const result = await contractRead({
-      serverUrl,
-      publicKey,
-      contractId,
-      method: { name: 'get_community', values: {} } as IMethod,
-    });
-    if (!result || typeof result !== 'object') return null;
-    const r = result as Record<string, unknown>;
-    return {
-      server: String(r.server ?? ''),
-      agent:  String(r.agent  ?? ''),
-      id:     String(r.id     ?? ''),
-    };
-  } catch {
-    return null;
-  }
+export interface Collaboration extends CollaborationFields {
+  id: string;
+  type: CollaborationType;
+  createdAt: number; // unix ms
+  hostServer: string;
+  hostAgent: string;
 }
 
 /**
- * Create an initiative (deploy contract + add to community)
+ * Deploys a collaboration's contract on the user's node, for the community.
+ * Opens the node's approval page, so call it from a click. Resolves with
+ * its id; then list it in the community (listCollaboration).
  */
-export async function createInitiative(
-  serverUrl: string,
-  publicKey: string,
+export async function deployCollaboration(communityId: string, type: CollaborationType, title: string): Promise<string> {
+  const values = { kind_: COLLABORATION_TYPES.indexOf(type), title_: title, communityId_: communityId };
+  return await deploy({ source: sourceOf('Collaboration.sol'), name: title, constructor: values });
+}
+
+/**
+ * Lists a collaboration the user deployed in the community. With silently,
+ * never asks: it fails (needsAccess) unless the user let the app call
+ * addCollaboration without asking; otherwise it asks if needed, so call it
+ * from a click.
+ */
+export async function listCollaboration(
   communityId: string,
-  initiative: { title: string; description?: string },
-) {
-  const response = await deployContract({
-    serverUrl,
-    publicKey,
-    name: initiative.title,
-    contract: 'initiative_contract.py',
-    code: initiativeContractCode,
-    constructorArgs: { community_server: serverUrl, community_agent: publicKey, community_id: communityId },
-  });
-  const initiativeId = (response as { id?: string }).id || (response as string);
-
-  const details = {
-    title: initiative.title,
-    description: initiative.description || '',
-    createdAt: Date.now(),
-    currencyGoal: 100,
-    currencyGathered: 0,
-    activityCount: 0,
-  };
-  // Targets the initiative's own contract, not the community contract.
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId: initiativeId,
-    method: {
-      name: 'set_details',
-      values: { details },
-    } as IMethod,
-  });
-
-  const collaboration: Collaboration = {
-    id: initiativeId,
-    type: 'initiative',
-    title: initiative.title,
-    description: initiative.description,
-    currencyGathered: 0,
-    currencyGoal: 100,
-    createdAt: Date.now(),
-    activityCount: 0,
-    hostServer: serverUrl,
-    hostAgent: publicKey,
-  };
-  // addCollaboration logs its own community contract call.
-  await addCollaboration(serverUrl, publicKey, communityId, collaboration);
-  return initiativeId;
+  collaborationId: string,
+  type: CollaborationType,
+  fields: CollaborationFields,
+  node: string,
+  { silently = false } = {},
+): Promise<void> {
+  const values = { id: collaborationId, kind: COLLABORATION_TYPES.indexOf(type), ...fields, node };
+  if (silently) await writeSilently(communityId, 'addCollaboration', values, await at(communityId, 'collaborations'));
+  else await write(communityId, 'addCollaboration', values, await at(communityId, 'collaborations'));
 }
 
-/**
- * Create a wish (deploy contract + add to community)
- */
-export async function createWish(
-  serverUrl: string,
-  publicKey: string,
-  communityId: string,
-  wish: { title: string; dreamNeed?: string },
-): Promise<string> {
-  const response = await deployContract({
-    serverUrl,
-    publicKey,
-    name: wish.title,
-    contract: 'wish_contract.py',
-    code: wishContractCode,
-    constructorArgs: { community_server: serverUrl, community_agent: publicKey, community_id: communityId },
-  });
-  const wishId = (response as { id?: string }).id || (response as string);
-
-  const collaboration: Collaboration = {
-    id: wishId,
-    type: 'wish',
-    title: wish.title,
-    dreamNeed: wish.dreamNeed,
-    author: publicKey,
-    createdAt: Date.now(),
-    activityCount: 0,
-    hostServer: serverUrl,
-    hostAgent: publicKey,
-  };
-  // addCollaboration logs its own community contract call.
-  await addCollaboration(serverUrl, publicKey, communityId, collaboration);
-  return wishId;
+export async function getCollaborations(contractId: string): Promise<Collaboration[]> {
+  const result = await readSilently(contractId, 'getCollaborations', {}, await at(contractId, 'collaborations')) as {
+    id: string; kind: number; title: string; description: string; detail: string; node: string; creator: string; createdAt: number;
+  }[];
+  return result.map((c) => ({
+    id: c.id,
+    type: COLLABORATION_TYPES[c.kind],
+    title: c.title,
+    description: c.description,
+    detail: c.detail,
+    createdAt: Number(c.createdAt) * 1000,
+    hostServer: c.node,
+    hostAgent: c.creator,
+  }));
 }
 
-/**
- * Create an agreement (deploy contract + add to community)
- */
-export async function createAgreement(
-  serverUrl: string,
-  publicKey: string,
-  communityId: string,
-  agreement: { title: string; rule?: string; protection?: string },
-): Promise<string> {
-  const response = await deployContract({
-    serverUrl,
-    publicKey,
-    name: agreement.rule || agreement.title,
-    contract: 'agreement_contract.py',
-    code: agreementContractCode,
-    constructorArgs: { community_server: serverUrl, community_agent: publicKey, community_id: communityId },
-  });
-  const agreementId = (response as { id?: string }).id || (response as string);
+// ==================================================================
+// WEB OF TRUST
+// ==================================================================
 
-  const collaboration: Collaboration = {
-    id: agreementId,
-    type: 'agreement',
-    title: agreement.rule || agreement.title,
-    rule: agreement.rule,
-    protection: agreement.protection,
-    consensusStatus: 'Pending',
-    createdAt: Date.now(),
-    activityCount: 0,
-    hostServer: serverUrl,
-    hostAgent: publicKey,
-  };
-  // addCollaboration logs its own community contract call.
-  await addCollaboration(serverUrl, publicKey, communityId, collaboration);
-  return agreementId;
+/**
+ * A nominee, their vouchers, and who approved whom: vouchedFor[i] (vouchers[i]
+ * approved the nominee) and nomineeApproved[i] (the nominee approved vouchers[i]).
+ * The nominee becomes a member once all approved each other.
+ */
+export interface Nomination {
+  nominee: string;
+  node: string;
+  profile: string;
+  vouchers: string[];
+  vouchedFor: boolean[];
+  nomineeApproved: boolean[];
 }
 
-/**
- * Add a collaboration (initiative, wish, or agreement) to the community
- */
-export async function addCollaboration(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  collaboration: Collaboration,
-) {
-  logCommunityCall('addCollaboration', 'add_collaboration', { collaboration });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'add_collaboration',
-      values: { collaboration },
-    } as IMethod,
-  });
-}
-
-/**
- * Get all collaborations from the community
- */
-export async function getCollaborations(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  logCommunityCall('getCollaborations', 'get_collaborations', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_collaborations',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getCollaborations', 'get_collaborations', result);
+export async function getNominations(contractId: string): Promise<Nomination[]> {
+  const result = await readSilently(contractId, 'getNominations', {}, await at(contractId, 'membership')) as Nomination[];
   return result;
 }
 
-export async function requestJoin(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  // Call request_join on the community contract. The contract itself decides
-  // whether to run the web-of-trust nomination flow or accept immediately,
-  // based on the community's stored `open_join` preference (see createCommunity).
-  logCommunityCall('requestJoin', 'request_join', {});
-  const response = await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'request_join',
-      values: {},
-    } as IMethod,
-  });
-  return response;
+/**
+ * Approves the other side of a nomination: the nominee approves a voucher,
+ * or a voucher the nominee. May open the node's approval page: call it from a click.
+ */
+export async function approveAgent(contractId: string, other: string): Promise<void> {
+  await write(contractId, 'approve', { other }, await at(contractId, 'membership'));
+}
+
+/** Cancels a nomination: the nominee, or one of their vouchers. Call it from a click. */
+export async function disapproveAgent(contractId: string, other: string): Promise<void> {
+  await write(contractId, 'disapprove', { other }, await at(contractId, 'membership'));
+}
+
+// ==================================================================
+// CURRENCY (accounts, payments, monetary policies)
+// ==================================================================
+//
+// The contract counts amounts in millionths of a unit (UNIT); the app
+// works in units. Policies apply once a day (a tick), and the contract's
+// balances are calculated up to a tick (see getCurrency and updateBalances).
+
+const UNIT = 1_000_000;
+
+/** Units to the contract's millionths, as a string (exact for large values). */
+export function toUnits(amount: number): string {
+  return String(Math.round(amount * UNIT));
+}
+
+/** The contract's millionths to units. */
+export function fromUnits(value: number | string): number {
+  return Number(value) / UNIT;
+}
+
+export type AccountKind = 'personal' | 'fund';
+
+/** An account. A personal account's id is its member's agent id in lowercase; a fund's is its name. */
+export interface Account {
+  id: string;
+  kind: AccountKind;
+  name: string;
+  owner: string;
+  balance: number;
+}
+
+/** The id of a member's personal account. */
+export function personalAccountId(agent: string): string {
+  return agent.toLowerCase();
+}
+
+export async function getAccounts(contractId: string): Promise<Account[]> {
+  const result = await readSilently(contractId, 'getAccounts', {}, await at(contractId, 'currency')) as {
+    id: string; kind: number; name: string; owner: string; balance: number | string;
+  }[];
+  return result.map((a) => ({
+    id: a.id, kind: a.kind === 0 ? 'personal' : 'fund', name: a.name, owner: a.owner, balance: fromUnits(a.balance),
+  }));
+}
+
+/** Pays from the user's personal account. */
+export async function pay(contractId: string, to: string, amount: number): Promise<void> {
+  await write(contractId, 'pay', { to, amount: toUnits(amount) }, await at(contractId, 'currency'));
 }
 
 /**
- * Directly invoke the open-join procedure (accepts the caller as a member
- * immediately, no nomination/approval). Exposed for parity with the contract's
- * `join_open` method; `requestJoin` above already dispatches to this same
- * behavior automatically when a community is configured for open joining.
+ * Opens a fund's account, for a collaboration's flow: its id is the flow's.
+ * Resolves with false if it is open already. Call it from a click.
  */
-export async function joinOpen(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-) {
-  logCommunityCall('joinOpen', 'join_open', {});
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'join_open',
-      values: {},
-    } as IMethod,
-  });
+export async function createFundAccount(contractId: string, id: string, name: string, owner: string): Promise<boolean> {
+  return (await write(contractId, 'createFundAccount', { id, name, owner }, await at(contractId, 'currency'))) === true;
 }
 
-/**
- * Approve an agent for community membership
- */
-export async function approveAgent(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  agentPublicKey: string,
-) {
-  logCommunityCall('approveAgent', 'approve', { approved: agentPublicKey });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId: contractId,
-    method: {
-      name: 'approve',
-      values: { approved: agentPublicKey },
-    } as IMethod,
-  });
+/** A payment into a fund's account. */
+export interface FundContribution {
+  from: string;
+  amount: number;
+  time: number; // unix ms
 }
 
-/**
- * Disapprove an agent for community membership
- */
-export async function disapproveAgent(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  agentPublicKey: string,
-) {
-  logCommunityCall('disapproveAgent', 'disapprove', { disapproved: agentPublicKey });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'disapprove',
-      values: { disapproved: agentPublicKey },
-    } as IMethod,
-  });
+/** The payments into a fund's account, as the community records them. */
+export async function getContributions(contractId: string, fundId: string): Promise<FundContribution[]> {
+  const result = await readSilently(contractId, 'getContributions', { fundId }, await at(contractId, 'currency')) as { from: string; amount: number | string; time: number }[];
+  return result.map((c) => ({ from: c.from, amount: fromUnits(c.amount), time: Number(c.time) * 1000 }));
 }
 
-export async function transfer(
-  server: string,
-  agent: string,
-  contract: string,
-  to: string,
-  value: number
-) {
-  logCommunityCall('transfer', 'transfer', { to, value });
-  return await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId: contract,
-    method: {
-      name: 'transfer',
-      values: { to, value },
-    } as IMethod,
-  });
+/** Where the balances stand: calculated up to settledTick, while the current tick is currentTick. */
+export interface CurrencyState {
+  tickSeconds: number;
+  currentTick: number;
+  settledTick: number;
+  settledUntil: number; // unix ms: when settledTick fell
+  pendingTicks: number;
+  maxTicksPerUpdate: number;
+  initialBalance: number;
 }
 
-export async function getBalance(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string
-) {
-  logCommunityCall('getBalance', 'get_balance', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'get_balance',
-      values: {},
-    } as IMethod,
-  });
-  logCommunityResult('getBalance', 'get_balance', result);
-  return result;
-}
-
-export interface IAccountDetails {
-  [account: string]: {
-    type: string;
-    balance: number;
-    name?: string;
-    signers?: string[];
-    threshold?: number;
+export async function getCurrency(contractId: string): Promise<CurrencyState> {
+  const r = await readSilently(contractId, 'getCurrency', {}, await at(contractId, 'currency')) as Record<string, number | string>;
+  const currentTick = Number(r.currentTick);
+  const settledTick = Number(r.settledTick);
+  return {
+    tickSeconds: Number(r.tickSeconds),
+    currentTick,
+    settledTick,
+    settledUntil: Number(r.settledUntil) * 1000,
+    pendingTicks: currentTick - settledTick,
+    maxTicksPerUpdate: Number(r.maxTicksPerUpdate),
+    initialBalance: fromUnits(r.initialBalance),
   };
 }
 
-export async function getAccountDetails(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-): Promise<IAccountDetails> {
-  logCommunityCall('getAccountDetails', 'get_account_details', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'get_account_details', values: {} } as IMethod,
-  });
-  logCommunityResult('getAccountDetails', 'get_account_details', result);
-  return (result as IAccountDetails) ?? {};
+/** Applies the policies to the days not calculated yet (a year of them at most). */
+export async function updateBalances(contractId: string): Promise<void> {
+  await write(contractId, 'updateBalances', {}, await at(contractId, 'currency'));
 }
-
-export async function createFundAccount(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  name: string,
-  owner: string,
-): Promise<boolean> {
-  logCommunityCall('createFundAccount', 'create_fund_account', { name, owner });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'create_fund_account', values: { name, owner } } as IMethod,
-  });
-}
-
-/**
- * Public accounts (community-owned accounts with authorized signers + threshold)
- */
-
-export async function createPublicAccount(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  name: string,
-): Promise<string | false> {
-  logCommunityCall('createPublicAccount', 'create_public_account', { name });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'create_public_account', values: { name } } as IMethod,
-  });
-}
-
-export async function addSigner(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  account: string,
-  signer: string,
-): Promise<boolean> {
-  logCommunityCall('addSigner', 'add_signer', { account, signer });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'add_signer', values: { account, signer } } as IMethod,
-  });
-}
-
-export async function removeSigner(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  account: string,
-  signer: string,
-): Promise<boolean> {
-  logCommunityCall('removeSigner', 'remove_signer', { account, signer });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'remove_signer', values: { account, signer } } as IMethod,
-  });
-}
-
-/**
- * Generic monetary policies
- */
 
 export type PolicySideKind = 'void' | 'account' | 'everyPersonal' | 'everyAccount';
+const SIDE_KINDS: PolicySideKind[] = ['void', 'account', 'everyPersonal', 'everyAccount'];
 
 export interface IPolicySide {
   kind: PolicySideKind;
@@ -642,196 +328,100 @@ export interface IPolicySide {
 
 export type PolicyMode = 'units' | 'percent';
 export type PolicyRateType = 'community-governed' | 'self-set';
+const MODES: PolicyMode[] = ['units', 'percent'];
+const RATE_TYPES: PolicyRateType[] = ['community-governed', 'self-set'];
 
+/**
+ * A policy. Each day it mints its rate into each destination, or takes its
+ * rate (units, or percent of the balance) from each source, and burns it or
+ * splits it equally among the destinations.
+ */
 export interface Policy {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   source: IPolicySide;
   destination: IPolicySide;
   mode: PolicyMode;
   rateType: PolicyRateType;
   creator: string;
-  selfRate?: number | null;
-  createdAt: number;
-  lastAppliedTime: number;
-  elapsedTicks: number;
-  currentRate: number;
+  selfRate: number;
+  currentRate: number; // a commitment's rate, or the median of the members' preferences
+  createdAt: number; // unix ms
+  preferences: number; // how many members set a preference
+  myPreference: number | null;
 }
 
+type RawSide = { kind: number; account: string };
+const sideFrom = (side: RawSide): IPolicySide =>
+  SIDE_KINDS[side.kind] === 'account' ? { kind: 'account', account: side.account } : { kind: SIDE_KINDS[side.kind] };
+const sideTo = (side: IPolicySide): RawSide => ({ kind: SIDE_KINDS.indexOf(side.kind), account: side.account ?? '' });
+
+export async function getPolicies(contractId: string): Promise<Policy[]> {
+  const result = await readSilently(contractId, 'getPolicies', {}, await at(contractId, 'currency')) as {
+    id: number; name: string; description: string; source: RawSide; destination: RawSide; mode: number; rateType: number;
+    creator: string; selfRate: number | string; currentRate: number | string; createdAt: number; preferences: number;
+    hasMyPreference: boolean; myPreference: number | string;
+  }[];
+  return result.map((p) => ({
+    id: String(p.id),
+    name: p.name,
+    description: p.description,
+    source: sideFrom(p.source),
+    destination: sideFrom(p.destination),
+    mode: MODES[p.mode],
+    rateType: RATE_TYPES[p.rateType],
+    creator: p.creator,
+    selfRate: fromUnits(p.selfRate),
+    currentRate: fromUnits(p.currentRate),
+    createdAt: Number(p.createdAt) * 1000,
+    preferences: Number(p.preferences),
+    myPreference: p.hasMyPreference ? fromUnits(p.myPreference) : null,
+  }));
+}
+
+/**
+ * Creates a policy. A commitment (self-set) pays from the user's own
+ * account, at selfRate; the members set a community-governed policy's rate.
+ */
 export async function createPolicy(
-  serverUrl: string,
-  publicKey: string,
   contractId: string,
   policy: {
-    id: string;
     name: string;
     description?: string;
     source: IPolicySide;
     destination: IPolicySide;
     mode: PolicyMode;
     rateType: PolicyRateType;
-    selfRate?: number | null;
+    selfRate?: number;
   },
-): Promise<string> {
-  logCommunityCall('createPolicy', 'create_policy', { policy });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'create_policy', values: { policy } } as IMethod,
-  });
+): Promise<void> {
+  await write(contractId, 'createPolicy', {
+    name: policy.name,
+    description: policy.description ?? '',
+    source: sideTo(policy.source),
+    destination: sideTo(policy.destination),
+    mode: MODES.indexOf(policy.mode),
+    rateType: RATE_TYPES.indexOf(policy.rateType),
+    selfRate: toUnits(policy.selfRate ?? 0),
+  }, await at(contractId, 'currency'));
 }
 
-export async function getPolicies(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-): Promise<Policy[]> {
-  logCommunityCall('getPolicies', 'get_policies', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'get_policies', values: {} } as IMethod,
-  });
-  logCommunityResult('getPolicies', 'get_policies', result);
-  return (result as Policy[]) ?? [];
+/** Sets the user's preference for a community-governed policy's rate. */
+export async function setPolicyPreference(contractId: string, policyId: string, value: number): Promise<void> {
+  await write(contractId, 'setPolicyPreference', { policyId, value: toUnits(value) }, await at(contractId, 'currency'));
 }
 
-/**
- * A community-governed policy's rate is the live median of every member's
- * standing preference, tracked via the generic `parameters()` runtime
- * mechanism (each contract-partner's own value per string key, aggregated
- * into a median) - one dynamically-named key per policy: `p_<policyId>`.
- */
-export interface IContractParameters {
-  medians: Record<string, number>;
-  parameters: Record<string, number>;
+/** Sets a commitment's rate: its creator only. */
+export async function setCommitmentRate(contractId: string, policyId: string, value: number): Promise<void> {
+  await write(contractId, 'setCommitmentRate', { policyId, value: toUnits(value) }, await at(contractId, 'currency'));
 }
 
-export function policyParameterKey(policyId: string): string {
-  return `p_${policyId}`;
+export async function setPolicyDetails(contractId: string, policyId: string, name: string, description: string): Promise<void> {
+  await write(contractId, 'setPolicyDetails', { policyId, name, description }, await at(contractId, 'currency'));
 }
 
-export async function getContractParameters(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-): Promise<IContractParameters> {
-  logCommunityCall('getContractParameters', 'get_parameters', {});
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'get_parameters', values: {} } as IMethod,
-  });
-  logCommunityResult('getContractParameters', 'get_parameters', result);
-  return (result as IContractParameters) ?? { medians: {}, parameters: {} };
+/** Deletes a policy: its creator only, and a community-governed one once its rate is zero. */
+export async function deletePolicy(contractId: string, policyId: string): Promise<void> {
+  await write(contractId, 'deletePolicy', { policyId }, await at(contractId, 'currency'));
 }
-
-export async function setPolicyPreference(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  policyId: string,
-  value: number,
-): Promise<boolean> {
-  logCommunityCall('setPolicyPreference', 'set_policy_preference', {
-    values: { policy_id: policyId },
-    parameters: { [policyParameterKey(policyId)]: value },
-  });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: {
-      name: 'set_policy_preference',
-      values: { policy_id: policyId },
-      parameters: { [policyParameterKey(policyId)]: value },
-    } as IMethod,
-  });
-}
-
-export async function setCommitmentRate(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  policyId: string,
-  value: number,
-): Promise<boolean> {
-  logCommunityCall('setCommitmentRate', 'set_commitment_rate', { policy_id: policyId, value });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'set_commitment_rate', values: { policy_id: policyId, value } } as IMethod,
-  });
-}
-
-export async function setPolicyDetails(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  policyId: string,
-  name: string,
-  description: string,
-): Promise<boolean> {
-  logCommunityCall('setPolicyDetails', 'set_policy_details', { policy_id: policyId, name, description });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'set_policy_details', values: { policy_id: policyId, name, description } } as IMethod,
-  });
-}
-
-export async function deletePolicy(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  policyId: string,
-): Promise<boolean> {
-  logCommunityCall('deletePolicy', 'delete_policy', { policy_id: policyId });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'delete_policy', values: { policy_id: policyId } } as IMethod,
-  });
-}
-
-/**
- * Wallet payments - generic over immediate (1-of-1) and pending (N-of-M) outcomes.
- */
-
-export type PaymentStatus = 'completed' | 'pending' | 'failed';
-
-export interface IPayment {
-  id?: string;
-  status: PaymentStatus;
-  fromAccount?: string;
-  to?: string;
-  value?: number;
-  approvals?: string[];
-  threshold?: number;
-  reason?: string;
-}
-
-export async function sendPayment(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  fromAccount: string,
-  to: string,
-  value: number,
-): Promise<IPayment> {
-  logCommunityCall('sendPayment', 'send_payment', { from_account: fromAccount, to, value });
-  return await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'send_payment', values: { from_account: fromAccount, to, value } } as IMethod,
-  });
-}
-

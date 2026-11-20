@@ -1,136 +1,111 @@
-import { contractRead, contractWrite, deployContract } from '../api';
-import type { IMethod } from '../interfaces';
+import { joinAndWait, readSilently, writeSilently, write, deploy } from '../ibc';
+import type { JoinOutcome, Sources } from '../ibc';
+import type { FlowContext, FlowDefinition } from '../../components/collaboration/flows/types';
+import { sourceOf } from './sources';
 
-import rankingFlowCode         from '../../assets/contracts/ranking_flow_contract.py?raw';
-import scoringFlowCode         from '../../assets/contracts/scoring_flow_contract.py?raw';
-import documentFlowCode        from '../../assets/contracts/document_flow_contract.py?raw';
-import fundingFlowCode         from '../../assets/contracts/funding_flow_contract.py?raw';
-import discussionFlowCode      from '../../assets/contracts/discussion_flow_contract.py?raw';
-import schedulingFlowCode      from '../../assets/contracts/scheduling_flow_contract.py?raw';
-import taskBoardFlowCode       from '../../assets/contracts/task_board_flow_contract.py?raw';
-import concernsFlowCode        from '../../assets/contracts/concerns_flow_contract.py?raw';
-import qaFlowCode              from '../../assets/contracts/qa_flow_contract.py?raw';
-import rolesFlowCode           from '../../assets/contracts/roles_flow_contract.py?raw';
+// A collaboration's contract is on its creator's node, and holds its flows,
+// as a tree: each flow may have child flows. Each flow is a contract on the
+// node of whoever added it, who hosts it. Others use a collaboration, and
+// each of its flows, as guests, through the host's node. Removing a flow
+// moves its branch to the collaboration's bin, from which it can be restored.
+
+/** A flow, as its collaboration lists it. */
+export interface FlowRef {
+  /** The flow's contract id */
+  id: string;
+  /** The flow type, matching the registry (e.g. 'ranking') */
+  type: string;
+  title: string;
+  /** Its host's node */
+  node: string;
+  /** Its host: whoever added it */
+  agent: string;
+  /** Its parent flow's id, or '' at the top level */
+  parent: string;
+  /** Orders siblings: later is lower */
+  position: number;
+  /** Its branch is in the bin */
+  binned: boolean;
+}
+
+export async function getFlows(collaborationId: string): Promise<FlowRef[]> {
+  const result = await readSilently(collaborationId, 'getFlows') as {
+    id: string; flowType: string; title: string; node: string; agent: string; parent: string; position: number; binned: boolean;
+  }[];
+  return result.map((f) => ({
+    id: f.id, type: f.flowType, title: f.title, node: f.node, agent: f.agent,
+    parent: f.parent, position: Number(f.position), binned: f.binned,
+  }));
+}
+
+/** What a collaboration's contract says of itself. */
+export interface CollaborationInfo {
+  title: string;
+  creator: string;
+  communityId: string;
+}
+
+export async function getCollaborationInfo(collaborationId: string): Promise<CollaborationInfo> {
+  const [title, creator, communityId] = await Promise.all([
+    readSilently(collaborationId, 'title'),
+    readSilently(collaborationId, 'creator'),
+    readSilently(collaborationId, 'communityId'),
+  ]);
+  return { title: String(title), creator: String(creator), communityId: String(communityId) };
+}
+
+/** Joins a collaboration as a guest, through its creator's node. Call it from a click. */
+export async function joinCollaboration(collaborationId: string, hostNode: string, hostAgent: string): Promise<JoinOutcome> {
+  return await joinAndWait(collaborationId, hostNode, hostAgent, { source: sourceOf('Collaboration.sol'), guest: true });
+}
 
 /**
- * A flow reference stored in a collaboration contract.
- * Points to the flow contract on the creating participant's server.
- * The app constructs and deconstructs this dict; the contract stores it opaquely.
+ * Deploys a flow on the user's node, with the config its setup dialog gave.
+ * Opens the node's approval page, so call it from a click. Resolves with its
+ * id; then add it to the tree (addFlow).
  */
-export interface FlowRef {
-  /** Contract id of the flow on the owner's server */
+export async function deployFlow(flow: FlowDefinition, context: FlowContext, config: Record<string, unknown> = {}): Promise<string> {
+  if (!flow.source) throw new Error(`The ${flow.label} flow is not available yet`);
+  return await deploy({
+    source: flow.source, name: context.title, constructor: flow.constructorArgs?.(config, context) ?? {},
+  });
+}
+
+/** A flow the user deployed, and where in the tree to add it. */
+export interface NewFlow {
   id: string;
-  /** Server URL where the flow contract is deployed */
-  server: string;
-  /** Public key of the agent who owns the flow contract */
-  agent: string;
-  /** Flow type id matching the registry (e.g. 'ranking', 'discussion') */
   type: string;
+  title: string;
+  node: string;
+  parent: string;
 }
 
-// ---------------------------------------------------------------------------
-// Flow contract specs — one entry per registry flow type
-// ---------------------------------------------------------------------------
-interface FlowContractSpec {
-  /** Python class name */
-  contract: string;
-  /** Python source code (imported as raw string) */
-  code: string;
+/**
+ * Adds a flow the user deployed to a collaboration's tree, under its
+ * parent. With silently, never asks: it fails (needsAccess) unless the user
+ * let the app call addFlow without asking; otherwise it asks if needed, so
+ * call it from a click.
+ */
+export async function addFlow(collaborationId: string, flow: NewFlow, { silently = false } = {}): Promise<void> {
+  const values = { id: flow.id, flowType: flow.type, flowTitle: flow.title, node: flow.node, parent: flow.parent };
+  if (silently) await writeSilently(collaborationId, 'addFlow', values);
+  else await write(collaborationId, 'addFlow', values);
 }
 
-const FLOW_SPECS: Record<string, FlowContractSpec> = {
-  'ranking':  { contract: 'RankingFlow',  code: rankingFlowCode },
-  'scoring':  { contract: 'ScoringFlow',  code: scoringFlowCode },
-  'document': { contract: 'DocumentFlow', code: documentFlowCode },
-  'funding':  { contract: 'FundingFlow',  code: fundingFlowCode },
-  'discussion':{ contract: 'DiscussionFlow', code: discussionFlowCode },
-  'scheduling':{ contract: 'SchedulingFlow', code: schedulingFlowCode },
-  'task-board':{ contract: 'TaskBoardFlow',  code: taskBoardFlowCode },
-  'concerns': { contract: 'ConcernsFlow', code: concernsFlowCode },
-  'qa':       { contract: 'QAFlow',       code: qaFlowCode },
-  'roles':    { contract: 'RolesFlow',    code: rolesFlowCode },
-};
-
-// ---------------------------------------------------------------------------
-// Deploy a new flow contract on the current user's server.
-// Returns the new contract id.
-// ---------------------------------------------------------------------------
-export async function deployFlowContract(
-  serverUrl: string,
-  publicKey: string,
-  flowType: string,
-): Promise<string> {
-  const spec = FLOW_SPECS[flowType];
-  if (!spec) throw new Error(`Unknown flow type: ${flowType}`);
-
-  const result = await deployContract({
-    serverUrl,
-    publicKey,
-    name: spec.contract,
-    contract: spec.contract,
-    code: spec.code,
-  });
-  const id = (result as { id?: string }).id ?? (result as string);
-  if (!id) throw new Error(`deployContract did not return an id for flow type: ${flowType}`);
-  return id;
+/**
+ * Moves a flow's branch to the bin: its host, or the collaboration's
+ * creator. The flows' contracts stay on their hosts' nodes. Call it from a click.
+ */
+export async function removeFlow(collaborationId: string, flowId: string): Promise<void> {
+  await write(collaborationId, 'removeFlow', { id: flowId });
 }
 
-// ---------------------------------------------------------------------------
-// Store a flow reference in a collaboration contract.
-// The collaboration contract may live on a different server than the user's.
-// ---------------------------------------------------------------------------
-export async function addFlow(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  flow: FlowRef,
-): Promise<void> {
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'add_flow', values: { flow } } as IMethod,
-  });
+/** Takes a branch out of the bin, and puts it under parent ('' for the top level). Call it from a click. */
+export async function restoreFlow(collaborationId: string, flowId: string, parent: string): Promise<void> {
+  await write(collaborationId, 'restoreFlow', { id: flowId, parent });
 }
 
-// ---------------------------------------------------------------------------
-// Remove a flow reference from a collaboration contract. This does not (and
-// currently cannot) delete the underlying flow contract itself — it only
-// takes the flow out of the collaboration's list, hiding it from everyone.
-// ---------------------------------------------------------------------------
-export async function removeFlow(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-  flowId: string,
-): Promise<void> {
-  await contractWrite({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'remove_flow', values: { flow_id: flowId } } as IMethod,
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Retrieve all flow references from a collaboration contract.
-// ---------------------------------------------------------------------------
-export async function getFlows(
-  serverUrl: string,
-  publicKey: string,
-  contractId: string,
-): Promise<FlowRef[]> {
-  const result = await contractRead({
-    serverUrl,
-    publicKey,
-    contractId,
-    method: { name: 'get_flows', values: {} } as IMethod,
-  });
-  const arr = Array.isArray(result) ? result : [];
-  return arr.map((f: Record<string, unknown>) => ({
-    id:     String(f.id     ?? ''),
-    server: String(f.server ?? ''),
-    agent:  String(f.agent  ?? ''),
-    type:   String(f.type   ?? ''),
-  }));
+/** Joins a flow as a guest, through its host's node. Call it from a click. */
+export async function joinFlow(flow: FlowRef, source: Sources): Promise<JoinOutcome> {
+  return await joinAndWait(flow.id, flow.node, flow.agent, { source, guest: true });
 }

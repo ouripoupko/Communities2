@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { X, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
+import Modal from '../../Modal';
+import form from '../../dialogForm.module.scss';
 import styles from './IdentityCardDialog.module.scss';
 import { useAppSelector } from '../../../store/hooks';
 import { encodeCommunityInvitation } from '../../../services/encodeDecode';
@@ -9,24 +11,25 @@ import { generateIdentityCardPDF } from './IdentityCardPDFGenerator';
 interface IdentityCardDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  communityId: string;
   communityName: string;
 }
 
 const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
   isOpen,
   onClose,
+  communityId,
   communityName
 }) => {
-  const { contracts, publicKey } = useAppSelector(state => state.user);
+  const { publicKey, serverUrl } = useAppSelector(state => state.user);
   const { profiles } = useAppSelector(state => state.communities);
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  // Get community contract info
-  const communityContract = contracts.find((c) => c.name === communityName);
-  const server = communityContract?.address || '';
+  // The member's own agent and node, and the community
+  const server = serverUrl || '';
   const agent = publicKey || '';
-  const contract = communityContract?.id || '';
+  const contract = communityId;
 
   // Get user profile
   const userProfile = profiles[publicKey || ''] || {};
@@ -75,49 +78,39 @@ const IdentityCardDialog: React.FC<IdentityCardDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={styles.overlay}>
-      <div className={styles.dialog}>
-        <div className={styles.header}>
-          <h2>Identity Card</h2>
-          <button className={styles.closeButton} onClick={onClose}>
-            <X size={20} />
+    <Modal
+      title="Identity Card"
+      onClose={onClose}
+      size="large"
+      actions={(
+        <>
+          <button className={form.secondaryButton} onClick={onClose}>
+            Close
           </button>
-        </div>
-        
-        <div className={styles.content}>
-          <div className={styles.cardContainer}>
-            <div ref={cardRef}>
-              <IdentityCardSVG
-                communityName={communityName}
-                memberName={userProfile.firstName && userProfile.lastName 
-                  ? `${userProfile.firstName} ${userProfile.lastName}` 
-                  : 'Unknown Member'}
-                memberInitial={userProfile.firstName ? userProfile.firstName.charAt(0).toUpperCase() : '?'}
-                memberPhoto={userProfile.userPhoto}
-                agentId={agent || 'Unknown'}
-                qrData={qrData}
-                width={428}
-                height={270}
-              />
-            </div>
-          </div>
-          
-          <div className={styles.actions}>
-            <button 
-              className={styles.downloadButton} 
-              onClick={handleDownloadCard}
-              disabled={isGeneratingPDF}
-            >
-              <Download size={18} />
-              {isGeneratingPDF ? 'Generating...' : 'Download Card'}
-            </button>
-            <button className={styles.closeDialogButton} onClick={onClose}>
-              Close
-            </button>
-          </div>
+          <button className={form.primaryButton} onClick={handleDownloadCard} disabled={isGeneratingPDF}>
+            <Download size={18} />
+            {isGeneratingPDF ? 'Generating...' : 'Download Card'}
+          </button>
+        </>
+      )}
+    >
+      <div className={styles.cardContainer}>
+        <div ref={cardRef}>
+          <IdentityCardSVG
+            communityName={communityName}
+            memberName={userProfile.firstName && userProfile.lastName
+              ? `${userProfile.firstName} ${userProfile.lastName}`
+              : 'Unknown Member'}
+            memberInitial={userProfile.firstName ? userProfile.firstName.charAt(0).toUpperCase() : '?'}
+            memberPhoto={userProfile.userPhoto}
+            agentId={agent || 'Unknown'}
+            qrData={qrData}
+            width={428}
+            height={270}
+          />
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { User, Users, QrCode, LogOut } from 'lucide-react';
 import Profile from '../components/identity/Profile';
 import Communities from '../components/identity/Communities';

@@ -122,23 +122,6 @@ $agreement-bg: rgba(13, 148, 136, 0.12);
         }
       }
     }
-
-    .sortSelect {
-      margin-left: auto;
-      padding: $spacing-sm $spacing-md;
-      border-radius: $radius-md;
-      border: 1px solid var(--color-border);
-      font-size: $text-sm;
-      font-weight: $font-medium;
-      color: var(--color-text-secondary);
-      background-color: var(--color-surface);
-      cursor: pointer;
-
-      &:focus {
-        outline: none;
-        border-color: var(--color-primary);
-      }
-    }
   }
 
   .list {
@@ -218,39 +201,6 @@ $agreement-bg: rgba(13, 148, 136, 0.12);
           }
         }
       }
-
-      .progressBar {
-        margin-top: $spacing-sm;
-
-        .progressLabel {
-          display: flex;
-          justify-content: space-between;
-          font-size: $text-xs;
-          color: var(--color-text-tertiary);
-          margin-bottom: $spacing-xs;
-        }
-
-        .progressTrack {
-          height: 6px;
-          background-color: var(--color-surface-muted-strong);
-          border-radius: $radius-full;
-          overflow: hidden;
-
-          .progressFill {
-            height: 100%;
-            background-color: $initiative-color;
-            border-radius: $radius-full;
-            transition: width $transition-base;
-          }
-        }
-      }
-
-      .consensusStatus {
-        margin-top: $spacing-sm;
-        font-size: $text-sm;
-        font-weight: $font-medium;
-        color: $agreement-color;
-      }
     }
   }
 
@@ -297,10 +247,25 @@ $agreement-bg: rgba(13, 148, 136, 0.12);
     .filterBar {
       flex-direction: column;
       align-items: stretch;
-
-      .sortSelect {
-        margin-left: 0;
-      }
     }
+  }
+}
+
+.unlisted {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+  padding: $spacing-md;
+  border: 1px solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: var(--color-text-secondary);
+
+  .unlistedError {
+    width: 100%;
+    color: var(--color-error);
   }
 }

@@ -1,8 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchContracts } from '../../store/slices/userSlice';
+import { fetchCommunityProperties } from '../../store/slices/communitiesSlice';
+import { COMMUNITY_CONTRACT_NAME } from '../../services/contracts/community';
 import { useEventStream } from '../../hooks/useEventStream';
 import CreateCommunityDialog from './communities/CreateCommunityDialog';
 import styles from './Communities.module.scss';
@@ -12,13 +14,28 @@ const Communities: React.FC = () => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user);
   const { contracts, loading } = useAppSelector((state) => state.user);
+  const { communityProperties } = useAppSelector((state) => state.communities);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
 
   // Filter contracts for community contracts
   const communityContracts = contracts.filter(
-    (contract) => contract.contract === 'community_contract.py'
+    (contract) => contract.name === COMMUNITY_CONTRACT_NAME && !contract.deploy_error
   );
+
+  // The list may have changed since it was loaded (a community joined
+  // elsewhere, or a join that stopped halfway): load it again.
+  useEffect(() => {
+    dispatch(fetchContracts());
+  }, [dispatch]);
+
+  // Every community contract has the same label: read each one's name and description.
+  const communityIds = communityContracts.map((c) => c.id).join(',');
+  useEffect(() => {
+    for (const contractId of communityIds.split(',').filter(Boolean)) {
+      dispatch(fetchCommunityProperties({ contractId }));
+    }
+  }, [communityIds, dispatch]);
 
   // Memoize the event handler to prevent unnecessary re-registrations
   const handleDeployContract = useCallback(() => {
@@ -94,8 +111,8 @@ const Communities: React.FC = () => {
                     <Users size={24} />
                   </div>
                   <div className={styles.info}>
-                    <h3 className={styles.name}>{contract.name || 'Community'}</h3>
-                    <p className={styles.description}>Community details will load when you enter</p>
+                    <h3 className={styles.name}>{communityProperties[contract.id]?.name || 'Community'}</h3>
+                    <p className={styles.description}>{communityProperties[contract.id]?.description}</p>
                   </div>
                 </div>
                 <div className={styles.stats}>

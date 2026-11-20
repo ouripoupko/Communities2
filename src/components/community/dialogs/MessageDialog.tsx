@@ -1,4 +1,6 @@
 import React from 'react';
+import Modal from '../../Modal';
+import form from '../../dialogForm.module.scss';
 import styles from './MessageDialog.module.scss';
 
 interface MessageDialogProps {
@@ -16,31 +18,14 @@ const MessageDialog: React.FC<MessageDialogProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.dialog}>
-        <div className={styles.content}>
-          <div className={styles.messageSection}>
-            <p className={styles.message}>{message}</p>
-          </div>
-          
-          <div className={styles.actions}>
-            <button 
-              className={styles.okButton}
-              onClick={onClose}
-            >
-              {buttonText}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Modal
+      onClose={onClose}
+      size="small"
+      actions={<button className={form.primaryButton} onClick={onClose}>{buttonText}</button>}
+    >
+      <p className={styles.message}>{message}</p>
+    </Modal>
   );
 };
 

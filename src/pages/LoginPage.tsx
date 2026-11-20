@@ -1,77 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { Key, Server, ArrowRight, RefreshCw } from 'lucide-react';
+import { useAuth } from '../contexts/useAuth';
+import { openApp } from '../services/ibc';
+import { Server, ArrowRight } from 'lucide-react';
 import styles from './LoginPage.module.scss';
 
+// If we land here with a stored node URL, the app was disconnected from
+// the user's agent (or this browser forgot it) — prefill the form so the
+// user can just click Connect again.
+function storedServerUrl(): string {
+  try {
+    const userData = JSON.parse(localStorage.getItem('user') ?? 'null');
+    if (typeof userData?.serverUrl === 'string') return userData.serverUrl;
+  } catch {
+    // Ignore malformed stored data — the field just stays empty.
+  }
+  return '';
+}
+
+// The server URLs used before, the latest first.
+function loadServerUrlHistory(): string[] {
+  try {
+    const history: unknown = JSON.parse(localStorage.getItem('serverUrlHistory') ?? '[]');
+    return Array.isArray(history) ? history.filter((url): url is string => typeof url === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 const LoginPage: React.FC = () => {
-  const { login, isLoading } = useAuth();
-  const [publicKey, setPublicKey] = useState('');
-  const [serverUrl, setServerUrl] = useState('');
-  const [serverUrlHistory, setServerUrlHistory] = useState<string[]>([]);
+  const { login } = useAuth();
+  const [serverUrl, setServerUrl] = useState(storedServerUrl);
+  const [serverUrlHistory, setServerUrlHistory] = useState(loadServerUrlHistory);
   const [showHistory, setShowHistory] = useState(false);
-  const [isValid, setIsValid] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  // Why the last login attempt failed
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [publicKeyError, setPublicKeyError] = useState<string | null>(null);
   const [serverUrlError, setServerUrlError] = useState<string | null>(null);
 
-  // Check for stored error messages on component mount
-  useEffect(() => {
-    const storedError = localStorage.getItem('loginError');
-    if (storedError) {
-      setLoginError(storedError);
-      localStorage.removeItem('loginError'); // Clear the stored error
-    }
-  }, []);
-
-  // If we land here with credentials still in localStorage, it's because
-  // AuthContext found them pointing at an agent that no longer exists on
-  // the server (a normal logout already clears this key) — prefill the
-  // form so the user can just click Connect to recreate the agent.
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (!storedUser) return;
-    try {
-      const userData = JSON.parse(storedUser);
-      if (typeof userData.publicKey === 'string') setPublicKey(userData.publicKey);
-      if (typeof userData.serverUrl === 'string') setServerUrl(userData.serverUrl);
-    } catch {
-      // Ignore malformed stored data — fields just stay empty.
-    }
-  }, []);
-
-  useEffect(() => {
-    // Default server URL
-    const defaultServer = 'https://gdi.gloki.contact';
-    
-    // Load server URL history from localStorage
-    const history = localStorage.getItem('serverUrlHistory');
-    let historyArray: string[] = [];
-    
-    if (history) {
-      try {
-        historyArray = JSON.parse(history);
-      } catch (error) {
-        historyArray = [];
-      }
-    }
-    
-    // Always ensure default server is in the list
-    if (!historyArray.includes(defaultServer)) {
-      historyArray = [defaultServer, ...historyArray];
-    } else {
-      // Move default server to the top if it's already in the list
-      historyArray = [defaultServer, ...historyArray.filter(url => url !== defaultServer)];
-    }
-    
-    setServerUrlHistory(historyArray);
-  }, []);
-
-  const validatePublicKey = (value: string): string | null => {
-    if (value.length === 0) return null;
-    if (!/^[A-Za-z0-9]{64}$/.test(value))
-      return 'Public key must be exactly 64 alphanumeric characters (letters and digits only).';
-    return null;
-  };
 
   const validateServerUrl = (value: string): string | null => {
     if (value.length === 0) return null;
@@ -79,29 +44,25 @@ const LoginPage: React.FC = () => {
       const url = new URL(value);
       if (url.protocol !== 'http:' && url.protocol !== 'https:')
         return 'Server URL must use http or https.';
+      // Passkeys belong to the node's address, and browsers refuse them at an IP address.
+      if (/^[\d.]+$|^\[/.test(url.hostname))
+        return 'Use the node\'s name, not an IP address (e.g. http://localhost:2611): passkeys do not work at an IP address.';
       return null;
     } catch {
       return 'Please enter a valid URL (e.g. https://your-server.com).';
     }
   };
 
-  useEffect(() => {
-    const pkErr = validatePublicKey(publicKey);
-    const srvErr = validateServerUrl(serverUrl);
-    setIsValid(
-      publicKey.length > 0 && pkErr === null &&
-      serverUrl.length > 0 && srvErr === null
-    );
-  }, [publicKey, serverUrl]);
+  const isValid = serverUrl.length > 0 && validateServerUrl(serverUrl) === null;
 
-  const generateRandomKey = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 64; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setPublicKey(result);
-  };
+  // Load the node's client as soon as the URL is valid: the approval page is
+  // a popup, which browsers allow only right after a click, so the click
+  // must not wait for the download.
+  useEffect(() => {
+    if (!isValid) return;
+    const timer = setTimeout(() => { openApp(serverUrl).catch(() => {}); }, 400);
+    return () => clearTimeout(timer);
+  }, [serverUrl, isValid]);
 
   const handleServerUrlSelect = (url: string) => {
     setServerUrl(url);
@@ -112,15 +73,18 @@ const LoginPage: React.FC = () => {
     if (isValid) {
       try {
         setLoginError(null);
+        setIsConnecting(true);
         
         // Save server URL to history
         const newHistory = [serverUrl, ...serverUrlHistory.filter(url => url !== serverUrl)].slice(0, 10);
         setServerUrlHistory(newHistory);
         localStorage.setItem('serverUrlHistory', JSON.stringify(newHistory));
         
-        await login(publicKey, serverUrl);
+        await login(serverUrl);
       } catch (error) {
         setLoginError(error instanceof Error ? error.message : 'Login failed. Please try again.');
+      } finally {
+        setIsConnecting(false);
       }
     }
   };
@@ -135,36 +99,9 @@ const LoginPage: React.FC = () => {
 
         <div className={styles.form}>
           <div className={styles.inputGroup}>
-            <label htmlFor="publicKey">
-              <Key size={20} />
-              Gloki Public Key
-            </label>
-            <div className={styles.inputWithButton}>
-              <input
-                id="publicKey"
-                type="text"
-                value={publicKey}
-                onChange={(e) => setPublicKey(e.target.value)}
-                onBlur={() => setPublicKeyError(validatePublicKey(publicKey))}
-                placeholder="Enter your public key"
-                className="input-field"
-              />
-              <button
-                type="button"
-                onClick={generateRandomKey}
-                className={styles.generateButton}
-                title="Generate random public key"
-              >
-                <RefreshCw size={16} />
-              </button>
-            </div>
-            {publicKeyError && <div className={styles.fieldError}>{publicKeyError}</div>}
-          </div>
-
-          <div className={styles.inputGroup}>
             <label htmlFor="serverUrl">
               <Server size={20} />
-              Server URL
+              Your Node
             </label>
             <div className={styles.inputWithDropdown}>
               <input
@@ -224,11 +161,11 @@ const LoginPage: React.FC = () => {
           
           <button
             onClick={handleLogin}
-            disabled={!isValid || isLoading}
+            disabled={!isValid || isConnecting}
             className={`login-button ${styles.loginButton}`}
           >
-            <span>{isLoading ? 'Connecting...' : 'Connect'}</span>
-            {!isLoading && <ArrowRight size={20} />}
+            <span>{isConnecting ? 'Approve on your node…' : 'Connect'}</span>
+            {!isConnecting && <ArrowRight size={20} />}
           </button>
         </div>
       </div>

@@ -1,5 +1,4 @@
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
+import { readSilently, write } from '../../../../services/ibc';
 
 export interface Comment {
   id: string;
@@ -9,72 +8,34 @@ export interface Comment {
   timestamp: number;
 }
 
-function normalizeComment(c: Record<string, unknown>): Comment {
-  return {
-    id:        String(c.id        ?? ''),
-    author:    String(c.author    ?? ''),
-    text:      String(c.text      ?? ''),
-    parentId:  c.parentId != null && c.parentId !== '' ? String(c.parentId) : null,
-    timestamp: Number(c.timestamp ?? 0),
+// The discussion's contract (DiscussionFlow.sol). An author is whoever signs:
+// the contract takes them from msg.sender.
+
+/** The comments to show: not deleted, and not under a deleted one. */
+export async function loadComments(contractId: string): Promise<Comment[]> {
+  const result = await readSilently(contractId, 'getComments') as {
+    id: string; author: string; text: string; parent: string; timestamp: number; deleted: boolean;
+  }[];
+  const byId = new Map(result.map((c) => [c.id, c]));
+  const hidden = (id: string): boolean => {
+    for (let c = byId.get(id); c; c = c.parent ? byId.get(c.parent) : undefined) if (c.deleted) return true;
+    return false;
   };
+  return result.filter((c) => !hidden(c.id)).map((c) => ({
+    id: c.id,
+    author: c.author,
+    text: c.text,
+    parentId: c.parent || null,
+    timestamp: Number(c.timestamp) * 1000,
+  }));
 }
 
-export async function loadComments(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<Comment[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_comments', values: {} } as IMethod,
-  });
-  const raw = Array.isArray(result) ? result : [];
-  return (raw as Record<string, unknown>[]).map(normalizeComment);
+/** Comments, as a reply to parentId (null at the top). May open the node's approval page: call it from a click. */
+export async function addComment(contractId: string, text: string, parentId: string | null): Promise<void> {
+  await write(contractId, 'addComment', { text: text.trim(), parent: parentId ?? '' });
 }
 
-export async function addComment(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  text: string,
-  parentId: string | null,
-): Promise<void> {
-  const comment: Comment = {
-    id:        crypto.randomUUID(),
-    author:    currentUser,
-    text:      text.trim(),
-    parentId,
-    timestamp: Date.now(),
-  };
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'add_comment', values: { comment } } as IMethod,
-  });
-}
-
-export async function deleteComment(
-  server: string,
-  agent: string,
-  contractId: string,
-  comments: Comment[],
-  id: string,
-): Promise<void> {
-  const toRemove = new Set<string>();
-  const collect = (tid: string) => {
-    toRemove.add(tid);
-    comments.filter(c => c.parentId === tid).forEach(c => collect(c.id));
-  };
-  collect(id);
-  const updated = comments.filter(c => !toRemove.has(c.id));
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_comments', values: { comments: updated } } as IMethod,
-  });
+/** Deletes the user's comment, and so the replies under it. May open the node's approval page: call it from a click. */
+export async function deleteComment(contractId: string, id: string): Promise<void> {
+  await write(contractId, 'deleteComment', { id });
 }

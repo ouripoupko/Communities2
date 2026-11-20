@@ -14,22 +14,71 @@ const IdentityCardDialog = lazy(() => import('../components/community/dialogs/Id
 const QRScannerDialog = lazy(() => import('../components/community/dialogs/QRScannerDialog'));
 import styles from './Container.module.scss';
 import { fetchCommunityProperties, fetchCommunityMembers, fetchCollaborations } from '../store/slices/communitiesSlice';
+import { fetchContracts } from '../store/slices/userSlice';
+import AllowAccess from '../components/AllowAccess';
 import { eventStreamService } from '../services/eventStream';
 import type { BlockchainEvent } from '../services/eventStream';
 
 const CommunityView: React.FC = () => {
-  const { communityId } = useParams<{ communityId: string }>();
+  const { communityId = '' } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   // Get contracts and properties from Redux
-  const { contracts, publicKey, serverUrl } = useAppSelector(state => state.user);
-  const { communityProperties = {}, communityMembers = {} } = useAppSelector(state => state.communities);
-  const [fetching, setFetching] = useState(false);
+  const { publicKey, serverUrl } = useAppSelector(state => state.user);
+  const { communityProperties = {}, communityMembers = {}, accessNeeded = {} } = useAppSelector(state => state.communities);
+  // The community whose properties were last read (successfully or not).
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const [showIdentityCard, setShowIdentityCard] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const dispatch = useAppDispatch();
 
-  // Early return if communityId is missing
+  // The community is read by its id, whether or not the contract list shows
+  // it yet: the list leaves out contracts the app may not read.
+  const props = useMemo(() => communityProperties[communityId] ?? null, [communityProperties, communityId]);
+
+  // Check if current user is a member of the community
+  const isCurrentUserMember = useMemo(() => {
+    if (!publicKey || !communityMembers[communityId]) return false;
+    const members = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
+    return members.includes(publicKey);
+  }, [publicKey, communityId, communityMembers]);
+
+  // Memoize the event handler - store updates only from SSE (decentralized: reacts to other devices)
+  const handleContractWrite = useCallback((event: BlockchainEvent) => {
+    if (event.contract === communityId && publicKey && serverUrl && communityId) {
+      dispatch(fetchCommunityMembers({ contractId: communityId }));
+      dispatch(fetchCollaborations({ contractId: communityId }));
+    }
+  }, [communityId, publicKey, serverUrl, dispatch]);
+
+  // Fetch community data once when community/user credentials change.
+  // props and communityMembers are intentionally excluded from deps — including them
+  // caused an infinite fetch loop when the server returned an error.
+  const loadCommunity = useCallback(() => {
+    if (!communityId || !publicKey || !serverUrl) return;
+    dispatch(fetchCommunityProperties({ contractId: communityId }))
+      .finally(() => setLoadedId(communityId));
+    dispatch(fetchCommunityMembers({ contractId: communityId }));
+  }, [communityId, publicKey, serverUrl, dispatch]);
+
+  useEffect(() => {
+    loadCommunity();
+  }, [loadCommunity]);
+
+  // Once the user lets the app read the community, it also appears in the list.
+  const handleAccessAllowed = useCallback(() => {
+    setLoadedId(null);
+    dispatch(fetchContracts());
+    loadCommunity();
+  }, [dispatch, loadCommunity]);
+
+  // SSE listener for real-time updates — separate effect so it doesn't couple to data fetching.
+  useEffect(() => {
+    eventStreamService.addEventListener('contract_write', handleContractWrite);
+    return () => eventStreamService.removeEventListener('contract_write', handleContractWrite);
+  }, [handleContractWrite]);
+
+  // Return early (after the hooks, which must always run) if communityId is missing
   if (!communityId) {
     return (
       <div className={styles.container}>
@@ -44,55 +93,6 @@ const CommunityView: React.FC = () => {
     );
   }
 
-  // Find the contract for this community
-  const contract = useMemo(() => contracts.find((c) => c.id === communityId), [contracts, communityId]);
-  // useMemo avoids creating a new {} on every render when properties haven't loaded yet,
-  // which would otherwise cause the fetch useEffect to re-run infinitely on server errors.
-  const props = useMemo(
-    () => (contract ? (communityProperties[contract.id] ?? null) : null),
-    [contract, communityProperties],
-  );
-
-  // Check if current user is a member of the community
-  const isCurrentUserMember = useMemo(() => {
-    if (!publicKey || !communityMembers[communityId]) return false;
-    const members = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId] : [];
-    return members.includes(publicKey);
-  }, [publicKey, communityId, communityMembers]);
-
-  // Memoize the event handler - store updates only from SSE (decentralized: reacts to other devices)
-  const handleContractWrite = useCallback((event: BlockchainEvent) => {
-    if (event.contract === communityId && publicKey && serverUrl && communityId) {
-      dispatch(fetchCommunityMembers({
-        serverUrl: serverUrl,
-        publicKey: publicKey,
-        contractId: communityId,
-      }));
-      dispatch(fetchCollaborations({
-        serverUrl: serverUrl,
-        publicKey: publicKey,
-        contractId: communityId,
-      }));
-    }
-  }, [communityId, publicKey, serverUrl, dispatch]);
-
-  // Fetch community data once when community/user credentials change.
-  // props and communityMembers are intentionally excluded from deps — including them
-  // caused an infinite fetch loop when the server returned an error.
-  useEffect(() => {
-    if (!communityId || !publicKey || !serverUrl) return;
-    setFetching(true);
-    dispatch(fetchCommunityProperties({ contractId: communityId, serverUrl, publicKey }))
-      .finally(() => setFetching(false));
-    dispatch(fetchCommunityMembers({ serverUrl, publicKey, contractId: communityId }));
-  }, [communityId, publicKey, serverUrl, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // SSE listener for real-time updates — separate effect so it doesn't couple to data fetching.
-  useEffect(() => {
-    eventStreamService.addEventListener('contract_write', handleContractWrite);
-    return () => eventStreamService.removeEventListener('contract_write', handleContractWrite);
-  }, [handleContractWrite]);
-
   const navItems = [
     { path: 'collaborations', label: 'Collaborations', icon: Handshake },
     { path: 'members', label: 'Members', icon: Users },
@@ -101,6 +101,7 @@ const CommunityView: React.FC = () => {
     { path: 'share', label: 'Share', icon: Share2 },
   ];
 
+  const fetching = !!(communityId && publicKey && serverUrl) && loadedId !== communityId;
   if (fetching) {
     return (
       <div className={styles.container}>
@@ -112,7 +113,20 @@ const CommunityView: React.FC = () => {
     );
   }
 
-  if (!contract || !props || !props.name) {
+  if (accessNeeded[communityId]) {
+    return (
+      <div className={styles.container}>
+        <AllowAccess
+          contractId={communityId}
+          title="Allow access to this community"
+          description="You have this community on your node, but this app may not read it: you joined it outside this app, or its permissions were removed. Allow it once, and choose whether it may also make you a member without asking."
+          onAllowed={handleAccessAllowed}
+        />
+      </div>
+    );
+  }
+
+  if (!props || !props.name) {
     return (
       <div className={styles.container}>
         <div className={styles.errorState}>
@@ -141,10 +155,11 @@ const CommunityView: React.FC = () => {
     }
   ] : [];
 
+  const memberCount = Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : null;
   const rightLabel = (
     <span className={styles.stat}>
       <Users size={16} />
-      {Array.isArray(communityMembers[communityId]) ? communityMembers[communityId].length : '-'} members
+      {memberCount === null ? '- members' : `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`}
     </span>
   );
 
@@ -199,6 +214,7 @@ const CommunityView: React.FC = () => {
         <IdentityCardDialog
           isOpen={showIdentityCard}
           onClose={() => setShowIdentityCard(false)}
+          communityId={communityId}
           communityName={props.name || 'Community'}
         />
         

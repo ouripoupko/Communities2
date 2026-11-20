@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { createRoot } from 'react-dom/client';
 
 interface IdentityCardSVGProps {
   communityName: string;
@@ -12,6 +11,49 @@ interface IdentityCardSVGProps {
   width?: number;
   height?: number;
   onRenderComplete?: () => void;
+}
+
+interface TextImage { imageData: string; width: number; height: number; offsetX: number; offsetY: number }
+
+// Function to render text as PNG with precise positioning
+function renderTextAsPNG(
+  text: string, 
+  fontSize: number, 
+  fontFamily: string, 
+  fontWeight: string, 
+  color: string,
+): TextImage {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return {imageData: '', width: 0, height: 0, offsetX: 0, offsetY: 0};
+
+  // Set font first to measure text
+  ctx.font = `${fontWeight} ${fontSize * 3}px ${fontFamily}`;
+  
+  // Measure the text to get accurate dimensions
+  const textMetrics = ctx.measureText(text);
+  const textWidth = textMetrics.width;
+  const textHeight = fontSize * 3; // Approximate height
+  
+  // Create a larger canvas to render the text
+  const padding = fontSize; // Add some padding - fontsize/3*3
+  canvas.width = textWidth + padding * 2;
+  canvas.height = textHeight + padding * 2;
+
+  // Set font and render text at known coordinates (with padding offset)
+  ctx.font = `${fontWeight} ${fontSize * 3}px ${fontFamily}`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic'; // Use 'top' for more predictable positioning
+  ctx.fillText(text, padding, canvas.height - padding);
+
+  return {
+    imageData: canvas.toDataURL('image/png'),
+    width: canvas.width,
+    height: canvas.height,
+    offsetX: - padding, // Adjust for the clipping offset
+    offsetY: - canvas.height + padding,
+  };
 }
 
 const IdentityCardSVG: React.FC<IdentityCardSVGProps> = ({
@@ -32,145 +74,27 @@ const IdentityCardSVG: React.FC<IdentityCardSVGProps> = ({
   const footerHeight = 40;
   const bodyHeight = cardHeight - headerHeight - footerHeight;
   
-  // State for QR code paths
-  const [qrPaths, setQrPaths] = useState<Array<{key: number, d: string, fill: string}>>([]);
+  // Text rendered as images, with positioning data
+  // Member name positioned at (115, headerHeight + 5) in SVG coordinates
+  const memberNameImage = useMemo(
+    () => renderTextAsPNG(memberName, 20, 'Arial, sans-serif', 'bold', '#1f2937'), [memberName]);
+  // Member name small positioned at (115, headerHeight + 105) in SVG coordinates
+  const memberNameImageSmall = useMemo(
+    () => renderTextAsPNG(memberName, 12, 'Arial, sans-serif', 'bold', '#6b7280'), [memberName]);
+  // Community name white positioned at (76, 24) in SVG coordinates
+  const communityNameImageWhite = useMemo(
+    () => renderTextAsPNG(communityName, 16, 'Arial, sans-serif', 'normal', '#ffffff'), [communityName]);
+  // Community name black positioned at (20, headerHeight + 140) in SVG coordinates
+  const communityNameImageBlack = useMemo(
+    () => renderTextAsPNG(communityName + '.', 12, 'Arial, sans-serif', 'normal', '#6b7280'), [communityName]);
   
-  // State for text images with positioning data
-  const [memberNameImage, setMemberNameImage] = useState<{imageData: string, width: number, height: number, offsetX: number, offsetY: number}>({imageData: '', width: 0, height: 0, offsetX: 0, offsetY: 0});
-  const [memberNameImageSmall, setMemberNameImageSmall] = useState<{imageData: string, width: number, height: number, offsetX: number, offsetY: number}>({imageData: '', width: 0, height: 0, offsetX: 0, offsetY: 0});
-  const [communityNameImageWhite, setCommunityNameImageWhite] = useState<{imageData: string, width: number, height: number, offsetX: number, offsetY: number}>({imageData: '', width: 0, height: 0, offsetX: 0, offsetY: 0});
-  const [communityNameImageBlack, setCommunityNameImageBlack] = useState<{imageData: string, width: number, height: number, offsetX: number, offsetY: number}>({imageData: '', width: 0, height: 0, offsetX: 0, offsetY: 0});
-  
-  // Function to render text as PNG with precise positioning
-  const renderTextAsPNG = (
-    text: string, 
-    fontSize: number, 
-    fontFamily: string, 
-    fontWeight: string, 
-    color: string,
-  ): {imageData: string, width: number, height: number, offsetX: number, offsetY: number} => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return {imageData: '', width: 0, height: 0, offsetX: 0, offsetY: 0};
-
-    // Set font first to measure text
-    ctx.font = `${fontWeight} ${fontSize * 3}px ${fontFamily}`;
-    
-    // Measure the text to get accurate dimensions
-    const textMetrics = ctx.measureText(text);
-    const textWidth = textMetrics.width;
-    const textHeight = fontSize * 3; // Approximate height
-    
-    // Create a larger canvas to render the text
-    const padding = fontSize; // Add some padding - fontsize/3*3
-    canvas.width = textWidth + padding * 2;
-    canvas.height = textHeight + padding * 2;
-
-    // Set font and render text at known coordinates (with padding offset)
-    ctx.font = `${fontWeight} ${fontSize * 3}px ${fontFamily}`;
-    ctx.fillStyle = color;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic'; // Use 'top' for more predictable positioning
-    ctx.fillText(text, padding, canvas.height - padding);
-
-    return {
-      imageData: canvas.toDataURL('image/png'),
-      width: canvas.width,
-      height: canvas.height,
-      offsetX: - padding, // Adjust for the clipping offset
-      offsetY: - canvas.height + padding,
-    };
-  };
-  
-  // Function to generate QR code as SVG paths
-  const generateQRCodePaths = async (value: string): Promise<Array<{key: number, d: string, fill: string}>> => {
-    try {
-      // Create a temporary div to render the QR code
-      const tempDiv = document.createElement('div');
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.top = '-9999px';
-      document.body.appendChild(tempDiv);
-      
-      // Render QR code to temporary element
-      const root = createRoot(tempDiv);
-      
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          console.error('QR code generation timeout');
-          observer.disconnect();
-          root.unmount();
-          document.body.removeChild(tempDiv);
-          resolve([]);
-        }, 5000); // 5 second timeout
-        
-        // Create MutationObserver to watch for SVG element
-        const observer = new MutationObserver(() => {
-          const svgElement = tempDiv.querySelector('svg');
-          if (svgElement) {
-            clearTimeout(timeout);
-            observer.disconnect();
-            
-            const paths = svgElement.querySelectorAll('path');
-            const pathData = Array.from(paths).map((path, index) => ({
-              key: index,
-              d: path.getAttribute('d') || '',
-              fill: path.getAttribute('fill') || 'black'
-            }));
-            
-            // Cleanup
-            root.unmount();
-            document.body.removeChild(tempDiv);
-            resolve(pathData);
-          }
-        });
-        
-        // Start observing the temporary div for changes
-        observer.observe(tempDiv, {
-          childList: true,
-          subtree: true
-        });
-        
-        root.render(
-          <QRCodeSVG value={value} size={120} level="M" />
-        );
-      });
-    } catch (error) {
-      console.error('Error generating QR code paths:', error);
-      return [];
-    }
-  };
-
-  // Generate QR code paths and text images on component mount
+  // The card is ready once its texts are drawn (the PDF export waits for it).
   useEffect(() => {
-    generateQRCodePaths(qrData).then(setQrPaths);
-    
-    // Generate text images with precise positioning
-    // Member name positioned at (115, headerHeight + 5) in SVG coordinates
-    const memberImg = renderTextAsPNG(memberName, 20, 'Arial, sans-serif', 'bold', '#1f2937');
+    const drawn = [memberNameImage, memberNameImageSmall, communityNameImageWhite, communityNameImageBlack]
+      .every((image) => image.imageData);
+    if (drawn) onRenderComplete?.();
+  }, [memberNameImage, memberNameImageSmall, communityNameImageWhite, communityNameImageBlack, onRenderComplete]);
 
-    // Member name small positioned at (115, headerHeight + 105) in SVG coordinates
-    const memberImgSmall = renderTextAsPNG(memberName, 12, 'Arial, sans-serif', 'bold', '#6b7280');
-    
-    // Community name white positioned at (76, 24) in SVG coordinates  
-    const communityImgWhite = renderTextAsPNG(communityName, 16, 'Arial, sans-serif', 'normal', '#ffffff');
-
-    // Community name black positioned at (20, headerHeight + 140) in SVG coordinates
-    const communityImgBlack = renderTextAsPNG(communityName + '.', 12, 'Arial, sans-serif', 'normal', '#6b7280');
-    
-    setMemberNameImage(memberImg);
-    setMemberNameImageSmall(memberImgSmall);
-    setCommunityNameImageWhite(communityImgWhite);
-    setCommunityNameImageBlack(communityImgBlack);
-  }, [qrData, memberName, communityName, headerHeight]);
-
-  // Call onRenderComplete when qrPaths and text images are set
-  useEffect(() => {
-    if (qrPaths.length > 0 && memberNameImage.imageData && memberNameImageSmall.imageData && communityNameImageWhite.imageData && communityNameImageBlack.imageData && onRenderComplete) {
-      onRenderComplete();
-    }
-  }, [qrPaths, memberNameImage, memberNameImageSmall, communityNameImageWhite, communityNameImageBlack, onRenderComplete]);
-  
   // Colors
   const primaryColor = '#3b82f6';
   const primaryDarkColor = '#1d4ed8';
@@ -412,18 +336,7 @@ const IdentityCardSVG: React.FC<IdentityCardSVGProps> = ({
           stroke={borderColor}
           strokeWidth="1"
         />
-        {/* Render QR code as SVG paths */}
-        <svg x="0" y="0" width="140" height="140" viewBox="0 0 140 140">
-          <g transform="translate(10, 10) scale(2.44)">
-            {qrPaths.map((path) => (
-              <path
-                key={path.key}
-                d={path.d}
-                fill={path.fill}
-              />
-            ))}
-          </g>
-        </svg>
+        <QRCodeSVG value={qrData} size={120} level="M" x={10} y={10} />
       </g>
 
       {/* Footer */}

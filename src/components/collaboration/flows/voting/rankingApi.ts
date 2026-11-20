@@ -1,96 +1,43 @@
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
+import { readSilently, write } from '../../../../services/ibc';
 import { ACCEPTANCE_BAR_ID } from './types';
+import type { Proposal, ParticipantRanking } from './types';
 export type { Proposal, ParticipantRanking } from './types';
 
-// ---------------------------------------------------------------------------
-// Topic — the question participants are proposing options for and ranking
-// ---------------------------------------------------------------------------
+// The ranking flow's contract (RankingFlow.sol): its topic, set when it is
+// deployed, the proposals, and each participant's ranking. A participant is
+// whoever signs: the contract takes them from msg.sender.
 
 export interface TopicConfig {
   topic: string;
   description: string;
 }
 
-export async function loadTopic(server: string, agent: string, contractId: string): Promise<TopicConfig | null> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_config', values: {} } as IMethod,
-  });
-  if (result && typeof result === 'object' && !Array.isArray(result)) {
-    const r = result as Record<string, unknown>;
-    if (r['topic']) {
-      return {
-        topic: String(r['topic'] ?? ''),
-        description: String(r['description'] ?? ''),
-      };
-    }
-  }
-  return null;
+/** The deploy's constructor arguments: the flow's title is its topic. */
+export const rankingConstructor = (config: Record<string, unknown>) => ({
+  topic_: String(config.title ?? ''),
+  description: String(config.description ?? ''),
+});
+
+export async function loadTopic(contractId: string): Promise<TopicConfig | null> {
+  const r = await readSilently(contractId, 'getTopic') as TopicConfig;
+  return r?.topic ? { topic: r.topic, description: r.description } : null;
 }
 
-export async function setupTopic(server: string, agent: string, contractId: string, fields: TopicConfig): Promise<void> {
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_config', values: { config: fields } } as IMethod,
-  });
+export async function loadProposals(contractId: string): Promise<Proposal[]> {
+  const result = await readSilently(contractId, 'getProposals') as { id: string; text: string; author: string }[];
+  return result.map((p) => ({ id: p.id, text: p.text, author: p.author }));
 }
 
-// ---------------------------------------------------------------------------
-// Async API — persistent via contract
-// ---------------------------------------------------------------------------
-
-export async function loadProposals(server: string, agent: string, contractId: string): Promise<import('./types').Proposal[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_proposals', values: {} } as IMethod,
-  });
-  const items: unknown[] = Array.isArray(result) ? result : [];
-  return items.map((raw) => {
-    const r = raw as Record<string, unknown>;
-    return {
-      id: String(r['id'] ?? ''),
-      text: String(r['text'] ?? ''),
-      author: typeof r['author'] === 'string' ? r['author'] : undefined,
-    };
-  });
+export async function loadAllRankings(contractId: string): Promise<ParticipantRanking[]> {
+  const result = await readSilently(contractId, 'getRankings') as { participant: string; order: string[] }[];
+  return result.map((r) => ({ participantId: r.participant, order: r.order }));
 }
 
-export async function loadMyRanking(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  proposals: import('./types').Proposal[],
-): Promise<string[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_rankings', values: {} } as IMethod,
-  });
-  const items: unknown[] = Array.isArray(result) ? result : [];
-  const mine = items.find((raw) => {
-    const r = raw as Record<string, unknown>;
-    return r['participantId'] === currentUser;
-  });
-
-  let order: string[];
-  if (mine) {
-    const r = mine as Record<string, unknown>;
-    const stored = r['order'];
-    order = Array.isArray(stored) ? (stored as string[]) : [];
-  } else {
-    // Default: acceptance bar first, then all proposals
-    order = [ACCEPTANCE_BAR_ID, ...proposals.map((p) => p.id)];
-  }
-
+/** The user's ranking, with proposals they have not ranked yet at the bottom. */
+export function myRanking(rankings: ParticipantRanking[], currentUser: string, proposals: Proposal[]): string[] {
+  const mine = rankings.find((r) => r.participantId.toLowerCase() === currentUser.toLowerCase());
+  // Default: acceptance bar first, then all proposals
+  const order = mine ? mine.order : [ACCEPTANCE_BAR_ID, ...proposals.map((p) => p.id)];
   // Proposals added after this participant last saved their ranking aren't
   // in the stored order yet - append them at the bottom instead of
   // silently leaving them out of the list.
@@ -99,41 +46,12 @@ export async function loadMyRanking(
   return [...order, ...unranked];
 }
 
-export async function loadAllRankings(server: string, agent: string, contractId: string): Promise<import('./types').ParticipantRanking[]> {
-  const result = await contractRead({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'get_rankings', values: {} } as IMethod,
-  });
-  const items: unknown[] = Array.isArray(result) ? result : [];
-  return items.map((raw) => {
-    const r = raw as Record<string, unknown>;
-    const order = r['order'];
-    return {
-      participantId: String(r['participantId'] ?? ''),
-      order: Array.isArray(order) ? (order as string[]) : [],
-    };
-  });
+/** Proposes an option. May open the node's approval page: call it from a click. */
+export async function addProposal(contractId: string, text: string): Promise<void> {
+  await write(contractId, 'addProposal', { text: text.trim() });
 }
 
-export async function addProposal(server: string, agent: string, contractId: string, text: string, author: string): Promise<void> {
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: {
-      name: 'add_proposal',
-      values: { proposal: { id: crypto.randomUUID(), text: text.trim() }, author },
-    } as IMethod,
-  });
-}
-
-export async function saveMyRanking(server: string, agent: string, contractId: string, currentUser: string, order: string[]): Promise<void> {
-  await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_my_ranking', values: { participant_id: currentUser, order } } as IMethod,
-  });
+/** Saves the user's ranking. May open the node's approval page: call it from a click. */
+export async function saveMyRanking(contractId: string, order: string[]): Promise<void> {
+  await write(contractId, 'setMyRanking', { order });
 }

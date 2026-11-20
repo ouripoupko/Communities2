@@ -14,11 +14,13 @@ const Share: React.FC<ShareProps> = ({ communityId }) => {
   const qrSectionRef = useRef<HTMLDivElement>(null);
   
   // Get community contract info from Redux
-  const { contracts } = useAppSelector(state => state.user);
-  const { publicKey } = useAppSelector(state => state.user);
+  const { contracts, publicKey, serverUrl } = useAppSelector(state => state.user);
   const communityContract = contracts.find((c) => c.id === communityId);
-  const server = communityContract?.address || '';
-  const agent = publicKey || '';
+  // An invite names a partner, through whom others join: the user, or, if
+  // the user is a guest (who keeps no copy), one of the user's hosts.
+  const host = communityContract?.role === 'guest' ? communityContract.hosts?.[0] : undefined;
+  const server = (host ? host.node : serverUrl) || '';
+  const agent = (host ? host.agent : publicKey) || '';
   const contract = communityContract?.id || '';
 
   // Only include the three fields needed for sharing

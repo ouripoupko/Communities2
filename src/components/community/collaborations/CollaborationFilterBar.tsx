@@ -1,38 +1,28 @@
 import React from 'react';
-import type { CollaborationItemType } from './CollaborationCard';
+import type { CollaborationType } from '../../../services/contracts/community';
+import { COLLABORATION_KINDS } from '../../collaboration/kinds';
 import styles from '../Collaborations.module.scss';
 
-export type FilterType = 'all' | CollaborationItemType;
-export type SortType = 'newest' | 'mostActive';
+export type FilterType = 'all' | CollaborationType;
 
 interface CollaborationFilterBarProps {
   filter: FilterType;
-  sort: SortType;
   onFilterChange: (filter: FilterType) => void;
-  onSortChange: (sort: SortType) => void;
 }
 
-const CollaborationFilterBar: React.FC<CollaborationFilterBarProps> = ({ filter, sort, onFilterChange, onSortChange }) => (
+const CollaborationFilterBar: React.FC<CollaborationFilterBarProps> = ({ filter, onFilterChange }) => (
   <div className={styles.filterBar}>
     <div className={styles.filterTabs}>
-      {(['all', 'initiative', 'wish', 'agreement'] as const).map((f) => (
+      {[{ type: 'all' as const, label: 'All' }, ...COLLABORATION_KINDS].map(({ type, label }) => (
         <button
-          key={f}
-          className={`${styles.filterTab} ${filter === f ? styles.active : ''}`}
-          onClick={() => onFilterChange(f)}
+          key={type}
+          className={`${styles.filterTab} ${filter === type ? styles.active : ''}`}
+          onClick={() => onFilterChange(type)}
         >
-          {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+          {label}
         </button>
       ))}
     </div>
-    <select
-      className={styles.sortSelect}
-      value={sort}
-      onChange={(e) => onSortChange(e.target.value as SortType)}
-    >
-      <option value="newest">Newest</option>
-      <option value="mostActive">Most Active</option>
-    </select>
   </div>
 );
 

@@ -2,21 +2,19 @@
 // Funding flow — fundraising + budget allocation, persisted via contract API
 // ---------------------------------------------------------------------------
 
-import { contractRead, contractWrite } from '../../../../services/api';
-import type { IMethod } from '../../../../services/interfaces';
+import { readSilently, write } from '../../../../services/ibc';
 import {
-  transfer as communityTransfer,
-  getAccountDetails as communityGetAccountDetails,
+  pay as communityPay,
+  getAccounts as communityGetAccounts,
+  getContributions as communityGetContributions,
+  createFundAccount as communityCreateFundAccount,
+  toUnits,
+  fromUnits,
 } from '../../../../services/contracts/community';
 
-/** Logs every call this file makes to the funding flow contract, and the
- * raw reply, so a stuck/broken flow can be diagnosed from the console. */
-function logFundingCall(tsFunction: string, contractMethod: string, params: unknown): void {
-  console.log(`[fundingApi.ts] ${tsFunction} -> FundingFlow.${contractMethod}`, params);
-}
-function logFundingResult(tsFunction: string, contractMethod: string, result: unknown): void {
-  console.log(`[fundingApi.ts] ${tsFunction} <- FundingFlow.${contractMethod}`, result);
-}
+// The funding flow's contract (FundingFlow.sol) has the fund's description and
+// goal, and the budget. The money is in the community: the fund's account
+// there has this flow's id, and the community records each payment into it.
 
 // ---------------------------------------------------------------------------
 // Fundraising types
@@ -64,239 +62,70 @@ export interface BudgetState {
   allocations: ParticipantAllocation[];
 }
 
+/** Where the fund's money is: its community, and its account there (the flow's id). */
 export interface CommunityInfo {
-  communityServer: string;
-  communityAgent: string;
   communityId: string;
-  fundAccountName: string;
+  fundId: string;
 }
 
-// ---------------------------------------------------------------------------
-// Normalizers
-// ---------------------------------------------------------------------------
+/** The deploy's constructor arguments, from the setup dialog, and the collaboration's community. */
+export const fundingConstructor = (config: Record<string, unknown>, context: { communityId: string }) => ({
+  name: String(config.title ?? ''), // the flow's title is the fund's name
+  description: String(config.description ?? ''),
+  goal: toUnits(typeof config.goal === 'number' ? config.goal : 0),
+  communityId: context.communityId,
+});
 
-function normalizeConfig(c: Record<string, unknown>): FundConfig {
-  return {
-    name: typeof c.name === 'string' ? c.name : '',
-    description: typeof c.description === 'string' ? c.description : '',
-    goal: typeof c.goal === 'number' ? c.goal : null,
-  };
+export async function loadFundConfig(contractId: string): Promise<{ config: FundConfig; communityId: string }> {
+  const f = await readSilently(contractId, 'getFund') as { name: string; description: string; goal: number | string; communityId: string };
+  const goal = fromUnits(f.goal);
+  return { config: { name: f.name, description: f.description, goal: goal > 0 ? goal : null }, communityId: f.communityId };
 }
 
-function normalizeContribution(c: Record<string, unknown>): Contribution {
-  return {
-    id: typeof c.id === 'string' ? c.id : String(c.id ?? ''),
-    participantId: typeof c.participantId === 'string' ? c.participantId : '',
-    amount: typeof c.amount === 'number' ? c.amount : Number(c.amount ?? 0),
-    timestamp: typeof c.timestamp === 'number' ? c.timestamp : Number(c.timestamp ?? 0),
-  };
-}
-
-function normalizeBudgetItem(i: Record<string, unknown>): BudgetItem {
-  return {
-    id: typeof i.id === 'string' ? i.id : String(i.id ?? ''),
-    name: typeof i.name === 'string' ? i.name : '',
-    createdBy: typeof i.createdBy === 'string' ? i.createdBy : '',
-  };
-}
-
-function normalizeAllocation(a: Record<string, unknown>): ParticipantAllocation {
-  const allocation = (a.allocation && typeof a.allocation === 'object' && !Array.isArray(a.allocation))
-    ? (a.allocation as Record<string, unknown>)
-    : {};
-  const normalized: Record<string, number> = {};
-  for (const [k, v] of Object.entries(allocation)) {
-    normalized[k] = typeof v === 'number' ? v : Number(v ?? 0);
-  }
-  return {
-    participantId: typeof a.participantId === 'string' ? a.participantId : '',
-    allocation: normalized,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Fundraising API
-// ---------------------------------------------------------------------------
-
-export async function loadFund(server: string, agent: string, contractId: string): Promise<FundState> {
-  logFundingCall('loadFund', 'get_config', {});
-  logFundingCall('loadFund', 'get_contributions', {});
-  const [rawConfig, rawContributions] = await Promise.all([
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_config', values: {} } as IMethod }),
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_contributions', values: {} } as IMethod }),
+/** The fund's account in the community: whether it is open, its balance, and the payments into it. */
+export async function loadFundAccount(info: CommunityInfo): Promise<{ open: boolean; balance: number; contributions: Contribution[] }> {
+  const [accounts, payments] = await Promise.all([
+    communityGetAccounts(info.communityId),
+    communityGetContributions(info.communityId, info.fundId),
   ]);
-  logFundingResult('loadFund', 'get_config', rawConfig);
-  logFundingResult('loadFund', 'get_contributions', rawContributions);
-
-  const configIsEmpty = !rawConfig || (typeof rawConfig === 'object' && Object.keys(rawConfig as object).length === 0);
-  const config = configIsEmpty ? null : normalizeConfig(rawConfig as Record<string, unknown>);
-
-  const contributionsArray: unknown[] = Array.isArray(rawContributions) ? rawContributions : [];
-  const contributions = contributionsArray.map(c => normalizeContribution(c as Record<string, unknown>));
-
-  return { config, contributions };
+  const account = accounts.find((a) => a.id === info.fundId);
+  const contributions = payments.map((p, i) => ({ id: String(i), participantId: p.from, amount: p.amount, timestamp: p.time }));
+  return { open: !!account, balance: account?.balance ?? 0, contributions };
 }
 
-export async function configureFund(
-  server: string,
-  agent: string,
-  contractId: string,
-  name: string,
-  description: string,
-  goal: number | null,
-): Promise<void> {
-  const values = { config: { name: name.trim(), description: description.trim(), goal } };
-  logFundingCall('configureFund', 'set_config', values);
-  const result = await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_config', values } as IMethod,
-  });
-  logFundingResult('configureFund', 'set_config', result);
+/** Opens the fund's account in the community. May open the node's approval page: call it from a click. */
+export async function openFund(info: CommunityInfo, name: string, owner: string): Promise<void> {
+  await communityCreateFundAccount(info.communityId, info.fundId, name, owner);
 }
 
-export async function loadCommunityInfo(
-  server: string,
-  agent: string,
-  contractId: string,
-): Promise<CommunityInfo | null> {
-  try {
-    logFundingCall('loadCommunityInfo', 'get_community', {});
-    logFundingCall('loadCommunityInfo', 'get_fund_account_name', {});
-    const [community, fundAccountName] = await Promise.all([
-      contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_community', values: {} } as IMethod }),
-      contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_fund_account_name', values: {} } as IMethod }),
-    ]);
-    logFundingResult('loadCommunityInfo', 'get_community', community);
-    logFundingResult('loadCommunityInfo', 'get_fund_account_name', fundAccountName);
-    const c = community as Record<string, unknown>;
-    if (!c?.id) return null;
-    return {
-      communityServer:  String(c.server ?? ''),
-      communityAgent:   String(c.agent  ?? ''),
-      communityId:      String(c.id     ?? ''),
-      fundAccountName:  String(fundAccountName ?? ''),
-    };
-  } catch (e) {
-    console.log('[fundingApi.ts] loadCommunityInfo failed ->', e);
-    return null;
-  }
+/** Pays into the fund's account. May open the node's approval page: call it from a click. */
+export async function contribute(info: CommunityInfo, amount: number): Promise<void> {
+  await communityPay(info.communityId, info.fundId, amount);
 }
 
-// The fund's real balance lives on the community contract's account
-// ledger, not in this contract's own contribution records - those records
-// only capture donations made through this Contribute form, and drift from
-// the account's actual balance whenever someone funds it via a direct
-// wallet transfer instead. Read the balance straight from the account.
-export async function loadFundBalance(
-  currentUser: string,
-  communityInfo: CommunityInfo,
-): Promise<number> {
-  logFundingCall('loadFundBalance', 'get_account_details', { fundAccountName: communityInfo.fundAccountName });
-  const details = await communityGetAccountDetails(communityInfo.communityServer, currentUser, communityInfo.communityId);
-  logFundingResult('loadFundBalance', 'get_account_details', details);
-  return details[communityInfo.fundAccountName]?.balance ?? 0;
-}
-
-export async function contribute(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  amount: number,
-  communityInfo?: CommunityInfo,
-): Promise<void> {
-  if (communityInfo) {
-    await communityTransfer(
-      communityInfo.communityServer,
-      currentUser,
-      communityInfo.communityId,
-      communityInfo.fundAccountName,
-      amount,
-    );
-  }
-  const values = {
-    contribution: {
-      id: crypto.randomUUID(),
-      participantId: currentUser,
-      amount,
-      timestamp: Date.now(),
-    },
-  };
-  logFundingCall('contribute', 'add_contribution', values);
-  const result = await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'add_contribution', values } as IMethod,
-  });
-  logFundingResult('contribute', 'add_contribution', result);
-}
-
-// ---------------------------------------------------------------------------
-// Budget allocation API
-// ---------------------------------------------------------------------------
-
-export async function loadBudget(server: string, agent: string, contractId: string): Promise<BudgetState> {
-  logFundingCall('loadBudget', 'get_items', {});
-  logFundingCall('loadBudget', 'get_all_allocations', {});
-  const [rawItems, rawAllocations] = await Promise.all([
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_items', values: {} } as IMethod }),
-    contractRead({ serverUrl: server, publicKey: agent, contractId, method: { name: 'get_all_allocations', values: {} } as IMethod }),
+export async function loadBudget(contractId: string): Promise<BudgetState> {
+  const [items, allocations] = await Promise.all([
+    readSilently(contractId, 'getItems') as Promise<{ id: string; name: string; createdBy: string }[]>,
+    readSilently(contractId, 'getAllocations') as Promise<{ participant: string; itemIds: string[]; points: (number | string)[] }[]>,
   ]);
-  logFundingResult('loadBudget', 'get_items', rawItems);
-  logFundingResult('loadBudget', 'get_all_allocations', rawAllocations);
-
-  const itemsArray: unknown[] = Array.isArray(rawItems) ? rawItems : [];
-  const items = itemsArray.map(i => normalizeBudgetItem(i as Record<string, unknown>));
-
-  const allocationsArray: unknown[] = Array.isArray(rawAllocations) ? rawAllocations : [];
-  const allocations = allocationsArray.map(a => normalizeAllocation(a as Record<string, unknown>));
-
-  return { items, allocations };
-}
-
-export async function addItem(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  name: string,
-): Promise<void> {
-  const values = {
-    item: {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      createdBy: currentUser,
-    },
+  return {
+    items: items.map((i) => ({ id: i.id, name: i.name, createdBy: i.createdBy })),
+    allocations: allocations.map((a) => ({
+      participantId: a.participant,
+      allocation: Object.fromEntries(a.itemIds.map((id, i) => [id, Number(a.points[i])])),
+    })),
   };
-  logFundingCall('addItem', 'add_item', values);
-  const result = await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'add_item', values } as IMethod,
-  });
-  logFundingResult('addItem', 'add_item', result);
 }
 
-export async function saveMyAllocation(
-  server: string,
-  agent: string,
-  contractId: string,
-  currentUser: string,
-  allocation: Record<string, number>,
-): Promise<void> {
-  const values = { participant_id: currentUser, allocation };
-  logFundingCall('saveMyAllocation', 'set_my_allocation', values);
-  const result = await contractWrite({
-    serverUrl: server,
-    publicKey: agent,
-    contractId,
-    method: { name: 'set_my_allocation', values } as IMethod,
-  });
-  logFundingResult('saveMyAllocation', 'set_my_allocation', result);
+/** Adds a budget item. May open the node's approval page: call it from a click. */
+export async function addItem(contractId: string, name: string): Promise<void> {
+  await write(contractId, 'addItem', { name: name.trim() });
+}
+
+/** Saves the user's allocation (TOTAL_POINTS at most). May open the node's approval page: call it from a click. */
+export async function saveMyAllocation(contractId: string, allocation: Record<string, number>): Promise<void> {
+  const entries = Object.entries(allocation).filter(([, v]) => v > 0);
+  await write(contractId, 'setMyAllocation', { itemIds: entries.map(([id]) => id), points: entries.map(([, v]) => v) });
 }
 
 // ---------------------------------------------------------------------------

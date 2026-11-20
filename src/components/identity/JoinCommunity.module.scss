@@ -44,18 +44,6 @@
       width: 100%;
     }
 
-    .scanningOverlay {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: $spacing-lg;
-      color: var(--color-text-tertiary);
-
-      .scanningAnimation {
-        animation: pulse 2s infinite;
-      }
-    }
-
     .qrPlaceholder {
       display: flex;
       flex-direction: column;
@@ -125,6 +113,19 @@
   }
 }
 
+.roleOption {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  font-size: $text-sm;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  input {
+    margin-top: 3px;
+  }
+}
+
 .manualInputSection {
   background: var(--color-surface);
   border-radius: $radius-lg;
@@ -150,7 +151,6 @@
   }
 }
 
-.successMessage,
 .errorMessage {
   padding: $spacing-xl;
   border-radius: $radius-md;
@@ -170,12 +170,6 @@
   }
 }
 
-.successMessage {
-  background-color: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
-}
-
 .errorMessage {
   background-color: #fef2f2;
   border: 1px solid #fecaca;
@@ -186,11 +180,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 
 // Responsive Design
@@ -207,12 +196,6 @@
 // Dark mode: these status chips use a distinct dark-tuned pastel treatment
 // rather than the light-mode pastel, same as the light-mode pair below.
 @media (prefers-color-scheme: dark) {
-  .successMessage {
-    background-color: rgba(16, 185, 129, 0.15);
-    border-color: var(--color-success);
-    color: #6ee7b7;
-  }
-
   .errorMessage {
     background-color: rgba(220, 38, 38, 0.15);
     border-color: var(--color-error);

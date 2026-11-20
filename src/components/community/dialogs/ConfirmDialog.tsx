@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import Modal from '../../Modal';
+import form from '../../dialogForm.module.scss';
 import styles from './ConfirmDialog.module.scss';
 
 interface ConfirmDialogProps {
@@ -35,30 +37,27 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   };
 
   return (
-    <div className={styles.overlay} onClick={() => !isSubmitting && onClose()}>
-      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <h3 className={styles.title}>{title}</h3>
-          <button type="button" onClick={onClose} className={styles.closeButton} disabled={isSubmitting}>
-            <X size={20} />
+    <Modal
+      title={title}
+      onClose={onClose}
+      locked={isSubmitting}
+      size="small"
+      actions={(
+        <>
+          <button type="button" onClick={onClose} className={form.secondaryButton} disabled={isSubmitting}>
+            Cancel
           </button>
-        </div>
-        <div className={styles.content}>
-          <div className={styles.prompt}>
-            <AlertTriangle size={20} className={styles.icon} />
-            <p>{message}</p>
-          </div>
-          <div className={styles.actions}>
-            <button type="button" onClick={onClose} className={styles.cancelButton} disabled={isSubmitting}>
-              Cancel
-            </button>
-            <button type="button" onClick={() => void handleConfirm()} className={styles.confirmButton} disabled={isSubmitting}>
-              {isSubmitting ? 'Working...' : confirmLabel}
-            </button>
-          </div>
-        </div>
+          <button type="button" onClick={() => void handleConfirm()} className={form.dangerButton} disabled={isSubmitting}>
+            {isSubmitting ? 'Working...' : confirmLabel}
+          </button>
+        </>
+      )}
+    >
+      <div className={styles.prompt}>
+        <AlertTriangle size={20} className={styles.icon} />
+        <p>{message}</p>
       </div>
-    </div>
+    </Modal>
   );
 };
 

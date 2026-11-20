@@ -1,48 +1,41 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import {
-  getPartners,
-  getAllPeople,
   getProperties,
+  getMembers,
+  getNominations,
+  type Nomination,
   getCollaborations,
   type Collaboration,
+  type CommunityMember,
+  type CommunityProperties,
 } from '../../services/contracts/community';
-import type { IProfile, IPartner } from '../../services/interfaces';
-import { getProfile } from '../../services/contracts/gloki';
-
-// Define Community interface
-interface Community {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-}
+import type { IProfile } from '../../services/interfaces';
+import { getPublicProfile } from '../../services/contracts/profile';
+import { needsAccess } from '../../services/ibc';
+import type { RootState } from '../index';
 
 // Communities state
 interface CommunitiesState {
-  currentCommunity: Community | null;
-  error: string | null;
-  communityProperties: Record<string, any>;
-  communityMembers: Record<string, string[]>; // contractId -> array of member public keys
+  communityProperties: Record<string, CommunityProperties>;
+  accessNeeded: Record<string, boolean>; // contractId -> the app may not read it yet
+  communityMembers: Record<string, string[]>; // contractId -> array of member agent ids
   communityTasks: Record<string, Record<string, boolean>>; // contractId -> agentId -> approval status
   communityNominates: Record<string, string[]>; // contractId -> array of candidate public keys
   communityCollaborations: Record<string, Collaboration[]>; // contractId -> collaborations list
   profiles: Record<string, IProfile>; // memberPublicKey -> IProfile (across all communities)
-  loading: boolean;
   membersLoading: Record<string, boolean>; // contractId -> loading status for members
   collaborationsLoading: Record<string, boolean>; // contractId -> loading status for collaborations
 }
 
 const initialState: CommunitiesState = {
-  currentCommunity: null,
-  error: null,
   communityProperties: {},
+  accessNeeded: {},
   communityMembers: {},
   communityTasks: {},
   communityNominates: {},
   communityCollaborations: {},
   profiles: {},
-  loading: false,
   membersLoading: {},
   collaborationsLoading: {},
 };
@@ -50,107 +43,79 @@ const initialState: CommunitiesState = {
 // Async thunks for community data (will be used in community pages)
 export const fetchCommunityProperties = createAsyncThunk(
   'communities/fetchCommunityProperties',
-  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await getProperties(
-      args.serverUrl,
-      args.publicKey,
-      args.contractId,
-    );
-    return { contractId: args.contractId, properties: result };
-  }
-);
-
-export const fetchMemberProfile = createAsyncThunk(
-  'communities/fetchMemberProfile',
-  async (args: { memberServerUrl: string; memberPublicKey: string; memberContractId: string; memberAgent: string }) => {
-    const { memberServerUrl, memberPublicKey, memberContractId, memberAgent } = args;
-    
-    const profile = await getProfile(
-      memberServerUrl,
-      memberPublicKey,
-      memberContractId,
-    );
-    
-    return { memberAgent, profile: profile as IProfile };
+  async (args: { contractId: string }) => {
+    const properties = await getProperties(args.contractId);
+    return { contractId: args.contractId, properties };
   }
 );
 
 export const fetchCollaborations = createAsyncThunk(
   'communities/fetchCollaborations',
-  async (args: { serverUrl: string; publicKey: string; contractId: string }) => {
-    const result = await getCollaborations(
-      args.serverUrl,
-      args.publicKey,
-      args.contractId,
-    );
-    const collaborations = Array.isArray(result) ? result : [];
+  async (args: { contractId: string }) => {
+    const collaborations = await getCollaborations(args.contractId);
     return { contractId: args.contractId, collaborations };
   },
 );
 
-export const fetchCommunityMembers = createAsyncThunk(
-  'communities/fetchCommunityMembers',
-  async (args: { serverUrl: string; publicKey: string; contractId: string }, { getState, dispatch }) => {
-    const { serverUrl, publicKey, contractId } = args;
-    const state = getState() as { communities: CommunitiesState };
-    const existingProfiles = state.communities.profiles;
-    
-    try {
-      // Step 1 & 2: Call get_partners and get_all_people in parallel
-      const [partnersResult, allPeopleResult] = await Promise.all([
-        getPartners(serverUrl, publicKey, contractId ),
-        getAllPeople(serverUrl, publicKey, contractId )
-      ]);
-
-      const partners = partnersResult as IPartner[];
-      const allPeople = allPeopleResult as { tasks: Record<string, boolean>; members: Record<string, unknown>; nominates: string[] };
-      const members = Object.keys(allPeople.members) as string[];
-      const taskAgents = Object.keys(allPeople.tasks) as string[];
-      const nominates = Array.isArray(allPeople.nominates) ? allPeople.nominates : [];
-      
-      // Step 3: For each member and task agent, fetch their profile in parallel
-      // Create a map of agent to partner info for quick lookup
-      const partnerMap = new Map<string, IPartner>();
-      partners.forEach(partner => {
-        partnerMap.set(partner.agent, partner);
-      });
-
-      // Combine members and task agents for profile fetching (nominates don't need profiles - they're just used to check if user has requested to join)
-      const allAgents = [...members, ...taskAgents];
-
-      // Return members data immediately, don't wait for profiles
-      const result = { 
-        contractId, 
-        members: members, // Just the array of member public keys
-        tasks: allPeople.tasks, // Tasks dictionary
-        nominates: nominates, // Array of candidate public keys
-        newProfiles: {} // No profiles yet, they'll be loaded individually
-      };
-
-      // Fetch all profiles in parallel (fire-and-forget)
-      for (const memberAgent of allAgents) {
-        if (existingProfiles[memberAgent]) continue;
-
-        const partner = partnerMap.get(memberAgent);
-        if (!partner) {
-          console.warn(`No partner found for member ${memberAgent}`);
-          continue;
-        }
-
-        if (partner.address && partner.agent && partner.profile) {
-          dispatch(fetchMemberProfile({
-            memberServerUrl: partner.address,
-            memberPublicKey: partner.agent,
-            memberContractId: partner.profile,
-            memberAgent: memberAgent,
-          }));
+// Reads members' profiles on their own nodes, where each member made theirs
+// public. A few at a time: nodes limit public reads per client.
+export const fetchMemberProfiles = createAsyncThunk(
+  'communities/fetchMemberProfiles',
+  async (members: CommunityMember[], { dispatch }) => {
+    const queue = members.filter((m) => m.node && m.profile);
+    const worker = async () => {
+      for (let member = queue.shift(); member; member = queue.shift()) {
+        try {
+          const profile = await getPublicProfile(member.node, member.agent, member.profile);
+          dispatch(updateMemberProfile({ memberAgent: member.agent, profile }));
+        } catch (error) {
+          console.warn(`Failed to read the profile of member ${member.agent}:`, error);
         }
       }
+    };
+    await Promise.all(Array.from({ length: 4 }, worker));
+  }
+);
 
-      return result;
-    } catch (error) {
-      throw error;
+/**
+ * The user's approvals to give in the web of trust, and whether they gave
+ * each: as a nominee, of their vouchers; as a voucher, of their nominees.
+ */
+function tasksOf(nominations: Nomination[], me: string): Record<string, boolean> {
+  const tasks: Record<string, boolean> = {};
+  for (const n of nominations) {
+    if (n.nominee === me) {
+      n.vouchers.forEach((v, i) => { tasks[v] = n.nomineeApproved[i]; });
+    } else {
+      const i = n.vouchers.indexOf(me);
+      if (i >= 0) tasks[n.nominee] = n.vouchedFor[i];
     }
+  }
+  return tasks;
+}
+
+export const fetchCommunityMembers = createAsyncThunk(
+  'communities/fetchCommunityMembers',
+  async (args: { contractId: string }, { getState, dispatch }) => {
+    const [members, nominations] = await Promise.all([getMembers(args.contractId), getNominations(args.contractId)]);
+
+    // The user's own profile is known; the others' (members' and nominees')
+    // are read in the background.
+    const { user } = getState() as RootState;
+    const me = user.publicKey ?? '';
+    const newProfiles: Record<string, IProfile> = {};
+    if (me && user.profile) newProfiles[me] = user.profile;
+    const others = [...members, ...nominations.map((n) => ({ agent: n.nominee, node: n.node, profile: n.profile }))]
+      .filter((m) => m.agent !== me);
+    void dispatch(fetchMemberProfiles(others));
+
+    return {
+      contractId: args.contractId,
+      members: members.map((m) => m.agent),
+      tasks: tasksOf(nominations, me),
+      nominates: nominations.map((n) => n.nominee),
+      newProfiles,
+    };
   }
 );
 
@@ -158,23 +123,6 @@ const communitiesSlice = createSlice({
   name: 'communities',
   initialState,
   reducers: {
-    setCurrentCommunity: (state, action: PayloadAction<Community | null>) => {
-      state.currentCommunity = action.payload;
-    },
-    clearError: (state) => {
-      state.error = null;
-    },
-    clearCommunityData: (state, action: PayloadAction<string>) => {
-      const contractId = action.payload;
-      delete state.communityProperties[contractId];
-      delete state.communityMembers[contractId];
-      delete state.communityTasks[contractId];
-      delete state.communityNominates[contractId];
-      delete state.communityCollaborations[contractId];
-      delete state.membersLoading[contractId];
-      delete state.collaborationsLoading[contractId];
-      // Note: We don't delete from profiles as they might be used by other communities
-    },
     updateMemberProfile: (state, action: PayloadAction<{ memberAgent: string; profile: IProfile }>) => {
       const { memberAgent, profile } = action.payload;
       state.profiles[memberAgent] = profile;
@@ -185,24 +133,24 @@ const communitiesSlice = createSlice({
     builder
       .addCase(fetchCommunityProperties.fulfilled, (state, action) => {
         state.communityProperties[action.payload.contractId] = action.payload.properties;
+        state.accessNeeded[action.payload.contractId] = false;
       })
       .addCase(fetchCommunityProperties.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to fetch community properties';
+        if (needsAccess(action.error)) {
+          state.accessNeeded[action.meta.arg.contractId] = true;
+        }
       });
 
     // Fetch community members with profiles
     builder
       .addCase(fetchCommunityMembers.pending, (state, action) => {
-        state.loading = true;
-        state.error = null;
         // Set loading flag for this specific community
         state.membersLoading[action.meta.arg.contractId] = true;
       })
       .addCase(fetchCommunityMembers.fulfilled, (state, action) => {
-        state.loading = false;
         // Clear loading flag for this specific community
         state.membersLoading[action.payload.contractId] = false;
-        // Store the array of member public keys for this community
+        // Store the array of member agent ids for this community
         state.communityMembers[action.payload.contractId] = action.payload.members;
         // Store the tasks dictionary for this community
         state.communityTasks[action.payload.contractId] = action.payload.tasks;
@@ -212,8 +160,6 @@ const communitiesSlice = createSlice({
         Object.assign(state.profiles, action.payload.newProfiles);
       })
       .addCase(fetchCommunityMembers.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch community members';
         // Clear loading flag for this specific community on error
         if (action.meta.arg) {
           state.membersLoading[action.meta.arg.contractId] = false;
@@ -235,18 +181,8 @@ const communitiesSlice = createSlice({
           state.collaborationsLoading[action.meta.arg.contractId] = false;
         }
       });
-
-    // Fetch individual member profile
-    builder
-      .addCase(fetchMemberProfile.fulfilled, (state, action) => {
-        const { memberAgent, profile } = action.payload;
-        state.profiles[memberAgent] = profile;
-      })
-      .addCase(fetchMemberProfile.rejected, (_, action) => {
-        console.warn(`Failed to fetch profile for member ${action.meta.arg?.memberAgent}:`, action.error);
-      });
   },
 });
 
-export const { setCurrentCommunity, clearError, clearCommunityData, updateMemberProfile } = communitiesSlice.actions;
+export const { updateMemberProfile } = communitiesSlice.actions;
 export default communitiesSlice.reducer; 

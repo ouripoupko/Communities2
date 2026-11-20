@@ -1,191 +1,137 @@
-# Testing Guide for Communities2 App
+# Testing Guide
 
-## 🚀 Getting Started
+How to check the app against a real ibc-go node. There's no mock server: every test runs against a node.
 
-The development server is running at: **http://localhost:5173**
+## Setup
 
-## 📋 Test Scenarios
+1. Run an ibc-go node (by default at `http://localhost:2611`).
+2. Install and start the app (the client library, `@ouripoupko/ibc`, comes from npm):
 
-### 1. Login Flow Testing
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-#### ✅ Valid Login Test
-1. Open http://localhost:5173
-2. Enter a valid public key (or use the "Generate" button)
-3. Enter a valid server URL (e.g., `https://your-server.com`)
-4. Click "Connect"
-5. **Expected**: Should successfully login and redirect to profile page
+3. For tests with more than one person, use one browser profile per person (each browser profile has its own app key and passkey). They can all be agents on the same node, or on different nodes.
 
-#### ❌ Invalid Server Test
-1. Enter a valid public key
-2. Enter an invalid server URL (e.g., `https://invalid-server.com`)
-3. Click "Connect"
-4. **Expected**: Should show "Unable to connect to the server" error
-
-#### ❌ Wrong Server Test
-1. Enter a valid public key
-2. Enter a server URL that responds but doesn't have the API (e.g., `https://google.com`)
-3. Click "Connect"
-4. **Expected**: Should show "The server doesn't recognize the API endpoints" error
-
-#### ❌ Network Timeout Test
-1. Enter a valid public key
-2. Enter a server URL that doesn't respond (e.g., `https://192.168.1.999`)
-3. Click "Connect"
-4. **Expected**: Should show timeout error after 10 seconds
-
-### 2. Profile Contract Testing
-
-#### ✅ Profile Contract Deployment
-1. Login with a new agent (first time)
-2. **Expected**: Should automatically deploy profile contract
-3. Check the "Contracts" tab to see the deployed contract
-
-#### ✅ Profile Reading
-1. After successful login, navigate to Profile page
-2. **Expected**: Should display profile information from contract
-3. Check if profile name appears in header
-
-#### ✅ Profile Updating
-1. Go to Profile page
-2. Click "Edit Profile"
-3. Change first name and last name
-4. Click "Save"
-5. **Expected**: Should save changes to contract and update display
-
-### 3. Error Handling Testing
-
-#### ✅ Error Message Display
-1. Test different error scenarios
-2. **Expected**: Error messages should be:
-   - Clear and user-friendly
-   - Different colors for different error types
-   - Include actionable guidance
-
-#### ✅ Loading States
-1. During login process
-2. **Expected**: Should show "Connecting..." and disable button
-3. During profile operations
-4. **Expected**: Should show loading indicators
-
-### 4. Navigation Testing
-
-#### ✅ Route Navigation
-1. Test navigation between:
-   - Profile page
-   - Communities page
-   - Join Community page
-   - Contracts page
-2. **Expected**: Should navigate smoothly between pages
-
-### 5. Data Persistence Testing
-
-#### ✅ Login Persistence
-1. Login successfully
-2. Refresh the page
-3. **Expected**: Should remain logged in and load contracts
-
-#### ✅ Profile Data Persistence
-1. Update profile information
-2. Refresh the page
-3. **Expected**: Should retain profile changes
-
-## 🐛 Known Issues to Test
-
-1. **Profile Contract Deployment**: Verify it works for new agents
-2. **Profile Reading**: Verify it works for existing agents with profile contracts
-3. **Error Handling**: Verify all error scenarios are handled gracefully
-4. **Loading States**: Verify loading indicators work correctly
-
-## 📝 Test Results Template
-
-```
-Test Date: _______________
-Tester: _______________
-
-### Login Flow
-- [ ] Valid login works
-- [ ] Invalid server error handled
-- [ ] Wrong server error handled
-- [ ] Network timeout handled
-- [ ] Empty input validation
-
-### Profile Contract
-- [ ] Auto-deployment works
-- [ ] Profile reading works
-- [ ] Profile updating works
-- [ ] Profile display works
-
-### Error Handling
-- [ ] Error messages are clear
-- [ ] Loading states work
-- [ ] Different error types have different styling
-
-### Navigation
-- [ ] All routes work
-- [ ] Navigation is smooth
-- [ ] Data persists on refresh
-
-### Issues Found:
-1. _______________
-2. _______________
-3. _______________
-
-### Notes:
-_______________
-```
-
-## 🔧 Development Commands
+Before testing, check that the code builds, and run the automated tests:
 
 ```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Type checking
-npm run type-check
+npm run build            # type check (tsc -b) and production build
+npm run lint             # ESLint
+npm run test:contracts   # the contracts, on a throwaway ibc node
+npm run test:e2e         # the app in a browser, as two people use it
 ```
 
-## 🏗️ Architecture
+## Automated contract tests
 
-This is a **client-only application** that interacts with external REST APIs. The app does not include any server-side code.
+`tests/contracts/` tests every contract the app deploys, on a real ibc node, with the same sources the app sends: the community (its root and parts: properties, members, the web of trust, open join, collaborations, accounts, funds, payments, policies, and who may do what), the profile, a collaboration (its flow tree, its bin, and a guest adding to it), and each flow. They use Node's test runner, and agents with their own keys (no browser, no approval page).
 
-### Client-Side Features:
-- ✅ React frontend with TypeScript
-- ✅ Redux state management
-- ✅ Authentication context
-- ✅ Profile management
-- ✅ Contract interaction
-- ✅ Error handling and loading states
+`npm run test:contracts` starts a throwaway node from `../ibc-go/ibc` on port 2799, with a temporary data directory, runs the tests, then stops the node and deletes the directory: no node's data is touched. It copies the compiler from `~/ibc-data/solc` if it is there (else the node downloads it). Options:
 
-### External Server Requirements:
+| Variable | Meaning |
+|---|---|
+| `IBC_BIN` | Another node binary |
+| `IBC_PORT` | Another port for the throwaway node |
+| `IBC_SOLC_DIR` | Where to copy the compiler from |
+| `IBC_URL` | Run on this running node instead (its data keeps the test agents and contracts) |
 
-The app expects an external server (separate from this app) that provides these REST API endpoints:
+## Automated browser test
 
-- `GET /ibc/app/{agent}?action=is_exist_agent`
-- `PUT /ibc/app/{agent}?action=register_agent`
-- `GET /ibc/app/{agent}?action=get_contracts`
-- `PUT /ibc/app/{agent}?action=deploy_contract`
-- `POST /ibc/app/{agent}/{contract}/{method}?action=contract_read`
+`tests/e2e/` runs the app as two people use it, Alice and Bob, each in their own browser profile with their own passkey (Chrome's virtual authenticator, which approves every request), approving on the node's approval window as a user would. It walks through: logging in (creating an identity), profiles, creating a community, sharing its invitation, joining it, the web of trust (each approving the other), a payment, a policy preference, starting and listing an initiative, adding a fund, a ranking vote and a task board to it, the bin, and Bob joining the initiative as a guest and contributing to its fund. Each step checks what the page shows.
 
-## 🧪 Testing Options
+`npm run test:e2e` starts a throwaway node (as the contract tests do, on port 2798) and the app's dev server (port 5198), both on `localhost` (passkeys need a host name), and runs headless Chrome with `puppeteer-core`. Set `CHROME` if Chrome is not at `/usr/bin/google-chrome`, and `E2E_DEBUG` to a directory to get a screenshot of each user's page when a step fails.
 
-### Option 1: Mock Server (for development/testing)
-- Run `node mock-server.cjs` to start a local mock server
-- Use `http://localhost:3001` as the server URL
-- This is only for testing, not part of the production app
+**Screenshots.** `SHOTS=1 npm run test:e2e` also saves the documentation's screenshots in `docs/screenshots/`, phone-sized (434 × 935), at the steps that show them.
 
-### Option 2: Real External Server
-- Deploy the app to any static hosting service
-- Configure it to connect to your actual blockchain server
-- The app will make API calls to your external server
+The scenarios below are for what the automated tests do not check: how the app looks and feels, other browsers and devices, and what the browser test does not walk through (wishes and agreements, the other flows, scanning an identity card, the identity card's PDF).
 
-## 📊 Expected API Endpoints
+## Test Scenarios
 
-The app expects these endpoints on the external server:
-- `GET /ibc/app/{agent}?action=is_exist_agent`
-- `PUT /ibc/app/{agent}?action=register_agent`
-- `GET /ibc/app/{agent}?action=get_contracts`
-- `PUT /ibc/app/{agent}?action=deploy_contract`
-- `POST /ibc/app/{agent}/{contract}/{method}?action=contract_read` 
+### 1. Login and session
+
+- [ ] The login page's node field starts empty (or with the node of a session that ended), and its list offers the node URLs used before.
+- [ ] A URL with an IP address (`http://127.0.0.1:2611`) is refused with an explanation.
+- [ ] **Connect** opens the node's approval page. After approving with a passkey, the app opens My Identity.
+- [ ] Reloading the page keeps the session, without asking again.
+- [ ] After disconnecting the app on the node's page (or resetting the node), reloading returns to the login page.
+- [ ] Logging out, then logging in again, asks for approval again.
+- [ ] With the node down, the app shows an error with a retry, not a blank page.
+
+### 2. Profile
+
+- [ ] A new agent sees "You have no profile on your node yet", and **Create my profile** deploys one (one approval).
+- [ ] Editing the name and photo and saving shows the change after a reload.
+- [ ] The profile is private until **Make it public**. After it, another member sees the name and photo in the community's Members tab.
+- [ ] The profile shows "SSE Connected" while the node's event stream is open, and "SSE Disconnected" when it is not.
+
+### 3. Communities
+
+- [ ] Creating a community (one approval) adds it to the Communities list, with the creator as its only member.
+- [ ] The starting balance, join policy and starter policies chosen in the dialog appear in the Wallet, Members and Policies tabs.
+
+### 4. Joining
+
+With person A in a community, and person B not:
+
+- [ ] A's Share tab shows a QR code and credentials. B pastes them in Join Community.
+- [ ] **Join Community** asks B for one approval, then opens the community's Members tab.
+- [ ] **Open community:** B is a member right away.
+- [ ] Joining as a guest works the same way, and B's node keeps no copy (check on B's node's page).
+- [ ] Joining a community B already joined opens it, without asking again.
+- [ ] If the app couldn't ask to become a member silently, the Members tab shows **Become a Member** / **Ask to Join**, and it works.
+
+### 5. Web of trust
+
+- [ ] **Fewer than 5 members:** a nominee needs every member. Each member approves the nominee, and the nominee approves each member. After the last approval, the nominee is a member.
+- [ ] Only one nomination is open at a time; a second person asking to join is told to wait.
+- [ ] **5 members or more:** a nominee gets 4 vouchers. After all mutual approvals, the nominee is a member, and every member still has 4 links.
+- [ ] The nominee, or a voucher, can turn the nomination down; anyone else can't.
+
+### 6. Currency
+
+- [ ] **Send** pays another member; both balances change.
+- [ ] A payment of more than the balance fails with a clear message.
+- [ ] Setting preferences on a community-governed policy changes its median (shown on its card and its page).
+- [ ] A commitment from the Wallet pays from the creator's account, at the rate they set.
+- [ ] "Balances calculated up to …" shows a time with its time zone (e.g. "GMT+2"); **Update balances** brings it to now, and the balances reflect the days that passed.
+- [ ] A policy can't be deleted while its median rate is above zero.
+
+### 7. Collaborations and flows
+
+- [ ] Creating an initiative, a wish and an agreement lists each in the Collaborations tab, filterable by type.
+- [ ] Another member opening it is offered **Join** (one approval), then sees its flows.
+- [ ] **Add flow** at the top level and under a flow; the tree shows both, in order.
+- [ ] Flow types with a setup dialog (Ranking, Scoring, Scheduling, Funding) ask for it under **Next**; cancelling it creates nothing.
+- [ ] If adding to the tree needs approval, the "… is created on your node" banner appears, and **Add it** adds it.
+- [ ] **Move to bin** on a flow with flows under it moves the whole branch. Only the flow's adder or the collaboration's creator sees the button.
+- [ ] The Add flow dialog lists the bin; **Put it here** restores the branch under the chosen place.
+- [ ] On a phone-width window (≤ 640px), the tree shows one level at a time, and the back button goes up a level.
+- [ ] Each flow page has a breadcrumb of where it is.
+
+### 8. Each flow
+
+For each flow type, with two people:
+
+- [ ] The second person joins the flow (one approval) and sees the first person's data.
+- [ ] Each person's changes appear on the other's screen without a refresh.
+- [ ] Rules hold: for example, only a task's owner advances it; only an element's owner edits it in a Document; a Document proposal applies after 3 supporters.
+- [ ] Funding: contributing pays into the fund's account in the community; the contribution appears in the fund and in the payer's balance.
+
+## Recording results
+
+| Area | Pass/Fail | Notes |
+|------|-----------|-------|
+| Login and session | | |
+| Profile | | |
+| Communities | | |
+| Joining | | |
+| Web of trust | | |
+| Currency | | |
+| Collaborations and flows | | |
+| Each flow | | |
+
+## Notes
+
+- The manual tests leave agents and contracts on the node they run on. Use a node you can reset (the automated tests use a throwaway node).
+- In development, the browser console traces every write and deploy (`[write]`, `[deploy]`) and every event received (`[event]`), which helps to see where a step stopped. Reads (`[read]` with its reply) are left out, since the app reads all the time: to see them, run `localStorage.setItem('trace', 'all')` and reload. In a build, turn the default tracing on with `localStorage.setItem('trace', '1')`; `'0'` turns it off.

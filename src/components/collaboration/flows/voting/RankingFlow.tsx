@@ -11,23 +11,20 @@ import { TouchBackend } from 'react-dnd-touch-backend';
 import { usePreview } from 'react-dnd-preview';
 import { BarChart2, List, Plus } from 'lucide-react';
 
-import type { FlowProps } from '../types';
-import { useEventStream } from '../../../../hooks/useEventStream';
+import type { FlowProps, SetupProps } from '../types';
+import { useFlowData } from '../useFlowData';
+import { trace } from '../../../../services/trace';
 import { FlowLoading, FlowError } from '../FlowShell';
 import { ACCEPTANCE_BAR_ID } from './types';
 import type { Proposal, ParticipantRanking } from './types';
 import * as api from './rankingApi';
-import type { TopicConfig } from './rankingApi';
 import { computeCycleGroups, type CycleSetMode } from './smithSet';
-import { TopicSetupDialog, TopicHeader } from './Topic';
+import { TopicSetupDialog, TopicDescription } from './Topic';
 import styles from './RankingFlow.module.scss';
 
 /** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
-export const RankingSetupDialog: React.FC<{
-  onDone: (config: Record<string, unknown>) => void;
-  onCancel: () => void;
-}> = ({ onDone, onCancel }) => (
-  <TopicSetupDialog heading="Set Up Ranking Vote" icon={BarChart2} onDone={onDone} onCancel={onCancel} />
+export const RankingSetupDialog: React.FC<SetupProps> = ({ onDone, onCancel }) => (
+  <TopicSetupDialog heading="New Ranking Vote" icon={BarChart2} onDone={onDone} onCancel={onCancel} />
 );
 
 // ---------------------------------------------------------------------------
@@ -321,8 +318,7 @@ const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings, r
   const cycleGroups = useMemo(() => {
     const candidateIds = [...proposals.map((p) => p.id), ACCEPTANCE_BAR_ID];
     const rankingsOnly = allRankings.map((r) => r.order);
-    const ballotsByVoter = Object.fromEntries(allRankings.map((r) => [r.participantId, r.order]));
-    console.log(`[${mode}] ballots used for set calculation:`, ballotsByVoter);
+    trace('ranking', mode, 'ballots:', Object.fromEntries(allRankings.map((r) => [r.participantId, r.order])));
     return computeCycleGroups(candidateIds, rankingsOnly, mode);
   }, [proposals, allRankings, mode]);
 
@@ -390,19 +386,24 @@ const AggregatedTab: React.FC<AggregatedTabProps> = ({ proposals, allRankings, r
 // ---------------------------------------------------------------------------
 // Root component (wraps its own DndProvider)
 // ---------------------------------------------------------------------------
-const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAgent, currentUser }) => {
+// The proposals, everyone's rankings, and the topic.
+const loadRanking = (contractId: string) => Promise.all([
+  api.loadProposals(contractId),
+  api.loadAllRankings(contractId),
+  api.loadTopic(contractId),
+]).then(([proposals, allRankings, topic]) => ({ proposals, allRankings, topic }));
+
+const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
   const [activeTab,    setActiveTab]    = useState<'ranking' | 'aggregated'>('ranking');
-  const [proposals,    setProposals]    = useState<Proposal[]>([]);
-  const [order,        setOrder]        = useState<string[]>([]);
-  const [allRankings,  setAllRankings]  = useState<ParticipantRanking[]>([]);
-  const [topic,        setTopic]        = useState<TopicConfig | null>(null);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState<string | null>(null);
-  // While editing (from the first drag until Submit/Revert), incoming SSE
-  // updates must not touch proposals/order/allRankings — reloading them
+  // My order while I edit it (from the first drag until Submit/Revert);
+  // null otherwise. While editing, updates are held, not loaded: reloading
   // mid-drag remounts the sortable items and breaks the drag in progress.
-  const [isEditing,           setIsEditing]           = useState(false);
-  const [pendingUpdateCount,  setPendingUpdateCount]  = useState(0);
+  const [editOrder, setEditOrder] = useState<string[] | null>(null);
+  const isEditing = editOrder !== null;
+  const { data, loading, error, retry, reload, pendingUpdates } =
+    useFlowData(instanceId, loadRanking, { paused: isEditing });
+  // A write that failed: the contract is as it was.
+  const [writeError, setWriteError] = useState<string | null>(null);
   // The new-proposal draft lives here rather than in RankingTab so it
   // survives tab switches.
   const [draft,     setDraft]     = useState('');
@@ -417,84 +418,53 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
     return () => observer.disconnect();
   }, []);
 
-  // Only the initial load (and an explicit retry) shows the spinner.
-  // Background refreshes triggered by SSE update state in place — swapping
-  // in FlowLoading would unmount the tabs and reset scroll position.
-  const load = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setLoading(true);
-    setError(null);
-    try {
-      const [loadedProposals, loadedAllRankings, loadedTopic] = await Promise.all([
-        api.loadProposals(flowServer, flowAgent, instanceId),
-        api.loadAllRankings(flowServer, flowAgent, instanceId),
-        api.loadTopic(flowServer, flowAgent, instanceId),
-      ]);
-      const myOrder = await api.loadMyRanking(flowServer, flowAgent, instanceId, currentUser, loadedProposals);
-      setProposals(loadedProposals);
-      setAllRankings(loadedAllRankings);
-      setTopic(loadedTopic);
-      setOrder(myOrder);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load ranking data');
-    } finally {
-      setLoading(false);
-    }
-  }, [flowServer, flowAgent, instanceId, currentUser]);
-
-  useEffect(() => { void load(true); }, [load]);
-
-  useEventStream('contract_write', useCallback((event) => {
-    if (event.contract !== instanceId) return;
-    // While editing, don't reload — just tally the update so the drag in
-    // progress (or about to start again) isn't disrupted by a re-render
-    // that reshuffles the list.
-    if (isEditing) {
-      setPendingUpdateCount((n) => n + 1);
-    } else {
-      void load();
-    }
-  }, [instanceId, load, isEditing]), flowServer, flowAgent);
+  const proposals   = useMemo(() => data?.proposals ?? [], [data]);
+  const allRankings = useMemo(() => data?.allRankings ?? [], [data]);
+  const order = useMemo(
+    () => editOrder ?? api.myRanking(allRankings, currentUser, proposals),
+    [editOrder, allRankings, currentUser, proposals],
+  );
 
   const handleOrderChange = useCallback((newOrder: string[]) => {
-    setOrder(newOrder);
+    setEditOrder(newOrder);
   }, []);
 
   const handleDragStart = useCallback(() => {
-    setIsEditing(true);
-  }, []);
+    setEditOrder((current) => current ?? order);
+  }, [order]);
 
   const handleSubmit = useCallback(async () => {
     try {
-      await api.saveMyRanking(flowServer, flowAgent, instanceId, currentUser, order);
+      await api.saveMyRanking(instanceId, order);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save ranking.');
-      return; // stay in editing mode so the local order isn't lost; let the user retry
+      // Stay in editing mode so the local order isn't lost; let the user retry.
+      setWriteError(e instanceof Error ? e.message : 'Failed to save ranking.');
+      return;
     }
-    setPendingUpdateCount(0);
-    setIsEditing(false);
-    void load();
-  }, [flowServer, flowAgent, currentUser, instanceId, order, load]);
+    // Keep showing my order until the saved one is loaded.
+    await reload();
+    setEditOrder(null);
+  }, [instanceId, order, reload]);
 
   const handleRevert = useCallback(() => {
-    setPendingUpdateCount(0);
-    setIsEditing(false);
-    void load();
-  }, [load]);
+    setEditOrder(null);
+    void reload();
+  }, [reload]);
 
   const handleAddProposal = useCallback(async () => {
     const text = draft.trim();
     if (!text || isAdding) return;
     setIsAdding(true);
     try {
-      await api.addProposal(flowServer, flowAgent, instanceId, text, currentUser);
+      await api.addProposal(instanceId, text);
       // Clear only on success, and only if the user hasn't kept typing meanwhile.
       setDraft((d) => (d.trim() === text ? '' : d));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add proposal.');
+      setWriteError(e instanceof Error ? e.message : 'Failed to add proposal.');
     } finally {
       setIsAdding(false);
     }
-  }, [flowServer, flowAgent, instanceId, currentUser, draft, isAdding]);
+  }, [instanceId, draft, isAdding]);
 
   const proposerCount = useMemo(
     () => new Set(proposals.map((p) => p.author).filter((a): a is string => !!a)).size,
@@ -512,11 +482,13 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
   }, [allRankings]);
 
   if (loading) return <FlowLoading />;
-  if (error)   return <FlowError message={error} onRetry={() => void load(true)} />;
+  const failure = error ?? writeError;
+  if (failure) return <FlowError message={failure} onRetry={() => { setWriteError(null); retry(); }} />;
+  const topic = data?.topic ?? null;
 
   return (
     <div className={styles.container}>
-      {topic && <TopicHeader icon={BarChart2} topic={topic.topic} description={topic.description} />}
+      {topic && <TopicDescription description={topic.description} />}
 
       <StatsBar proposerCount={proposerCount} rankerCount={allRankings.length} />
 
@@ -550,7 +522,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, flowServer, flowAge
           listRef={listRef}
           isEditing={isEditing}
           onDragStart={handleDragStart}
-          pendingUpdateCount={pendingUpdateCount}
+          pendingUpdateCount={pendingUpdates}
           onSubmit={() => { void handleSubmit(); }}
           onRevert={handleRevert}
         />

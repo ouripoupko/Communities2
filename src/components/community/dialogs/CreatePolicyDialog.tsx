@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import AccountPicker from '../AccountPicker';
 import type { IPolicySide, PolicyMode } from '../../../services/contracts/community';
+import Modal from '../../Modal';
+import form from '../../dialogForm.module.scss';
 import styles from './CreatePolicyDialog.module.scss';
 
 export interface CreatePolicyFormData {
@@ -22,7 +24,7 @@ interface CreatePolicyDialogProps {
   onSubmit: (data: CreatePolicyFormData) => void | Promise<void>;
 }
 
-const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, communityId, onClose, onSubmit }) => {
+const CreatePolicyDialogForm: React.FC<Omit<CreatePolicyDialogProps, 'isVisible'>> = ({ communityId, onClose, onSubmit }) => {
   const [sourceKind, setSourceKind] = useState<SourceKind>('void');
   const [sourceAccount, setSourceAccount] = useState('');
   const [mode, setMode] = useState<PolicyMode>('units');
@@ -33,27 +35,11 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isVisible) {
-      setSourceKind('void');
-      setSourceAccount('');
-      setMode('units');
-      setDestinationKind('everyPersonal');
-      setDestinationAccount('');
-      setName('');
-      setDescription('');
-      setError(null);
-    }
-  }, [isVisible]);
-
   const handleClose = () => {
     if (isSubmitting) return;
     onClose();
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) handleClose();
-  };
 
   const validateAndSubmit = async () => {
     setError(null);
@@ -69,12 +55,16 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
       setError('Please choose a destination account');
       return;
     }
+    if (sourceKind === 'void' && destinationKind === 'void') {
+      setError('A policy cannot both mint and burn');
+      return;
+    }
 
     const data: CreatePolicyFormData = {
       source: sourceKind === 'account' ? { kind: 'account', account: sourceAccount } : { kind: sourceKind },
       destinationKind,
       destinationAccountId: destinationKind === 'account' ? destinationAccount : undefined,
-      mode,
+      mode: sourceKind === 'void' ? 'units' : mode, // minting is in units
       name: name.trim(),
       description: description.trim(),
     };
@@ -84,131 +74,129 @@ const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, comm
       await Promise.resolve(onSubmit(data));
       handleClose();
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!isVisible) return null;
-
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.dialog}>
-        <div className={styles.header}>
-          <h3 className={styles.title}>Create Policy</h3>
-          <button className={styles.closeButton} onClick={handleClose}>×</button>
-        </div>
-
-        <div className={styles.content}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Source</label>
-            <select
-              className={styles.inputField}
-              value={sourceKind}
-              onChange={(e) => setSourceKind(e.target.value as SourceKind)}
-              disabled={isSubmitting}
-            >
-              <option value="void">Mint (create new currency)</option>
-              <option value="account">A specific account</option>
-              <option value="everyPersonal">Every member's personal account</option>
-              <option value="everyAccount">Every account in the community</option>
-            </select>
-            {sourceKind === 'account' && (
-              <div className={styles.pickerWrap}>
-                <AccountPicker communityId={communityId} value={sourceAccount} onChange={setSourceAccount} disabled={isSubmitting} />
-              </div>
-            )}
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Mode</label>
-            <div className={styles.radioGroup}>
-              <label className={styles.radioOption}>
-                <input
-                  type="radio"
-                  name="policyMode"
-                  value="units"
-                  checked={mode === 'units'}
-                  onChange={() => setMode('units')}
-                  disabled={isSubmitting}
-                />
-                Units per tick (fixed amount)
-              </label>
-              <label className={styles.radioOption}>
-                <input
-                  type="radio"
-                  name="policyMode"
-                  value="percent"
-                  checked={mode === 'percent'}
-                  onChange={() => setMode('percent')}
-                  disabled={isSubmitting}
-                />
-                Percent per tick (share of source balance)
-              </label>
-            </div>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Destination</label>
-            <select
-              className={styles.inputField}
-              value={destinationKind}
-              onChange={(e) => setDestinationKind(e.target.value as DestinationKind)}
-              disabled={isSubmitting}
-            >
-              <option value="void">Burn (destroy currency)</option>
-              <option value="account">A specific account</option>
-              <option value="everyPersonal">Every member's personal account</option>
-              <option value="everyAccount">Every account in the community</option>
-            </select>
-            {destinationKind === 'account' && (
-              <div className={styles.pickerWrap}>
-                <AccountPicker communityId={communityId} value={destinationAccount} onChange={setDestinationAccount} disabled={isSubmitting} />
-              </div>
-            )}
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="policyName" className={styles.label}>Name *</label>
-            <input
-              id="policyName"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="What should this policy be called?"
-              className={styles.inputField}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="policyDescription" className={styles.label}>Description</label>
-            <textarea
-              id="policyDescription"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what this policy is for..."
-              className={`${styles.inputField} ${styles.textarea}`}
-              rows={3}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {error && <div className={styles.errorMessage}>{error}</div>}
-        </div>
-
-        <div className={styles.actions}>
-          <button onClick={() => void validateAndSubmit()} className={styles.createButton} disabled={isSubmitting}>
-            {isSubmitting ? 'Creating...' : 'Create Policy'}
-          </button>
-          <button onClick={handleClose} className={styles.cancelButton} disabled={isSubmitting}>
+    <Modal
+      title="Create Policy"
+      onClose={onClose}
+      locked={isSubmitting}
+      actions={(
+        <>
+          <button onClick={handleClose} className={form.secondaryButton} disabled={isSubmitting}>
             Cancel
           </button>
+          <button onClick={() => void validateAndSubmit()} className={form.primaryButton} disabled={isSubmitting}>
+            {isSubmitting ? 'Creating...' : 'Create Policy'}
+          </button>
+        </>
+      )}
+    >
+      <div className={form.field}>
+        <label className={form.label}>Source</label>
+        <select
+          className={form.input}
+          value={sourceKind}
+          onChange={(e) => setSourceKind(e.target.value as SourceKind)}
+          disabled={isSubmitting}
+        >
+          <option value="void">Mint (create new currency)</option>
+          <option value="account">A specific account</option>
+          <option value="everyPersonal">Every member's personal account</option>
+          <option value="everyAccount">Every account in the community</option>
+        </select>
+        {sourceKind === 'account' && (
+          <div className={styles.pickerWrap}>
+            <AccountPicker communityId={communityId} value={sourceAccount} onChange={setSourceAccount} disabled={isSubmitting} />
+          </div>
+        )}
+      </div>
+
+      <div className={form.field}>
+        <label className={form.label}>Mode</label>
+        <div className={form.radioGroup}>
+          <label className={form.radioOption}>
+            <input
+              type="radio"
+              name="policyMode"
+              value="units"
+              checked={mode === 'units' || sourceKind === 'void'}
+              onChange={() => setMode('units')}
+              disabled={isSubmitting}
+            />
+            Units per day (fixed amount)
+          </label>
+          <label className={form.radioOption}>
+            <input
+              type="radio"
+              name="policyMode"
+              value="percent"
+              checked={mode === 'percent' && sourceKind !== 'void'}
+              onChange={() => setMode('percent')}
+              disabled={isSubmitting || sourceKind === 'void'}
+            />
+            Percent per day (share of source balance; not for minting)
+          </label>
         </div>
       </div>
-    </div>
+
+      <div className={form.field}>
+        <label className={form.label}>Destination</label>
+        <select
+          className={form.input}
+          value={destinationKind}
+          onChange={(e) => setDestinationKind(e.target.value as DestinationKind)}
+          disabled={isSubmitting}
+        >
+          <option value="void">Burn (destroy currency)</option>
+          <option value="account">A specific account</option>
+          <option value="everyPersonal">Every member's personal account</option>
+          <option value="everyAccount">Every account in the community</option>
+        </select>
+        {destinationKind === 'account' && (
+          <div className={styles.pickerWrap}>
+            <AccountPicker communityId={communityId} value={destinationAccount} onChange={setDestinationAccount} disabled={isSubmitting} />
+          </div>
+        )}
+      </div>
+
+      <div className={form.field}>
+        <label htmlFor="policyName" className={form.label}>Name *</label>
+        <input
+          id="policyName"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="What should this policy be called?"
+          className={form.input}
+          disabled={isSubmitting}
+        />
+      </div>
+
+      <div className={form.field}>
+        <label htmlFor="policyDescription" className={form.label}>Description</label>
+        <textarea
+          id="policyDescription"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe what this policy is for..."
+          className={form.input}
+          rows={3}
+          disabled={isSubmitting}
+        />
+      </div>
+
+      {error && <div className={form.error}>{error}</div>}
+    </Modal>
   );
 };
+
+// The form mounts each time the dialog opens, so it always starts empty.
+const CreatePolicyDialog: React.FC<CreatePolicyDialogProps> = ({ isVisible, ...props }) =>
+  isVisible ? <CreatePolicyDialogForm {...props} /> : null;
 
 export default CreatePolicyDialog;

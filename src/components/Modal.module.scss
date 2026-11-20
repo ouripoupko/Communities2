@@ -1,0 +1,95 @@
+// The frame every dialog shares (Modal.tsx).
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 90vh;
+  background: var(--color-surface);
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+
+  &:focus {
+    outline: none;
+  }
+
+  &.small { max-width: 420px; }
+  &.medium { max-width: 520px; }
+  &.large { max-width: 640px; }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.closeButton {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 1rem 1.5rem;
+  background-color: var(--color-surface-muted);
+  border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 0.5rem;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+
+    > * {
+      width: 100%;
+    }
+  }
+}

@@ -1,131 +1,74 @@
 @use '../../../styles/variables' as *;
 
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+// ApprovalDialog: the person's photo, the question, and its approve button.
 
-  .dialog {
-    background: var(--color-surface-muted);
-    border-radius: $radius-lg;
-    box-shadow: $shadow-lg;
-    max-width: 500px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
+.profileImage {
+  width: 288px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  margin: 0 auto $spacing-lg;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  border: 3px solid var(--color-border);
 
-    .content {
-      padding: $spacing-xl;
-      display: flex;
-      flex-direction: column;
-      gap: $spacing-lg;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-      .profileSection {
-        display: flex;
-        justify-content: center;
+  .placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--color-surface-muted-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4.8rem;
+    color: var(--color-text-secondary);
+    font-weight: bold;
+  }
+}
 
-        .profileImage {
-          width: 288px;
-          height: 288px;
-          border-radius: $radius-lg;
-          overflow: hidden;
-          border: 3px solid var(--color-border);
-          
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-          }
+.message {
+  font-size: $text-lg;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  margin: 0;
+  text-align: center;
 
-          .placeholder {
-            width: 100%;
-            height: 100%;
-            background: var(--color-surface-muted-strong);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 4.8rem;
-            color: var(--color-text-secondary);
-            font-weight: bold;
-          }
-        }
-      }
+  .publicKey {
+    font-family: monospace;
+    background: var(--color-surface-muted-strong);
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $radius-sm;
+    font-size: $text-sm;
+    word-break: break-all;
+  }
 
-      .messageSection {
-        text-align: center;
+  .name {
+    font-weight: bold;
+    color: var(--color-primary);
+  }
+}
 
-        .message {
-          font-size: $text-lg;
-          line-height: 1.6;
-          color: var(--color-text-primary);
-          margin: 0;
+.approveButton {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  background: var(--color-success);
+  color: white;
+  transition: background-color 0.2s;
 
-          .publicKey {
-            font-family: monospace;
-            background: var(--color-surface-muted-strong);
-            padding: $spacing-xs $spacing-sm;
-            border-radius: $radius-sm;
-            font-size: $text-sm;
-            word-break: break-all;
-          }
+  &:hover:not(:disabled) {
+    background: #059669;
+  }
 
-          .name {
-            font-weight: bold;
-            color: var(--color-primary);
-          }
-        }
-      }
-
-      .actions {
-        display: flex;
-        gap: $spacing-md;
-        justify-content: center;
-
-        .approveButton,
-        .disapproveButton {
-          padding: $spacing-md $spacing-xl;
-          border-radius: $radius-md;
-          font-size: $text-base;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          border: none;
-          min-width: 120px;
-        }
-
-        .approveButton {
-          background: var(--color-success);
-          color: white;
-          
-          &:hover {
-            background: #059669;
-          }
-          
-          &:active {
-            transform: translateY(1px);
-          }
-        }
-
-        .disapproveButton {
-          background: var(--color-error);
-          color: white;
-          
-          &:hover {
-            background: #b91c1c;
-          }
-          
-          &:active {
-            transform: translateY(1px);
-          }
-        }
-      }
-    }
+  &:disabled {
+    background-color: var(--color-disabled-bg);
+    cursor: not-allowed;
   }
 }

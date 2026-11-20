@@ -1,16 +1,28 @@
 import type React from 'react';
+import type { Sources } from '../../../services/ibc';
 
 export interface FlowProps {
   /** Contract id of this flow on the owner's server */
   instanceId: string;
-  /** Server URL where the flow contract is deployed */
-  flowServer: string;
   /** Public key of the agent who owns the flow contract */
   flowAgent: string;
   /** Current authenticated user's public key */
   currentUser: string;
-  collaborationId: string;
-  collaborationType: 'initiative' | 'wish' | 'agreement';
+}
+
+/** Where a new flow is: its title, and its collaboration's community. */
+export interface FlowContext {
+  title: string;
+  communityId: string;
+}
+
+/**
+ * A setup form's props. onDone receives the config, which always has the
+ * flow's title (config.title); onCancel aborts creating it.
+ */
+export interface SetupProps {
+  onDone: (config: { title: string } & Record<string, unknown>) => void;
+  onCancel: () => void;
 }
 
 export interface FlowDefinition {
@@ -18,26 +30,22 @@ export interface FlowDefinition {
   label: string;
   icon: React.ComponentType<{ size?: number }>;
   component: React.ComponentType<FlowProps>;
-  /** Group name shown as a section header in the Add Tab menu */
+  /** Group name shown as a section header in the Add flow dialog */
   group?: string;
-  /** Return false to disable this flow in the Add menu given the current set of open tab flow-ids */
-  isAvailable?: (existingFlowIds: string[]) => boolean;
   /**
-   * If defined, this dialog is shown before the tab is created.
-   * onDone receives the config; onCancel aborts tab creation.
+   * The flow's own setup form, shown when the user picks its type: it asks
+   * for the title (with TitleField) and whatever else the flow needs. A flow
+   * without one gets a form that asks for the title only.
    */
-  setupComponent?: React.ComponentType<{
-    onDone: (config: Record<string, unknown>) => void;
-    onCancel: () => void;
-  }>;
+  setupComponent?: React.ComponentType<SetupProps>;
   /**
-   * Called after deploying the flow contract, with the config from setupComponent.
+   * The flow contract's Solidity source. A flow without one is not on the new
+   * ibc node yet: it cannot be added.
    */
-  onInit?: (
-    server: string,
-    agent: string,
-    contractId: string,
-    config: Record<string, unknown>,
-    currentUser: string,
-  ) => Promise<void>;
+  source?: Sources;
+  /**
+   * The flow contract's constructor arguments: from its setup form's config
+   * (with its title), and its community.
+   */
+  constructorArgs?: (config: Record<string, unknown>, context: FlowContext) => Record<string, unknown>;
 }
