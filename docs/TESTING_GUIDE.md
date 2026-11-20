@@ -5,7 +5,7 @@ How to check the app against a real ibc-go node. There's no mock server: every t
 ## Setup
 
 1. Run an ibc-go node (by default at `http://localhost:2611`).
-2. Build the client library in `../ibc-go/js`, then install and start the app:
+2. Install and start the app (the client library, `@ouripoupko/ibc`, comes from npm):
 
    ```bash
    npm install

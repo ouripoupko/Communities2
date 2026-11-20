@@ -291,10 +291,9 @@ const SchedulingFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
 
   return (
     <div className={styles.container}>
+      {/* Its title is the flow's, in the page's header */}
       <div className={styles.eventHeader}>
-        <Calendar size={18} className={styles.eventIcon} />
         <div className={styles.eventHeaderText}>
-          <h2 className={styles.eventTitle}>{state.config.title}</h2>
           {state.config.description && (
             <p className={styles.eventDesc}>{state.config.description}</p>
           )}

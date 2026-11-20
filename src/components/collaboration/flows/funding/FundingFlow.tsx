@@ -429,7 +429,6 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowAgent, currentUser }
     return (
       <div className={styles.activeFund}>
         <div className={styles.descriptionCard}>
-          <h3 className={styles.fundName}>{fund.config.name}</h3>
           {isHost ? (
             <>
               <p className={styles.description}>
@@ -460,11 +459,12 @@ const FundingFlow: React.FC<FlowProps> = ({ instanceId, flowAgent, currentUser }
 
   return (
     <div className={styles.activeFund}>
-      {/* Fund header */}
-      <div className={styles.descriptionCard}>
-        <h3 className={styles.fundName}>{fund.config.name}</h3>
-        {fund.config.description && <p className={styles.description}>{fund.config.description}</p>}
-      </div>
+      {/* The fund's description (its name is the flow's title, in the page's header) */}
+      {fund.config.description && (
+        <div className={styles.descriptionCard}>
+          <p className={styles.description}>{fund.config.description}</p>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className={styles.statsRow}>

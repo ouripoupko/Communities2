@@ -78,7 +78,7 @@ The frontend is a **React 19 / TypeScript** single-page application built with V
 
 ### Getting Started
 
-The app needs an ibc-go node, and its client library, from the [ibc-go repository](https://github.com/ouripoupko/ibc-go). Clone it next to this repository, build its JavaScript library (`ibc-go/js`), and run a node (by default at `http://localhost:2611`). Then:
+The app needs an ibc-go node from the [ibc-go repository](https://github.com/ouripoupko/ibc-go), running by default at `http://localhost:2611`. The tests run the node binary from `../ibc-go/ibc`, so clone ibc-go next to this repository to run them. Its client library, `@ouripoupko/ibc`, is installed from npm. Then:
 
 ```bash
 npm install

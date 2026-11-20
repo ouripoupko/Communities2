@@ -155,7 +155,7 @@ Beside `src/`, `tests/contracts/` holds the contract tests (Node's test runner),
 
 ## 4. The ibc Node and Its Client Library
 
-The node is ibc-go (`../ibc-go`, documentation in its `docs/`). The app uses its JavaScript client, `@ouripoupko/ibc`, installed from `../ibc-go/js`.
+The node is ibc-go (`../ibc-go`, documentation in its `docs/`). The app uses its JavaScript client, `@ouripoupko/ibc`, installed from npm.
 
 ### 4.1 Concepts the app relies on
 
@@ -341,7 +341,7 @@ Each flow page has its own `ContractGate` for the flow's contract, joined as a g
 
 - **Wide screens:** `FlowTreeList` shows the whole tree, with folding and an "Add a flow under …" button on each flow.
 - **Phones** (`useMediaQuery('(max-width: 640px)')`): `FlowDrillDown` shows one level at a time, with a breadcrumb. The level is in the URL (`?in=<flowId>`), so the back button goes up a level.
-- **Flow pages:** each flow is a page at `flow/:flowId` (`FlowPage`), with its breadcrumb and a **Move to bin** button for the flow's host or the collaboration's creator.
+- **Flow pages:** each flow is a page at `flow/:flowId` (`FlowPage`), with its breadcrumb and a **Move to bin** button for the flow's host or the collaboration's creator. A flow's page has its own header: the flow's title, its kind and collaboration, and a back button to the collaboration ("Back to Initiative"), at the level the flow is listed in. The collaboration's header goes back to the community. The flow route stays inside `CollaborationPage`, which swaps the header, so the flow keeps the collaboration's gate, tree and banners.
 
 ### 7.4 Adding a flow
 
@@ -535,7 +535,7 @@ The app deploys these sources itself, and nodes that join compile them to check 
 
 ### 15.2 Dependencies
 
-`@ouripoupko/ibc` is installed from the sibling repository: `"@ouripoupko/ibc": "file:../ibc-go/js"`. Build the library in `../ibc-go/js` before `npm install`.
+`@ouripoupko/ibc` is installed from npm (`"@ouripoupko/ibc": "^0.1.0"`). Its source is in the ibc-go repository, under `js/`.
 
 ### 15.3 NPM Scripts
 

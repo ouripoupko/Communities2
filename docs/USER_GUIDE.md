@@ -275,7 +275,7 @@ A collaboration holds **flows**: tools for voting, scheduling, tasks, discussion
 </td>
 <td valign="top">
 
-**Seeing the flows.** On a computer, the collaboration shows its whole tree of flows; click the arrow next to a flow to fold or unfold what's under it. On a phone, it shows one level at a time: tap the arrow next to a flow to see what's under it (the number tells how many flows are there), and use the breadcrumb (or your phone's back button) to go back up. Click a flow's title to open its page.
+**Seeing the flows.** On a computer, the collaboration shows its whole tree of flows; click the arrow next to a flow to fold or unfold what's under it. On a phone, it shows one level at a time: tap the arrow next to a flow to see what's under it (the number tells how many flows are there), and use the breadcrumb (or your phone's back button) to go back up. Click a flow's title to open its page. A flow's page has its own header, with the flow's title, and a back button (**Back to Initiative**, **Back to Wish**, …) that returns to the collaboration.
 
 </td>
 </tr>

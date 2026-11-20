@@ -20,7 +20,10 @@ interface FlowPageProps {
   onRemove: (flowId: string) => Promise<void>;
 }
 
-/** One flow of a collaboration: where it is in the tree, and the flow itself. */
+/**
+ * One flow of a collaboration: where it is in the tree, and the flow itself.
+ * Its title and kind are in the page's header (CollaborationPage's, on a flow).
+ */
 const FlowPage: React.FC<FlowPageProps> = ({
   tree, loaded, collaborationTitle, isCreator, currentUser, onList, onRemove,
 }) => {
@@ -64,16 +67,13 @@ const FlowPage: React.FC<FlowPageProps> = ({
         ))}
       </nav>
 
-      <div className={styles.header}>
-        {def && <def.icon size={22} />}
-        <h2>{flow.title}</h2>
-        <span className={styles.kind}>{def?.label ?? flow.type}</span>
-        {canRemove && (
+      {canRemove && (
+        <div className={styles.header}>
           <button className={styles.binButton} onClick={() => setConfirmOpen(true)}>
             <Trash2 size={14} /> Move to bin
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && <p className={styles.error}>{error}</p>}
 

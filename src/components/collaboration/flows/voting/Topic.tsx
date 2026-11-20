@@ -67,19 +67,10 @@ export const TopicSetupDialog: React.FC<SetupProps & {
 };
 
 // ---------------------------------------------------------------------------
-// Header shown at the top of the tab once the topic is set
+// The topic's description, at the top of the flow. The topic itself is the
+// flow's title, which the page's header shows.
 // ---------------------------------------------------------------------------
 
-export const TopicHeader: React.FC<{
-  icon: TopicIcon;
-  topic: string;
-  description?: string;
-}> = ({ icon: Icon, topic, description }) => (
-  <div className={styles.topicHeader}>
-    <Icon size={18} className={styles.topicIcon} />
-    <div className={styles.topicHeaderText}>
-      <h2 className={styles.topicTitle}>{topic}</h2>
-      {description && <p className={styles.topicDesc}>{description}</p>}
-    </div>
-  </div>
+export const TopicDescription: React.FC<{ description?: string }> = ({ description }) => (
+  description ? <p className={styles.topicDesc}>{description}</p> : null
 );

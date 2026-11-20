@@ -5,7 +5,7 @@ import type { FlowProps, SetupProps } from '../types';
 import { useFlowData } from '../useFlowData';
 import { FlowLoading, FlowError } from '../FlowShell';
 import * as api from './scoringApi';
-import { TopicSetupDialog, TopicHeader } from './Topic';
+import { TopicSetupDialog, TopicDescription } from './Topic';
 import styles from './ScoringFlow.module.scss';
 
 /** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
@@ -225,7 +225,7 @@ const ScoringFlow: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
 
   return (
     <div className={styles.container}>
-      {topic && <TopicHeader icon={Star} topic={topic.topic} description={topic.description} />}
+      {topic && <TopicDescription description={topic.description} />}
 
       <div className={styles.tabBar}>
         <button

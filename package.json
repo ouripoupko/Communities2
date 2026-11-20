@@ -14,7 +14,7 @@
     "test:e2e": "node tests/e2e/run.mjs"
   },
   "dependencies": {
-    "@ouripoupko/ibc": "file:../ibc-go/js",
+    "@ouripoupko/ibc": "^0.1.0",
     "@reduxjs/toolkit": "^2.14.0",
     "@yudiel/react-qr-scanner": "^2.6.0",
     "jspdf": "^4.2.1",

@@ -7,36 +7,13 @@
 }
 
 // ---------------------------------------------------------------------------
-// Header shown at the top of the tab
+// The topic's description, at the top of the flow
 // ---------------------------------------------------------------------------
-.topicHeader {
-  display: flex;
-  align-items: flex-start;
-  gap: $spacing-md;
+.topicDesc {
+  margin: 0;
   padding-bottom: $spacing-lg;
   border-bottom: 1.5px solid var(--color-border);
-}
-
-.topicHeaderText {
-  flex: 1;
-}
-
-.topicIcon {
-  color: var(--color-primary);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-
-.topicTitle {
-  font-size: $text-xl;
-  font-weight: $font-bold;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.topicDesc {
   font-size: $text-sm;
-  color: var(--color-text-tertiary);
-  margin: $spacing-xs 0 0;
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }

@@ -46,10 +46,15 @@ const PolicyDetailPage: React.FC = () => {
     dispatch(fetchCommunityMembers({ contractId: communityId }));
   }, [communityId, serverUrl, publicKey, dispatch]);
 
-  // Reset the inputs to the policy whenever it is (re)loaded.
-  const [shownPolicy, setShownPolicy] = useState<Policy | undefined>(undefined);
-  if (policy !== shownPolicy) {
-    setShownPolicy(policy);
+  // Reset the inputs to the policy when what they show changes. Not on every
+  // reload: any member's write to the community reloads the policies, and
+  // must not erase what the user is typing.
+  const shownKey = policy
+    ? JSON.stringify([policy.id, policy.name, policy.description, policy.selfRate, policy.myPreference])
+    : '';
+  const [shownPolicy, setShownPolicy] = useState('');
+  if (shownKey !== shownPolicy) {
+    setShownPolicy(shownKey);
     if (policy) {
       setNameInput(policy.name);
       setDescriptionInput(policy.description || '');

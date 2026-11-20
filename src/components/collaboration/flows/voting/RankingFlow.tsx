@@ -19,7 +19,7 @@ import { ACCEPTANCE_BAR_ID } from './types';
 import type { Proposal, ParticipantRanking } from './types';
 import * as api from './rankingApi';
 import { computeCycleGroups, type CycleSetMode } from './smithSet';
-import { TopicSetupDialog, TopicHeader } from './Topic';
+import { TopicSetupDialog, TopicDescription } from './Topic';
 import styles from './RankingFlow.module.scss';
 
 /** Pre-create dialog exported for use by CollaborationPage before the tab is deployed. */
@@ -488,7 +488,7 @@ const RankingFlowInner: React.FC<FlowProps> = ({ instanceId, currentUser }) => {
 
   return (
     <div className={styles.container}>
-      {topic && <TopicHeader icon={BarChart2} topic={topic.topic} description={topic.description} />}
+      {topic && <TopicDescription description={topic.description} />}
 
       <StatsBar proposerCount={proposerCount} rankerCount={allRankings.length} />
 

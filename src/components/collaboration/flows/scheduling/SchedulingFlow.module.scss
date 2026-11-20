@@ -54,23 +54,10 @@
   flex: 1;
 }
 
-.eventIcon {
-  color: var(--color-primary);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-
-.eventTitle {
-  font-size: $text-xl;
-  font-weight: $font-bold;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
 .eventDesc {
   font-size: $text-sm;
-  color: var(--color-text-tertiary);
-  margin: $spacing-xs 0 0;
+  color: var(--color-text-secondary);
+  margin: 0;
   line-height: 1.5;
 }
 

@@ -196,7 +196,10 @@ try {
 
   await step('Alice adds a task board, and a task she takes on', async () => {
     const { page } = alice;
-    await click(page, 'Build raised beds', { selector: 'nav button' });
+    // A flow's page has its own header, whose back button returns to the collaboration
+    await sees(page, 'Ranking Vote · Build raised beds');
+    await click(page, 'Back to Initiative');
+    check('a flow\'s header goes back to the collaboration', await sees(page, 'Back to Community'));
     await addFlow(alice, 'Task Board', 'Work days');
     await openFlow(page, 'Work days');
     await click(page, 'Add task');

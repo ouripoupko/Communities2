@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Routes, Route, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Routes, Route, matchPath, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { getFlow } from '../../components/collaboration/flows/registry';
 import {
@@ -163,17 +163,35 @@ const CollaborationPage: React.FC<CollaborationPageProps> = ({
     <FlowTreeList tree={tree} onOpen={openFlow} onAdd={setAddParent} />
   );
 
+  // A flow's page has its own header: its title, and back to the
+  // collaboration (to the level the flow is listed in). The collaboration's
+  // header goes back to the community.
+  const openFlowId = matchPath('/flow/:flowId', `/${splat}`)?.params.flowId;
+  const openNode = openFlowId ? tree.byId.get(openFlowId) : undefined;
+  const header = openFlowId ? (
+    <PageHeader
+      showBackButton
+      backButtonText={`Back to ${kind.label}`}
+      onBackClick={() => showList(openNode?.flow.parent ?? '')}
+      title={openNode?.flow.title ?? (loaded ? 'Flow not found' : 'Loading…')}
+      subtitle={openNode ? `${getFlow(openNode.flow.type)?.label ?? openNode.flow.type} · ${title}` : title}
+      layout="two-row"
+    />
+  ) : (
+    <PageHeader
+      showBackButton={!!communityId}
+      backButtonText="Back to Community"
+      onBackClick={() => communityId && navigate(`/community/${communityId}/collaborations`)}
+      title={title}
+      subtitle={subtitle}
+      layout="two-row"
+    />
+  );
+
   return (
     <>
     <div className={cs.container}>
-      <PageHeader
-        showBackButton={!!communityId}
-        backButtonText="Back to Community"
-        onBackClick={() => communityId && navigate(`/community/${communityId}/collaborations`)}
-        title={title}
-        subtitle={subtitle}
-        layout="two-row"
-      />
+      {header}
 
       <ContractGate
         key={collaborationId}
