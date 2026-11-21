@@ -27,9 +27,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build:prod
-        env:
-          BASE_PATH: /${{ github.event.repository.name }}/
+      - run: npm run build
 
       # BrowserRouter: let deep links fall back to the app
       - run: cp dist/index.html dist/404.html

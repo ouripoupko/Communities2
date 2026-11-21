@@ -5,13 +5,6 @@ import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { COLLABORATION_KINDS } from './components/collaboration/kinds';
 
-// Get the base path from Vite's import.meta.env.BASE_URL
-const getBasename = () => {
-  const baseUrl = import.meta.env.BASE_URL;
-  // Remove trailing slash and return the basename
-  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-};
-
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const IdentityView = lazy(() => import('./pages/IdentityView'));
 const CommunityView = lazy(() => import('./pages/CommunityView'));
@@ -50,7 +43,7 @@ function AppContent() {
   }
 
   return (
-    <Router basename={getBasename()}>
+    <Router>
       <Suspense fallback={<div className="loading-container"><div className="loading-spinner"></div><p>Loading...</p></div>}>
         <Routes>
           <Route path="/" element={<Navigate to="/identity" replace />} />
